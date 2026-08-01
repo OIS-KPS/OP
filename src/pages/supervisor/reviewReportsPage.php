@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Review Reports - Supervisor Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/styles.css">
+    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
