@@ -23,11 +23,11 @@ $success = $_SESSION['success_msg'] ?? '';
 $error   = $_SESSION['error_msg'] ?? '';
 unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 
-// Handle Account Creation POST Requests
+// Handle Account Creation & Import POST Requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    // Handle Student Account Creation
+    // A. Handle Single Student Account Creation
     if ($action === 'create_student' || $action === 'create_single_user') {
         $mailer = new MailerService();
 
@@ -62,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: users.php?tab=students");
         exit();
 
+    // B. Handle Single Supervisor Account Creation
     } elseif ($action === 'create_supervisor') {
         $mailer     = new MailerService();
         $name       = trim($_POST['name'] ?? '');
@@ -92,6 +93,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['error_msg'] = "Please fill in all required supervisor fields.";
         }
         header("Location: users.php?tab=supervisors");
+        exit();
+
+    // C. Handle Bulk Excel (.xlsx / .csv) Student Import
+    } elseif ($action === 'bulk_import_students') {
+        $mailer = new MailerService();
+
+        if (isset($_FILES['excel_file']) && $_FILES['excel_file']['error'] === UPLOAD_ERR_OK) {
+            $filePath = $_FILES['excel_file']['tmp_name'];
+            
+            try {
+                // Load Spreadsheet
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+                $sheetData   = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+
+                $successCount   = 0;
+                $emailSentCount = 0;
+                $failCount      = 0;
+
+                // Prepare PDO Statement
+                $stmt = $pdo->prepare("INSERT INTO students (name, student_number, email, program, created_at) VALUES (?, ?, ?, ?, NOW())");
+
+                // Loop through rows (Skip Row 1 header)
+                $isHeader = true;
+                foreach ($sheetData as $row) {
+                    if ($isHeader) {
+                        $isHeader = false;
+                        continue;
+                    }
+
+                    $name           = trim($row['A'] ?? '');
+                    $student_number = trim($row['B'] ?? '');
+                    $email          = trim($row['C'] ?? '');
+                    $program        = !empty($row['D']) ? trim($row['D']) : 'BSIT';
+
+                    if (!empty($name) && !empty($student_number) && !empty($email)) {
+                        try {
+                            $stmt->execute([$name, $student_number, $email, $program]);
+                            $successCount++;
+
+                            // Send welcome invitation email with a 0.2s micro-delay
+                            $mailSent = $mailer->sendWelcomeEmail($email, $name, 'student');
+                            if ($mailSent) {
+                                $emailSentCount++;
+                            }
+                            
+                            usleep(200000); // 0.2 seconds pause between emails
+                        } catch (PDOException $e) {
+                            $failCount++; // Skip duplicate ID or Email
+                        }
+                    }
+                }
+
+                $_SESSION['success_msg'] = "Bulk import completed! {$successCount} students added ({$emailSentCount} emails sent successfully). " . ($failCount > 0 ? "({$failCount} skipped due to duplicates)." : "");
+
+            } catch (Exception $e) {
+                $_SESSION['error_msg'] = "Error parsing Excel file: " . $e->getMessage();
+            }
+        } else {
+            $_SESSION['error_msg'] = "Please select a valid Excel (.xlsx / .xls / .csv) file to upload.";
+        }
+
+        header("Location: users.php?tab=students");
         exit();
     }
 }

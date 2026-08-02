@@ -33,6 +33,10 @@
 
                     <!-- Action Modal Triggers -->
                     <div class="flex items-center gap-2">
+                        <button onclick="toggleModal('bulkImportModal')" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs cursor-pointer flex items-center gap-1.5">
+                            <span>📊</span>
+                            <span>Import Excel</span>
+                        </button>
                         <button onclick="toggleModal('addStudentModal')" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs cursor-pointer flex items-center gap-1.5">
                             <span>+</span>
                             <span>Add Student</span>
@@ -46,14 +50,16 @@
 
                 <!-- Alert Messages -->
                 <?php if ($success): ?>
-                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3.5 rounded-2xl font-medium">
-                        ✓ <?= htmlspecialchars($success); ?>
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3.5 rounded-2xl font-medium flex items-center gap-2">
+                        <span>✓</span>
+                        <span><?= htmlspecialchars($success); ?></span>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($error): ?>
-                    <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl font-medium">
-                        ❌ <?= htmlspecialchars($error); ?>
+                    <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl font-medium flex items-center gap-2">
+                        <span>❌</span>
+                        <span><?= htmlspecialchars($error); ?></span>
                     </div>
                 <?php endif; ?>
 
@@ -87,7 +93,7 @@
                                 <tbody class="divide-y divide-slate-100 text-slate-700">
                                     <?php if (empty($students)): ?>
                                         <tr>
-                                            <td colspan="5" class="py-6 text-center text-slate-400 italic">No students registered yet. Click "+ Add Student" above to create one.</td>
+                                            <td colspan="5" class="py-6 text-center text-slate-400 italic">No students registered yet. Click "+ Add Student" or "Import Excel" above to get started.</td>
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($students as $s): ?>
@@ -192,7 +198,7 @@
         </div>
     </div>
 
-    <!-- ADD STUDENT MODAL -->
+    <!-- 1. ADD STUDENT MODAL -->
     <div id="addStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
             <h3 class="text-base font-bold text-slate-900">Add New Student Account</h3>
@@ -213,6 +219,32 @@
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" onclick="toggleModal('addStudentModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 bg-[#0F2854] text-white rounded-xl font-semibold cursor-pointer">Save Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. BULK IMPORT MODAL -->
+    <div id="bulkImportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+            <h3 class="text-base font-bold text-slate-900">Bulk Import Students (.xlsx)</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                Upload an Excel file containing the student roster. Columns must be ordered as follows: <br>
+                <span class="font-bold text-slate-700">Col A: Full Name | Col B: Student ID | Col C: Institutional Email</span>
+            </p>
+            
+            <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                <input type="hidden" name="action" value="bulk_import_students">
+                
+                <div class="border-2 border-dashed border-slate-200 rounded-2xl p-5 text-center bg-slate-50 hover:border-[#0F2854] transition-colors">
+                    <input type="file" name="excel_file" accept=".xlsx, .xls, .csv" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-[#0F2854] file:text-white hover:file:bg-blue-900 cursor-pointer">
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="toggleModal('bulkImportModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-semibold cursor-pointer flex items-center gap-1.5">
+                        <span>🚀 Upload & Dispatch Invites</span>
+                    </button>
                 </div>
             </form>
         </div>
