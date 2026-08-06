@@ -4,50 +4,50 @@ session_start();
 
 require_once __DIR__ . '/config/db.php';
 
-// TEMPORARY DEV MODE: Set a default student ID
-$student_id = $_SESSION['student_id'] ?? 1;
+// 1. Auth Guard
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
+    header("Location: auth/login.php");
+    exit();
+}
+
+$student_id = $_SESSION['user_id'];
 
 try {
-    $sql = "SELECT 
-                s.id,
-                s.name,
-                s.email,
-                s.student_number,
-                s.program,
-                s.avatar_url,
-                c.name AS company_name,
-                sup.name AS supervisor_name
-            FROM students s
-            LEFT JOIN companies c ON s.company_id = c.id
-            LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
-            WHERE s.id = ?";
-
-    $stmt = $pdo->prepare($sql);
+    // 2. Fetch Student details including company/supervisor relationships if joined
+    $stmt = $pdo->prepare("SELECT id, name, student_number, program, email, company_name, supervisor_name, status FROM students WHERE id = ?");
     $stmt->execute([$student_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Placeholder label fallback if DB row isn't populated yet
+    // 3. Extract Student ID fallback from email
+    $userEmail   = $student['email'] ?? $_SESSION['email'] ?? '';
+    $extractedId = (!empty($userEmail) && str_contains($userEmail, '@')) ? explode('@', $userEmail)[0] : 'N/A';
+    
+    $studentIdNum = !empty($student['student_number']) ? $student['student_number'] : $extractedId;
+
     if (!$student) {
         $student = [
-            'name' => '[Student Full Name]',
-            'email' => '[student.email@nbsc.edu.ph]',
-            'student_number' => '[Student ID]',
-            'program' => '[Program / Degree]',
-            'company_name' => null,
+            'name'            => $_SESSION['user_name'] ?? 'Student',
+            'email'           => $userEmail,
+            'student_number'  => $studentIdNum,
+            'program'         => 'BSIT',
+            'company_name'    => null,
             'supervisor_name' => null,
-            'avatar_url' => null
+            'status'          => 'Pending Assignment'
         ];
+    } else {
+        $student['student_number'] = $studentIdNum;
+        $student['program']        = !empty($student['program']) ? $student['program'] : 'BSIT';
     }
+
 } catch (Exception $e) {
-    // Placeholder label fallback if database connection/tables aren't ready
     $student = [
-        'name' => '[Student Full Name]',
-        'email' => '[student.email@nbsc.edu.ph]',
-        'student_number' => '[Student ID]',
-        'program' => '[Program / Degree]',
-        'company_name' => null,
+        'name'            => $_SESSION['user_name'] ?? 'Student',
+        'email'           => $_SESSION['email'] ?? '',
+        'student_number'  => !empty($_SESSION['email']) ? explode('@', $_SESSION['email'])[0] : 'N/A',
+        'program'         => 'BSIT',
+        'company_name'    => null,
         'supervisor_name' => null,
-        'avatar_url' => null
+        'status'          => 'Pending Assignment'
     ];
 }
 
