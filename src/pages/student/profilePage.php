@@ -35,20 +35,23 @@
                     <div class="flex items-center gap-4">
                         <!-- Avatar / Photo -->
                         <div class="w-12 h-12 rounded-xl bg-[#0F2854]/5 border border-[#0F2854]/10 flex items-center justify-center text-[#0F2854] text-base font-bold overflow-hidden shrink-0">
-                            <?php if (!empty($student['avatar_url'])): ?>
-                                <img src="<?= htmlspecialchars($student['avatar_url']); ?>" alt="Profile Photo" class="w-full h-full object-cover">
+                            <?php 
+                            $avatar = !empty($student['avatar_url']) ? $student['avatar_url'] : ($_SESSION['user_picture'] ?? null);
+                            ?>
+                            <?php if (!empty($avatar)): ?>
+                                <img src="<?= htmlspecialchars($avatar); ?>" alt="Profile Photo" class="w-full h-full object-cover" referrerpolicy="no-referrer">
                             <?php else: ?>
-                                <?= strtoupper(substr($student['name'], 0, 1)); ?>
+                                <?= !empty($student['name']) ? strtoupper(substr($student['name'], 0, 1)) : 'S'; ?>
                             <?php endif; ?>
                         </div>
                         <div>
-                            <h3 class="text-base font-bold text-slate-900"><?= htmlspecialchars($student['name']); ?></h3>
-                            <p class="text-xs text-slate-500 mt-0.5"><?= htmlspecialchars($student['email']); ?></p>
-                            <p class="text-[11px] font-semibold text-[#0F2854] mt-0.5">ID: <?= htmlspecialchars($student['student_number']); ?></p>
+                            <h3 class="text-base font-bold text-slate-900"><?= htmlspecialchars($student['name'] ?? 'Student'); ?></h3>
+                            <p class="text-xs text-slate-500 mt-0.5"><?= htmlspecialchars($student['email'] ?? $_SESSION['email'] ?? ''); ?></p>
+                            <p class="text-[11px] font-semibold text-[#0F2854] mt-0.5">ID: <?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?></p>
                         </div>
                     </div>
 
-                    <!-- Edit Profile Button (For personal contact info only) -->
+                    <!-- Edit Profile Button -->
                     <a href="edit_profile.php" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200/80 transition-all flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -69,22 +72,22 @@
                         <div class="space-y-3">
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Full Name</p>
-                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['name']); ?></p>
+                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['name'] ?? 'Student'); ?></p>
                             </div>
 
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Email Address</p>
-                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['email']); ?></p>
+                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['email'] ?? $_SESSION['email'] ?? ''); ?></p>
                             </div>
 
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Student ID</p>
-                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['student_number']); ?></p>
+                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?></p>
                             </div>
 
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Program / Department</p>
-                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['program']); ?></p>
+                                <p class="text-xs font-medium text-slate-900 mt-0.5"><?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
                             </div>
                         </div>
                     </div>
