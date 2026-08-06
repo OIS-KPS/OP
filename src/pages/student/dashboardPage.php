@@ -29,8 +29,13 @@
                 <!-- Welcome Greeting Banner -->
                 <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-wrap justify-between items-center gap-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-[#0F2854]/5 border border-[#0F2854]/10 flex items-center justify-center text-[#0F2854] text-base font-bold shrink-0">
-                            <?= !empty($student['name']) ? strtoupper(substr($student['name'], 0, 1)) : 'S'; ?>
+                        <!-- Dynamic Avatar: Profile Picture OR Initial -->
+                        <div class="w-10 h-10 rounded-xl bg-[#0F2854]/5 border border-[#0F2854]/10 flex items-center justify-center text-[#0F2854] text-base font-bold shrink-0 overflow-hidden">
+                            <?php if (!empty($_SESSION['user_picture'])): ?>
+                                <img src="<?= htmlspecialchars($_SESSION['user_picture']); ?>" alt="Profile" class="w-full h-full object-cover" referrerpolicy="no-referrer">
+                            <?php else: ?>
+                                <?= !empty($student['name']) ? strtoupper(substr($student['name'], 0, 1)) : 'S'; ?>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <h1 class="text-base font-bold text-slate-900 leading-snug">Welcome back, <?= htmlspecialchars($student['name'] ?? 'Student'); ?>!</h1>
