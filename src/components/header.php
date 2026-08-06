@@ -18,9 +18,13 @@
 
         <div class="h-5 w-px bg-white/20"></div>
 
-        <!-- User Avatar Circle -->
-        <div class="w-9 h-9 rounded-full bg-blue-600 border border-blue-400/40 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-            <?= !empty($student['name']) ? strtoupper(substr($student['name'], 0, 1)) : 'S'; ?>
+        <!-- Top Right User Profile Avatar -->
+        <div class="w-9 h-9 rounded-full bg-[#0F2854] text-white font-bold flex items-center justify-center text-sm overflow-hidden shrink-0">
+            <?php if (!empty($_SESSION['user_picture'])): ?>
+                <img src="<?= htmlspecialchars($_SESSION['user_picture']); ?>" alt="Profile" class="w-full h-full object-cover">
+            <?php else: ?>
+                <?= !empty($student['name']) ? strtoupper(substr($student['name'], 0, 1)) : (!empty($_SESSION['user_name']) ? strtoupper(substr($_SESSION['user_name'], 0, 1)) : 'S'); ?>
+            <?php endif; ?>
         </div>
     </div>
 </header>
