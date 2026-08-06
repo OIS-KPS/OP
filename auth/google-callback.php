@@ -34,26 +34,55 @@ if (isset($_GET['code'])) {
         $email = strtolower(trim($userInfo->email));
         $name  = $userInfo->name;
 
-        // Check if student exists in the database
+        // -------------------------------------------------------------
+        // STEP 1: Check if user is a STUDENT
+        // -------------------------------------------------------------
         $stmt = $pdo->prepare("SELECT * FROM students WHERE LOWER(email) = ?");
         $stmt->execute([$email]);
         $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($student) {
-            // Student is registered -> Set session & redirect to Dashboard
             $_SESSION['user_id']   = $student['id'];
-            $_SESSION['user_name'] = $student['name'];
+            $_SESSION['user_name'] = $student['name'] ?? $name;
             $_SESSION['email']     = $student['email'];
             $_SESSION['role']      = 'student';
 
             header("Location: ../dashboard.php");
             exit();
-        } else {
-            // Unregistered email -> Set session error and redirect to auth/login.php
-            $_SESSION['login_error'] = "Access Denied: The email <strong>" . htmlspecialchars($email) . "</strong> is not pre-registered in the OJT Portal. Please contact your coordinator.";
-            header("Location: login.php");
+        }
+
+        // -------------------------------------------------------------
+        // STEP 2: Check if user is STAFF / COORDINATOR / SUPERVISOR
+        // -------------------------------------------------------------
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(email) = ?");
+        $stmt->execute([$email]);
+        $staffUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($staffUser) {
+            $userRole = strtolower($staffUser['role'] ?? '');
+
+            $_SESSION['user_id']   = $staffUser['id'];
+            $_SESSION['user_name'] = $staffUser['name'] ?? $name;
+            $_SESSION['email']     = $staffUser['email'];
+            $_SESSION['role']      = $userRole;
+
+            // Route dynamically based on role
+            if ($userRole === 'coordinator') {
+                header("Location: ../coordinator/dashboard.php");
+            } elseif ($userRole === 'supervisor') {
+                header("Location: ../supervisor/dashboard.php");
+            } else {
+                header("Location: ../dashboard.php");
+            }
             exit();
         }
+
+        // -------------------------------------------------------------
+        // STEP 3: Email not registered in any table
+        // -------------------------------------------------------------
+        $_SESSION['login_error'] = "Access Denied: The email <strong>" . htmlspecialchars($email) . "</strong> is not pre-registered in the OJT Portal. Please contact your coordinator or administrator.";
+        header("Location: login.php");
+        exit();
 
     } catch (Exception $e) {
         $emailContext = isset($email) ? " for <strong>" . htmlspecialchars($email) . "</strong>" : "";
