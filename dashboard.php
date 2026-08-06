@@ -4,25 +4,31 @@ session_start();
 
 require_once __DIR__ . '/config/db.php';
 
-// TEMPORARY DEV MODE: Default session ID for local testing
-$student_id = $_SESSION['student_id'] ?? 1;
+// 1. Auth Guard: Ensure the user is logged in and is a student
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
+    header("Location: auth/login.php");
+    exit();
+}
+
+// 2. Get the logged-in student's ID from session
+$student_id = $_SESSION['user_id'];
 
 try {
-    // 1. Fetch Student Info
+    // 3. Fetch Student Info
     $stmt = $pdo->prepare("SELECT id, name, student_number, program FROM students WHERE id = ?");
     $stmt->execute([$student_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Placeholder label fallback if DB row isn't populated yet
+    // Fallback if record is missing in DB
     if (!$student) {
         $student = [
-            'name'           => '[Student Full Name]',
-            'student_number' => '[Student ID]',
-            'program'        => '[Program / Degree]'
+            'name'           => $_SESSION['user_name'] ?? 'Student',
+            'student_number' => 'N/A',
+            'program'        => 'BSIT'
         ];
     }
 
-    // 2. Fetch Weekly Reports History & Aggregates
+    // 4. Fetch Weekly Reports History & Aggregates
     $reportsStmt = $pdo->prepare("SELECT * FROM reports WHERE student_id = ? ORDER BY week_number ASC");
     $reportsStmt->execute([$student_id]);
     $reports = $reportsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -36,9 +42,9 @@ try {
 } catch (Exception $e) {
     // Graceful error handle if DB/tables are not ready yet
     $student = [
-        'name'           => '[Student Full Name]',
-        'student_number' => '[Student ID]',
-        'program'        => '[Program / Degree]'
+        'name'           => $_SESSION['user_name'] ?? 'Student',
+        'student_number' => 'N/A',
+        'program'        => 'BSIT'
     ];
     $reports        = [];
     $totalSubmitted = 0;
