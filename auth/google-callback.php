@@ -33,6 +33,7 @@ if (isset($_GET['code'])) {
 
         $email = strtolower(trim($userInfo->email));
         $name  = $userInfo->name;
+        $picture = $userInfo->picture ?? null;
 
         // -------------------------------------------------------------
         // STEP 1: Check if user is a STUDENT
@@ -45,6 +46,7 @@ if (isset($_GET['code'])) {
             $_SESSION['user_id']   = $student['id'];
             $_SESSION['user_name'] = $student['name'] ?? $name;
             $_SESSION['email']     = $student['email'];
+            $_SESSION['user_picture'] = $picture;
             $_SESSION['role']      = 'student';
 
             header("Location: ../dashboard.php");
