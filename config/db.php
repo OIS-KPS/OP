@@ -2,7 +2,7 @@
 // config/db.php
 
 $host     = 'localhost';
-$dbname   = 'ojt'; 
+$dbname   = 'nbsc_ojt'; 
 $username = 'root';      
 $password = '';          
 
