@@ -8,7 +8,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Global Custom Stylesheet -->
-    <link rel="stylesheet" href="public/css/styles.css">
+    <link rel="stylesheet" href="public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
