@@ -45,6 +45,18 @@ CREATE TABLE IF NOT EXISTS `students` (
   CONSTRAINT `fk_student_supervisor` FOREIGN KEY (`supervisor_id`) REFERENCES `supervisors` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+CREATE TABLE IF NOT EXISTS `reports` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `student_id` INT NOT NULL,
+  `week_number` INT NOT NULL,
+  `file_path` TEXT NOT NULL,
+  `ocr_activities` TEXT NULL,
+  `status` ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  `submitted_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_report_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 6. Insert Sample Partner Company
 INSERT INTO `companies` (`id`, `name`, `department`) 
 VALUES (1, 'NBSC College of Computer Studies', 'IT Department')
