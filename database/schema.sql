@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) UNIQUE NOT NULL,
-  `role` ENUM('student', 'supervisor', 'admin') NOT NULL DEFAULT 'student',
+  `role` ENUM('student', 'supervisor', 'coordinator', 'admin') NOT NULL DEFAULT 'student',
   `avatar_url` TEXT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
