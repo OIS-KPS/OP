@@ -33,14 +33,20 @@ try {
     // 3. Fetch Pending Accomplishment Reports
     $reportsSql = "
         SELECT 
-            r.id,
+            r.id AS report_id,
             r.week_number,
-            r.created_at,
-            s.name AS student_name
+            r.file_path,
+            r.ocr_activities,
+            r.status,
+            r.submitted_at,
+            u_student.name AS student_name,
+            u_student.avatar_url AS student_avatar,
+            s.student_number
         FROM reports r
         JOIN students s ON r.student_id = s.id
-        WHERE s.supervisor_id = ? AND r.status = 'Pending'
-        ORDER BY r.created_at DESC
+        JOIN users u_student ON s.user_id = u_student.id
+        WHERE s.supervisor_id = :supervisor_id
+        ORDER BY r.submitted_at DESC;
     ";
     
     $reportsStmt = $pdo->prepare($reportsSql);
