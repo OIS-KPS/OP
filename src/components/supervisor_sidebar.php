@@ -1,11 +1,23 @@
-<!-- src/components/supervisor_sidebar.php -->
 <?php
+// src/components/supervisor_sidebar.php
 $currentPage = basename($_SERVER['PHP_SELF']);
 
-// Count pending reports dynamically for the badge
+// Dynamic Database Fetch for Pending Reports Badge
 if (!isset($pendingCount)) {
-    if (isset($_SESSION['dev_reports'])) {
-        $pendingCount = count(array_filter($_SESSION['dev_reports'], fn($r) => $r['status'] === 'Pending'));
+    if (isset($pdo) && isset($_SESSION['user_id'])) {
+        try {
+            $stmtBadge = $pdo->prepare("
+                SELECT COUNT(r.id) 
+                FROM reports r
+                JOIN students s ON r.student_id = s.id
+                JOIN supervisors sup ON s.supervisor_id = sup.id
+                WHERE sup.user_id = ? AND LOWER(r.status) = 'pending'
+            ");
+            $stmtBadge->execute([$_SESSION['user_id']]);
+            $pendingCount = (int)$stmtBadge->fetchColumn();
+        } catch (Exception $e) {
+            $pendingCount = 0;
+        }
     } else {
         $pendingCount = 0;
     }
@@ -67,9 +79,9 @@ if (!isset($pendingCount)) {
                             <span class="truncate">Review Reports</span>
                         </div>
 
-                        <!-- Dynamic Pending Counter Badge -->
+                        <!-- Solid Dynamic Pending Counter Badge (No Fading) -->
                         <?php if ($pendingCount > 0): ?>
-                            <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white font-bold text-[10px] shrink-0 animate-pulse">
+                            <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white font-bold text-[10px] shrink-0 shadow-2xs">
                                 <?= $pendingCount; ?>
                             </span>
                         <?php endif; ?>
