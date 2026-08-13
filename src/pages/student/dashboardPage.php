@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ICS OJT Portal</title>
+    <title>ICS OJT Portal - Student Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Global Custom Stylesheet -->
-    <link rel="stylesheet" href="public/css/style.css">
+    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
@@ -95,21 +95,37 @@
                                     <tr class="bg-slate-50/60 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-100 font-semibold">
                                         <th class="py-3 px-5">Week</th>
                                         <th class="py-3 px-5">Date Submitted</th>
-                                        <th class="py-3 px-5 text-right">Status</th>
+                                        <th class="py-3 px-5">Status</th>
+                                        <th class="py-3 px-5 text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-700 text-xs">
-                                    <?php foreach ($reports as $report): ?>
+                                    <?php foreach ($reports as $report): 
+                                        $status = strtolower($report['status'] ?? 'pending');
+                                    ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors">
                                             <td class="py-3 px-5 font-semibold text-slate-900">Week <?= htmlspecialchars($report['week_number']); ?></td>
-                                            <td class="py-3 px-5 text-slate-500"><?= !empty($report['created_at']) ? date("M d, Y", strtotime($report['created_at'])) : '—'; ?></td>
-                                            <td class="py-3 px-5 text-right">
-                                                <?php if ($report['status'] === 'Approved'): ?>
+                                            <td class="py-3 px-5 text-slate-500">
+                                                <?= !empty($report['submitted_at']) ? date("M d, Y", strtotime($report['submitted_at'])) : '—'; ?>
+                                            </td>
+                                            <td class="py-3 px-5">
+                                                <?php if ($status === 'approved'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">● Approved</span>
-                                                <?php elseif ($report['status'] === 'Pending'): ?>
+                                                <?php elseif ($status === 'pending'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-medium border border-amber-200/50">● Under Review</span>
                                                 <?php else: ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[11px] font-medium border border-rose-200/50">● Revision Needed</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="py-3 px-5 text-right">
+                                                <?php if (!empty($report['file_path'])): ?>
+                                                    <a href="/ICS-PORTAL/<?= htmlspecialchars($report['file_path']); ?>" 
+                                                       target="_blank" 
+                                                       class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                                                        View File
+                                                    </a>
+                                                <?php else: ?>
+                                                    <span class="text-slate-400">N/A</span>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
