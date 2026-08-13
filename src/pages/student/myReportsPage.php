@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ICS OJT Portal</title>
+    <title>ICS OJT Portal - My Reports</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Global Custom Stylesheet -->
-    <link rel="stylesheet" href="public/css/style.css">
+    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
@@ -70,8 +70,10 @@
                         <p class="text-xl font-extrabold text-slate-700 mt-1"><?= intval($overallClerical ?? 0); ?>%</p>
                     </div>
                     <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-                        <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Weeks Completed</p>
-                        <p class="text-xl font-extrabold text-emerald-600 mt-1"><?= count($reports ?? []); ?> Weeks</p>
+                        <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Submitted</p>
+                        <p class="text-xl font-extrabold text-emerald-600 mt-1">
+                            <?= count($reports ?? []); ?> <?= count($reports ?? []) === 1 ? 'Week' : 'Weeks'; ?>
+                        </p>
                     </div>
                 </div>
 
@@ -96,7 +98,11 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-700 text-xs">
-                                    <?php foreach ($reports as $report): ?>
+                                    <?php foreach ($reports as $report): 
+                                        $status = strtolower($report['status'] ?? 'pending');
+                                        $filePath = $report['file_path'] ?? $report['attachment_path'] ?? '';
+                                        $dateSubmitted = $report['submitted_at'] ?? $report['created_at'] ?? null;
+                                    ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors">
                                             <!-- Week -->
                                             <td class="py-3 px-5 font-semibold text-slate-900">
@@ -105,7 +111,7 @@
 
                                             <!-- Date -->
                                             <td class="py-3 px-5 text-slate-500">
-                                                <?= !empty($report['created_at']) ? date("M d, Y", strtotime($report['created_at'])) : '—'; ?>
+                                                <?= !empty($dateSubmitted) ? date("M d, Y", strtotime($dateSubmitted)) : '—'; ?>
                                             </td>
 
                                             <!-- IT % -->
@@ -120,11 +126,11 @@
 
                                             <!-- Status Badge -->
                                             <td class="py-3 px-5">
-                                                <?php if ($report['status'] === 'Approved'): ?>
+                                                <?php if ($status === 'approved'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">
                                                         ● Approved
                                                     </span>
-                                                <?php elseif ($report['status'] === 'Pending'): ?>
+                                                <?php elseif ($status === 'pending'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-medium border border-amber-200/50">
                                                         ● Under Review
                                                     </span>
@@ -138,14 +144,18 @@
                                             <!-- Actions -->
                                             <td class="py-3 px-5 text-right">
                                                 <div class="flex items-center justify-end gap-1.5">
-                                                    <?php if (!empty($report['attachment_path'])): ?>
-                                                        <a href="<?= htmlspecialchars($report['attachment_path']); ?>" target="_blank" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg border border-slate-200 transition-all">
+                                                    <?php if (!empty($filePath)): ?>
+                                                        <a href="/ICS-PORTAL/<?= htmlspecialchars($filePath); ?>" target="_blank" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg border border-slate-200 transition-all">
                                                             View
                                                         </a>
+                                                        <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-medium rounded-lg transition-all shadow-2xs">
+                                                            Re-upload
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-medium rounded-lg transition-all shadow-2xs">
+                                                            Submit
+                                                        </a>
                                                     <?php endif; ?>
-                                                    <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-medium rounded-lg transition-all shadow-2xs">
-                                                        <?= !empty($report['attachment_path']) ? 'Re-upload' : 'Submit'; ?>
-                                                    </a>
                                                 </div>
                                             </td>
                                         </tr>
