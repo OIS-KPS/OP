@@ -4,51 +4,69 @@ session_start();
 
 require_once __DIR__ . '/config/db.php';
 
-// 🛑 Commented out auth guard temporarily so you can preview without login
-/*
-if (!isset($_SESSION['student_id'])) {
-    header("Location: login.php");
+// Auth Guard
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
+    header("Location: auth/login.php");
     exit();
 }
-*/
 
-$student_id = $_SESSION['student_id'] ?? 1;
+$userId = $_SESSION['user_id'];
 
-// Default values so the page won't break if database tables aren't created/populated yet
+// Default fallback values
 $student = [
-    'name' => 'Katelyn Coming',
-    'student_number' => '20231053',
+    'name' => $_SESSION['user_name'] ?? 'Student',
+    'student_number' => 'N/A',
     'program' => 'BSIT'
 ];
 $reports = [];
 
 try {
-    // 1. Fetch Student Profile
-    $stmtStudent = $pdo->prepare("SELECT name, student_number, program FROM students WHERE id = ?");
-    $stmtStudent->execute([$student_id]);
-    $fetched = $stmtStudent->fetch();
-    if ($fetched) $student = $fetched;
+    // 1. Fetch Student Profile by joining students with users table
+    $stmtStudent = $pdo->prepare("
+        SELECT u.name, s.id AS student_id, s.student_number, s.program 
+        FROM students s 
+        JOIN users u ON s.user_id = u.id 
+        WHERE u.id = ?
+    ");
+    $stmtStudent->execute([$userId]);
+    $fetchedStudent = $stmtStudent->fetch(PDO::FETCH_ASSOC);
 
-    // 2. Fetch Reports
-    $stmtReports = $pdo->prepare("SELECT week_number, it_percent, clerical_percent, status, attachment_path, created_at FROM reports WHERE student_id = ? ORDER BY week_number ASC");
-    $stmtReports->execute([$student_id]);
-    $reports = $stmtReports->fetchAll();
+    if ($fetchedStudent) {
+        $student = $fetchedStudent;
+        $studentId = $fetchedStudent['student_id'];
+        $_SESSION['student_id'] = $studentId; // Sync session identifier
+    } else {
+        $studentId = $_SESSION['student_id'] ?? 1;
+    }
+
+    // 2. Fetch Reports using official 3NF schema (file_path, submitted_at)
+    $stmtReports = $pdo->prepare("
+        SELECT id, week_number, file_path, ocr_activities, status, submitted_at 
+        FROM reports 
+        WHERE student_id = ? 
+        ORDER BY week_number ASC
+    ");
+    $stmtReports->execute([$studentId]);
+    $reports = $stmtReports->fetchAll(PDO::FETCH_ASSOC);
+
 } catch (Exception $e) {
-    // Safely handles missing DB tables while testing
+    // Log error safely while maintaining UI stability
+    error_log("Database Error in reports.php: " . $e->getMessage());
 }
 
-// 3. Dynamic Averages Calculation
+// 3. Dynamic Summary Stats
 $totalReportsCount = count($reports);
-$overallIT = 0;
-$overallClerical = 0;
+$totalApproved = 0;
+$totalPending = 0;
 
-if ($totalReportsCount > 0) {
-    $sumIT = array_sum(array_column($reports, 'it_percent'));
-    $sumClerical = array_sum(array_column($reports, 'clerical_percent'));
-    
-    $overallIT = round($sumIT / $totalReportsCount);
-    $overallClerical = round($sumClerical / $totalReportsCount);
+foreach ($reports as $r) {
+    $status = strtolower($r['status'] ?? 'pending');
+    if ($status === 'approved') {
+        $totalApproved++;
+    } elseif ($status === 'pending') {
+        $totalPending++;
+    }
 }
 
-// 4. Load the view layout
+// 4. Load the view layout template
 require_once __DIR__ . '/src/pages/student/myReportsPage.php';
