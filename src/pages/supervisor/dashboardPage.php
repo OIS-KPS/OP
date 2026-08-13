@@ -5,8 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supervisor Dashboard - ICS OJT Portal</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="../public/css/style.css">
+    <!-- Global Custom Stylesheet -->
+    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
@@ -24,16 +26,20 @@
             <!-- Main Page Scrollable Body -->
             <main class="p-6 max-w-7xl w-full mx-auto space-y-5 flex-1">
 
-                <!-- Welcome Greeting Banner Card (Matches Student UI Style) -->
+                <!-- Welcome Greeting Banner Card -->
                 <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-wrap justify-between items-center gap-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-[#0F2854]/5 border border-[#0F2854]/10 flex items-center justify-center text-[#0F2854] text-base font-bold shrink-0">
-                            <?= !empty($supervisor['name']) && $supervisor['name'] !== '[Supervisor Full Name]' ? strtoupper(substr($supervisor['name'], 0, 1)) : 'S'; ?>
+                        <div class="w-10 h-10 rounded-xl bg-[#0F2854]/5 border border-[#0F2854]/10 flex items-center justify-center text-[#0F2854] text-base font-bold shrink-0 overflow-hidden">
+                            <?php if (!empty($_SESSION['user_picture'])): ?>
+                                <img src="<?= htmlspecialchars($_SESSION['user_picture']); ?>" alt="Profile" class="w-full h-full object-cover" referrerpolicy="no-referrer">
+                            <?php else: ?>
+                                <?= !empty($supervisor['name']) ? strtoupper(substr($supervisor['name'], 0, 1)) : 'S'; ?>
+                            <?php endif; ?>
                         </div>
                         <div>
-                            <h1 class="text-base font-bold text-slate-900 leading-snug">Welcome back, <?= htmlspecialchars($supervisor['name'] ?? '[Supervisor Full Name]'); ?>!</h1>
+                            <h1 class="text-base font-bold text-slate-900 leading-snug">Welcome back, <?= htmlspecialchars($supervisor['name']); ?>!</h1>
                             <p class="text-slate-500 text-xs mt-0.5">
-                                Overview of assigned interns and pending accomplishment report reviews.
+                                Company: <span class="font-semibold text-slate-700"><?= htmlspecialchars($supervisor['company_name']); ?></span> • Overview of assigned interns and pending report reviews.
                             </p>
                         </div>
                     </div>
@@ -61,7 +67,7 @@
                             <h3 class="text-sm font-bold text-slate-900">Pending Weekly Accomplishment Reports</h3>
                             <p class="text-slate-400 text-[11px] mt-0.5">Review and verify weekly logs submitted by assigned students</p>
                         </div>
-                        <a href="review_reports.php" class="text-[11px] font-semibold text-[#0F2854] hover:underline">View All →</a>
+                        <span class="text-[11px] text-slate-400 font-medium"><?= count($pendingReports); ?> Pending</span>
                     </div>
 
                     <?php if (!empty($pendingReports) && count($pendingReports) > 0): ?>
@@ -79,13 +85,23 @@
                                     <?php foreach ($pendingReports as $report): ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors">
                                             <!-- Intern Name -->
-                                            <td class="py-3 px-5 font-semibold text-slate-900">
-                                                <?= htmlspecialchars($report['student_name'] ?? '[Intern Name]'); ?>
+                                            <td class="py-3 px-5 font-semibold text-slate-900 flex items-center gap-2.5">
+                                                <div class="w-7 h-7 rounded-lg bg-blue-50 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200">
+                                                    <?php if (!empty($report['student_avatar'])): ?>
+                                                        <img src="<?= htmlspecialchars($report['student_avatar']); ?>" class="w-full h-full object-cover">
+                                                    <?php else: ?>
+                                                        <?= strtoupper(substr($report['student_name'], 0, 1)); ?>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div>
+                                                    <div><?= htmlspecialchars($report['student_name']); ?></div>
+                                                    <div class="text-[10px] text-slate-400 font-normal">ID: <?= htmlspecialchars($report['student_number']); ?></div>
+                                                </div>
                                             </td>
 
                                             <!-- Submitted Date -->
                                             <td class="py-3 px-5 text-slate-500">
-                                                <?= !empty($report['created_at']) ? date("M d, Y", strtotime($report['created_at'])) : '—'; ?>
+                                                <?= !empty($report['submitted_at']) ? date("M d, Y - h:i A", strtotime($report['submitted_at'])) : '—'; ?>
                                             </td>
 
                                             <!-- Week Number -->
@@ -94,10 +110,14 @@
                                             </td>
 
                                             <!-- Action Button -->
-                                            <td class="py-3 px-5 text-right">
-                                                <a href="review_report.php?id=<?= $report['id']; ?>" class="px-3.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-medium rounded-xl transition-all shadow-2xs inline-block">
-                                                    Review Report
-                                                </a>
+                                            <td class="py-3 px-5 text-right space-x-1.5">
+                                                <?php if (!empty($report['file_path'])): ?>
+                                                    <a href="/ICS-PORTAL/<?= htmlspecialchars($report['file_path']); ?>" 
+                                                       target="_blank" 
+                                                       class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-xl border border-slate-200 transition-all">
+                                                        View PDF
+                                                    </a>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -108,7 +128,7 @@
                         <div class="text-center py-12 px-4">
                             <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-base font-bold">📝</div>
                             <h4 class="text-sm font-semibold text-slate-800">No pending reports</h4>
-                            <p class="text-xs text-slate-500 max-w-xs mx-auto mt-0.5">There are currently no accomplishment reports awaiting review.</p>
+                            <p class="text-xs text-slate-500 max-w-xs mx-auto mt-0.5">There are currently no accomplishment reports awaiting review from your assigned interns.</p>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -117,7 +137,7 @@
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-3">
                     <div class="border-b border-slate-100 pb-2.5">
                         <h3 class="text-sm font-bold text-slate-900">Recent Activities</h3>
-                        <p class="text-slate-400 text-[11px] mt-0.5">Latest logs and submission activity from your interns</p>
+                        <p class="text-slate-400 text-[11px] mt-0.5">Latest submission logs from your assigned interns</p>
                     </div>
 
                     <div class="space-y-3 pt-1">
@@ -132,20 +152,7 @@
                                 </div>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <div class="flex items-start gap-2.5 text-xs text-slate-600">
-                                <span class="text-emerald-500 font-bold shrink-0">✓</span>
-                                <div>
-                                    <p class="font-medium text-slate-800">[Intern Name] submitted Week 3 report</p>
-                                    <p class="text-[11px] text-slate-400 mt-0.5">2 hours ago</p>
-                                </div>
-                            </div>
-                            <div class="flex items-start gap-2.5 text-xs text-slate-600">
-                                <span class="text-emerald-500 font-bold shrink-0">✓</span>
-                                <div>
-                                    <p class="font-medium text-slate-800">You approved Week 2 report of [Intern Name]</p>
-                                    <p class="text-[11px] text-slate-400 mt-0.5">3 hours ago</p>
-                                </div>
-                            </div>
+                            <p class="text-xs text-slate-400 italic">No recent submission activities recorded.</p>
                         <?php endif; ?>
                     </div>
                 </div>
