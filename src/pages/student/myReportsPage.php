@@ -40,6 +40,17 @@
                     </div>
                 <?php endif; ?>
 
+                <!-- Error Alert Banner -->
+                <?php if (!empty($_SESSION['error_message'])): ?>
+                    <div class="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-xs">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-rose-600 font-bold text-sm">✕</span>
+                            <p class="font-semibold text-xs"><?= htmlspecialchars($_SESSION['error_message']); ?></p>
+                        </div>
+                        <?php unset($_SESSION['error_message']); ?>
+                    </div>
+                <?php endif; ?>
+
                 <!-- Header Card with Dynamic Button -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
                     <div>
@@ -90,7 +101,7 @@
                                 <thead>
                                     <tr class="bg-slate-50/60 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-100 font-semibold">
                                         <th class="py-3 px-5">Week</th>
-                                        <th class="py-3 px-5">Date Submitted</th>
+                                        <th class="py-3 px-5">Date & Time Submitted</th>
                                         <th class="py-3 px-5">IT Task %</th>
                                         <th class="py-3 px-5">Clerical %</th>
                                         <th class="py-3 px-5">Status</th>
@@ -102,6 +113,7 @@
                                         $status = strtolower($report['status'] ?? 'pending');
                                         $filePath = $report['file_path'] ?? $report['attachment_path'] ?? '';
                                         $dateSubmitted = $report['submitted_at'] ?? $report['created_at'] ?? null;
+                                        $isApproved = ($status === 'approved');
                                     ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors">
                                             <!-- Week -->
@@ -109,9 +121,9 @@
                                                 Week <?= htmlspecialchars($report['week_number']); ?>
                                             </td>
 
-                                            <!-- Date -->
-                                            <td class="py-3 px-5 text-slate-500">
-                                                <?= !empty($dateSubmitted) ? date("M d, Y", strtotime($dateSubmitted)) : '—'; ?>
+                                            <!-- Date & Time Submitted -->
+                                            <td class="py-3 px-5 text-slate-600 font-medium">
+                                                <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
                                             </td>
 
                                             <!-- IT % -->
@@ -126,7 +138,7 @@
 
                                             <!-- Status Badge -->
                                             <td class="py-3 px-5">
-                                                <?php if ($status === 'approved'): ?>
+                                                <?php if ($isApproved): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">
                                                         ● Approved
                                                     </span>
@@ -148,13 +160,17 @@
                                                         <a href="/ICS-PORTAL/<?= htmlspecialchars($filePath); ?>" target="_blank" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg border border-slate-200 transition-all">
                                                             View
                                                         </a>
+                                                    <?php endif; ?>
+
+                                                    <!-- Hide Re-upload button if the report is APPROVED -->
+                                                    <?php if (!$isApproved): ?>
                                                         <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-medium rounded-lg transition-all shadow-2xs">
-                                                            Re-upload
+                                                            <?= !empty($filePath) ? 'Re-upload' : 'Submit'; ?>
                                                         </a>
                                                     <?php else: ?>
-                                                        <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-medium rounded-lg transition-all shadow-2xs">
-                                                            Submit
-                                                        </a>
+                                                        <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-lg border border-emerald-200/60 inline-flex items-center gap-1">
+                                                            Approved
+                                                        </span>
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
