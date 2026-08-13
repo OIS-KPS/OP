@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Review Reports - Supervisor Portal</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
@@ -33,16 +34,16 @@
 
                     <!-- Filter Tabs -->
                     <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs">
-                        <a href="review_reports.php?status=All" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= $filter_status === 'All' ? 'bg-white text-[#0F2854] shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
+                        <a href="review_reports.php?status=All" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= ($filter_status ?? 'All') === 'All' ? 'bg-white text-[#0F2854] shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
                             All
                         </a>
-                        <a href="review_reports.php?status=Pending" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
+                        <a href="review_reports.php?status=Pending" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= ($filter_status ?? '') === 'Pending' ? 'bg-white text-amber-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
                             Pending
                         </a>
-                        <a href="review_reports.php?status=Approved" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
+                        <a href="review_reports.php?status=Approved" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= ($filter_status ?? '') === 'Approved' ? 'bg-white text-emerald-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
                             Approved
                         </a>
-                        <a href="review_reports.php?status=Needs Revision" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= $filter_status === 'Needs Revision' ? 'bg-white text-rose-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
+                        <a href="review_reports.php?status=Needs Revision" class="px-3.5 py-1.5 rounded-lg font-semibold transition-all <?= ($filter_status ?? '') === 'Needs Revision' ? 'bg-white text-rose-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'; ?>">
                             Revisions
                         </a>
                     </div>
@@ -59,7 +60,7 @@
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                     <div class="p-4 px-5 border-b border-slate-100 flex justify-between items-center">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-900">Submissions Queue (<?= count($reports); ?>)</h3>
+                            <h3 class="text-sm font-bold text-slate-900">Submissions Queue (<?= count($reports ?? []); ?>)</h3>
                             <p class="text-[11px] text-slate-400 mt-0.5">Prioritizing pending submissions awaiting review</p>
                         </div>
                     </div>
@@ -70,46 +71,61 @@
                                 <thead>
                                     <tr class="bg-slate-50/60 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-100 font-semibold">
                                         <th class="py-3 px-5">Student Name</th>
-                                        <th class="py-3 px-5">Week / Submissions</th>
+                                        <th class="py-3 px-5">Week Number</th>
                                         <th class="py-3 px-5">Date & Time Submitted</th>
                                         <th class="py-3 px-5">Status</th>
                                         <th class="py-3 px-5 text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-700 text-xs">
-                                    <?php foreach ($reports as $item): ?>
-                                            <tr class="transition-colors <?= $item['status'] === 'Pending' ? 'bg-amber-50/40 hover:bg-amber-100/50 border-l-4 border-l-amber-500' : 'hover:bg-slate-50/80'; ?>">                                            <!-- Student Info -->
+                                    <?php foreach ($reports as $item): 
+                                        $status = strtolower($item['status'] ?? 'pending');
+                                        $submittedAt = $item['submitted_at'] ?? $item['created_at'] ?? null;
+                                        $filePath = $item['file_path'] ?? $item['attachment_path'] ?? '';
+                                    ?>
+                                        <tr class="transition-colors <?= $status === 'pending' ? 'bg-amber-50/40 hover:bg-amber-100/50 border-l-4 border-l-amber-500' : 'hover:bg-slate-50/80'; ?>">
+                                            <!-- Student Info -->
                                             <td class="py-3.5 px-5">
-                                                <p class="font-bold text-slate-900"><?= htmlspecialchars($item['student_name']); ?></p>
-                                                <p class="text-[11px] text-slate-400">ID: <?= htmlspecialchars($item['student_number']); ?> • <?= htmlspecialchars($item['program'] ?? 'BSIT'); ?></p>
+                                                <div class="flex items-center gap-2.5">
+                                                    <div class="w-8 h-8 rounded-full bg-blue-50 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200">
+                                                        <?php if (!empty($item['student_avatar'])): ?>
+                                                            <img src="<?= htmlspecialchars($item['student_avatar']); ?>" class="w-full h-full object-cover">
+                                                        <?php else: ?>
+                                                            <?= strtoupper(substr($item['student_name'], 0, 1)); ?>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-bold text-slate-900"><?= htmlspecialchars($item['student_name']); ?></p>
+                                                        <p class="text-[11px] text-slate-400">ID: <?= htmlspecialchars($item['student_number']); ?> • <?= htmlspecialchars($item['program'] ?? 'BSIT'); ?></p>
+                                                    </div>
+                                                </div>
                                             </td>
 
-                                            <!-- Week Number & Count -->
+                                            <!-- Week Number -->
                                             <td class="py-3.5 px-5">
                                                 <p class="font-bold text-slate-800">Week <?= htmlspecialchars($item['week_number']); ?></p>
-                                                <p class="text-[10px] font-semibold text-[#0F2854]"><?= intval($item['total_submitted_count'] ?? 1); ?> WARs Submitted</p>
                                             </td>
 
                                             <!-- Date & Time -->
                                             <td class="py-3.5 px-5 text-slate-600 font-medium">
-                                                <?= !empty($item['created_at']) ? date("M d, Y \a\\t g:i A", strtotime($item['created_at'])) : '—'; ?>
+                                                <?= !empty($submittedAt) ? date("M d, Y \a\\t g:i A", strtotime($submittedAt)) : '—'; ?>
                                             </td>
 
                                             <!-- Status -->
                                             <td class="py-3.5 px-5">
-                                                <?php if ($item['status'] === 'Approved'): ?>
+                                                <?php if ($status === 'approved'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">● Approved</span>
-                                                <?php elseif ($item['status'] === 'Pending'): ?>
+                                                <?php elseif ($status === 'pending'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-medium border border-amber-200/50">● Pending</span>
                                                 <?php else: ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[11px] font-medium border border-rose-200/50">● Revision Needed</span>
+                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[11px] font-medium border border-rose-200/50">● Needs Revision</span>
                                                 <?php endif; ?>
                                             </td>
 
                                             <!-- Action Button -->
                                             <td class="py-3.5 px-5 text-right">
-                                                <a href="review_reports.php?review_id=<?= $item['id']; ?><?= $filter_status !== 'All' ? '&status=' . $filter_status : ''; ?>" class="px-4 py-1.5 <?= $item['status'] === 'Pending' ? 'bg-[#0F2854] text-white hover:bg-blue-900' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'; ?> text-[11px] font-semibold rounded-full border border-slate-200 transition-all shadow-2xs inline-block">
-                                                    <?= $item['status'] === 'Pending' ? 'Review' : 'View Details'; ?>
+                                                <a href="review_reports.php?review_id=<?= $item['id']; ?><?= $filter_status !== 'All' ? '&status=' . $filter_status : ''; ?>" class="px-4 py-1.5 <?= $status === 'pending' ? 'bg-[#0F2854] text-white hover:bg-blue-900' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'; ?> text-[11px] font-semibold rounded-full border border-slate-200 transition-all shadow-2xs inline-block">
+                                                    <?= $status === 'pending' ? 'Review' : 'View Details'; ?>
                                                 </a>
                                             </td>
                                         </tr>
@@ -133,8 +149,13 @@
     <!-- ======================================================= -->
     <!-- DYNAMIC EVALUATION / READ-ONLY MODAL OVERLAY -->
     <!-- ======================================================= -->
-    <?php if ($activeReport): ?>
-        <?php $isApproved = ($activeReport['status'] === 'Approved'); ?>
+    <?php if (!empty($activeReport)): ?>
+        <?php 
+            $activeStatus = strtolower($activeReport['status'] ?? 'pending');
+            $isApproved = ($activeStatus === 'approved');
+            $activeFilePath = $activeReport['file_path'] ?? $activeReport['attachment_path'] ?? '';
+            $activeSubmittedAt = $activeReport['submitted_at'] ?? $activeReport['created_at'] ?? null;
+        ?>
 
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto">
             <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full overflow-hidden space-y-4 p-6 relative my-auto">
@@ -150,7 +171,7 @@
                         <h2 class="text-base font-bold text-slate-900">
                             <?= htmlspecialchars($activeReport['student_name']); ?> - Week <?= htmlspecialchars($activeReport['week_number']); ?>
                         </h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Submitted on <?= date("F d, Y \a\\t g:i A", strtotime($activeReport['created_at'])); ?></p>
+                        <p class="text-xs text-slate-500 mt-0.5">Submitted on <?= !empty($activeSubmittedAt) ? date("F d, Y \a\\t g:i A", strtotime($activeSubmittedAt)) : '—'; ?></p>
                     </div>
 
                     <!-- Status Pill Header Tag -->
@@ -159,7 +180,7 @@
                             <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold rounded-full">
                                 ● Approved
                             </span>
-                        <?php elseif ($activeReport['status'] === 'Needs Revision'): ?>
+                        <?php elseif (in_array($activeStatus, ['needs revision', 'rejected'])): ?>
                             <span class="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold rounded-full">
                                 ● Revision Requested
                             </span>
@@ -181,19 +202,19 @@
                             <p class="text-xs text-slate-500 mt-0.5">Submitted accomplishment report document</p>
                         </div>
 
-                        <?php if (!empty($activeReport['attachment_path'])): ?>
+                        <?php if (!empty($activeFilePath)): ?>
                             <div class="bg-white rounded-xl p-5 border border-slate-200 flex-1 flex flex-col items-center justify-center text-center space-y-3 shadow-2xs min-h-[180px]">
                                 <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-2xl font-bold">📄</div>
                                 <div>
                                     <p class="text-xs font-bold text-slate-800">Week <?= htmlspecialchars($activeReport['week_number']); ?> Document</p>
                                     <p class="text-[10px] text-slate-400 mt-0.5">PDF File Attachment</p>
                                 </div>
-                                <a href="../<?= htmlspecialchars($activeReport['attachment_path']); ?>" target="_blank" class="px-4 py-1.5 bg-[#0F2854] text-white text-xs font-semibold rounded-xl hover:bg-blue-900 transition-all shadow-2xs">
+                                <a href="/ICS-PORTAL/<?= htmlspecialchars($activeFilePath); ?>" target="_blank" class="px-4 py-1.5 bg-[#0F2854] text-white text-xs font-semibold rounded-xl hover:bg-blue-900 transition-all shadow-2xs">
                                     Open PDF ↗
                                 </a>
                             </div>
                         <?php else: ?>
-                            <div class="flex-1 flex items-center justify-center text-xs text-slate-400 italic">
+                            <div class="flex-1 flex items-center justify-center text-xs text-slate-400 italic min-h-[180px]">
                                 No attachment uploaded.
                             </div>
                         <?php endif; ?>
@@ -212,45 +233,10 @@
                         
                         <!-- Extracted IT Entities -->
                         <div class="bg-slate-50 rounded-xl border border-slate-200/80 p-3.5 space-y-2">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Extracted Entities (IT Competencies)</p>
-                            <ul class="text-xs text-slate-700 font-medium space-y-1.5">
-                                <li class="flex items-center gap-2">
-                                    <span class="text-emerald-500 font-bold">✓</span> Network Configuration
-                                </li>
-                                <li class="flex items-center gap-2">
-                                    <span class="text-emerald-500 font-bold">✓</span> Hardware Troubleshooting
-                                </li>
-                                <li class="flex items-center gap-2">
-                                    <span class="text-emerald-500 font-bold">✓</span> Software Installation
-                                </li>
-                            </ul>
-                        </div>
-
-                        <!-- Task Breakdown Progress Ratios -->
-                        <div class="space-y-2">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Task Breakdown Ratio</p>
-                            
-                            <!-- IT Related -->
-                            <div>
-                                <div class="flex justify-between text-[11px] font-semibold mb-1">
-                                    <span class="text-[#0F2854]">IT Related Work</span>
-                                    <span><?= intval($activeReport['it_percent'] ?? 85); ?>%</span>
-                                </div>
-                                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                                    <div class="h-full bg-[#0F2854] rounded-full" style="width: <?= intval($activeReport['it_percent'] ?? 85); ?>%"></div>
-                                </div>
-                            </div>
-
-                            <!-- Clerical -->
-                            <div>
-                                <div class="flex justify-between text-[11px] font-semibold mb-1">
-                                    <span class="text-slate-600">Clerical Work</span>
-                                    <span><?= intval($activeReport['clerical_percent'] ?? 15); ?>%</span>
-                                </div>
-                                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                                    <div class="h-full bg-slate-400 rounded-full" style="width: <?= intval($activeReport['clerical_percent'] ?? 15); ?>%"></div>
-                                </div>
-                            </div>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Extracted Activities (OCR Summary)</p>
+                            <p class="text-xs text-slate-700 font-medium">
+                                <?= !empty($activeReport['ocr_activities']) ? htmlspecialchars($activeReport['ocr_activities']) : '<span class="text-slate-400 italic">No OCR extraction available yet.</span>' ?>
+                            </p>
                         </div>
 
                         <!-- DYNAMIC CONDITION: APPROVED READ-ONLY VS PENDING EDITABLE FORM -->
@@ -279,7 +265,7 @@
 
                                 <div>
                                     <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Supervisor Feedback</label>
-                                    <textarea name="supervisor_remarks" rows="2" placeholder="Enter comments or instructions for required revisions..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 focus:outline-none focus:border-[#0F2854] resize-none"><?= htmlspecialchars($activeReport['remarks'] ?? ''); ?></textarea>
+                                    <textarea name="supervisor_remarks" rows="3" placeholder="Enter comments or instructions for required revisions..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 focus:outline-none focus:border-[#0F2854] resize-none"><?= htmlspecialchars($activeReport['remarks'] ?? ''); ?></textarea>
                                 </div>
 
                                 <!-- Action Buttons -->
