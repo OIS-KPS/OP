@@ -94,7 +94,7 @@
                                 <thead>
                                     <tr class="bg-slate-50/60 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-100 font-semibold">
                                         <th class="py-3 px-5">Week</th>
-                                        <th class="py-3 px-5">Date Submitted</th>
+                                        <th class="py-3 px-5">Date & Time Submitted</th>
                                         <th class="py-3 px-5">Status</th>
                                         <th class="py-3 px-5 text-right">Action</th>
                                     </tr>
@@ -105,9 +105,12 @@
                                     ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors">
                                             <td class="py-3 px-5 font-semibold text-slate-900">Week <?= htmlspecialchars($report['week_number']); ?></td>
-                                            <td class="py-3 px-5 text-slate-500">
-                                                <?= !empty($report['submitted_at']) ? date("M d, Y", strtotime($report['submitted_at'])) : '—'; ?>
+                                            
+                                            <!-- Date & Time Submitted -->
+                                            <td class="py-3 px-5 text-slate-600 font-medium">
+                                                <?= !empty($report['submitted_at']) ? date("M d, Y \a\\t g:i A", strtotime($report['submitted_at'])) : '—'; ?>
                                             </td>
+
                                             <td class="py-3 px-5">
                                                 <?php if ($status === 'approved'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">● Approved</span>
