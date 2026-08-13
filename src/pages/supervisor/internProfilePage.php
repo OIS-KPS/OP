@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($student['name']); ?> - Intern Portfolio</title>
+    <title><?= htmlspecialchars($student['name'] ?? 'Intern'); ?> - Intern Portfolio</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="../public/css/style.css">
+    <!-- Global Custom Stylesheet -->
+    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
@@ -34,13 +36,17 @@
                 <!-- Intern Profile Summary Banner Card -->
                 <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-wrap justify-between items-center gap-4">
                     <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-2xl bg-[#0F2854]/10 text-[#0F2854] flex items-center justify-center font-extrabold text-lg shrink-0 border border-[#0F2854]/20">
-                            <?= !empty($student['name']) && $student['name'][0] !== '[' ? strtoupper(substr($student['name'], 0, 1)) : 'K'; ?>
+                        <div class="w-12 h-12 rounded-2xl bg-[#0F2854]/10 text-[#0F2854] flex items-center justify-center font-extrabold text-lg shrink-0 border border-[#0F2854]/20 overflow-hidden">
+                            <?php if (!empty($student['avatar_url'])): ?>
+                                <img src="<?= htmlspecialchars($student['avatar_url']); ?>" class="w-full h-full object-cover">
+                            <?php else: ?>
+                                <?= !empty($student['name']) ? strtoupper(substr($student['name'], 0, 1)) : 'I'; ?>
+                            <?php endif; ?>
                         </div>
                         <div>
-                            <h1 class="text-base font-bold text-slate-900 leading-snug"><?= htmlspecialchars($student['name']); ?></h1>
+                            <h1 class="text-base font-bold text-slate-900 leading-snug"><?= htmlspecialchars($student['name'] ?? 'Intern'); ?></h1>
                             <p class="text-slate-500 text-xs mt-0.5">
-                                ID: <span class="font-semibold text-slate-700"><?= htmlspecialchars($student['student_number']); ?></span> • 
+                                ID: <span class="font-semibold text-slate-700"><?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?></span> • 
                                 Program: <span class="font-semibold text-slate-700"><?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></span> • 
                                 Email: <span class="font-semibold text-slate-700"><?= htmlspecialchars($student['email'] ?? 'N/A'); ?></span>
                             </p>
@@ -57,8 +63,9 @@
                     <div class="p-4 px-5 border-b border-slate-100 flex justify-between items-center">
                         <div>
                             <h3 class="text-sm font-bold text-slate-900">Submitted Accomplishment Reports</h3>
-                            <p class="text-slate-400 text-[11px] mt-0.5">Weekly logs submitted by <?= htmlspecialchars($student['name']); ?></p>
+                            <p class="text-slate-400 text-[11px] mt-0.5">Weekly logs submitted by <?= htmlspecialchars($student['name'] ?? 'student'); ?></p>
                         </div>
+                        <span class="text-[11px] text-slate-400 font-medium"><?= count($reports); ?> Submissions</span>
                     </div>
 
                     <?php if (!empty($reports) && count($reports) > 0): ?>
@@ -74,7 +81,11 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-700 text-xs">
-                                    <?php foreach ($reports as $report): ?>
+                                    <?php foreach ($reports as $report): 
+                                        $status = strtolower($report['status'] ?? 'pending');
+                                        $filePath = $report['file_path'] ?? $report['attachment_path'] ?? '';
+                                        $submittedAt = $report['submitted_at'] ?? $report['created_at'] ?? null;
+                                    ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors">
                                             <!-- Week Number -->
                                             <td class="py-3 px-5 font-bold text-slate-900">
@@ -83,13 +94,13 @@
 
                                             <!-- Date Submitted -->
                                             <td class="py-3 px-5 text-slate-500">
-                                                <?= !empty($report['created_at']) ? date("M d, Y", strtotime($report['created_at'])) : '—'; ?>
+                                                <?= !empty($submittedAt) ? date("M d, Y - h:i A", strtotime($submittedAt)) : '—'; ?>
                                             </td>
 
                                             <!-- PDF Attachment Link -->
                                             <td class="py-3 px-5">
-                                                <?php if (!empty($report['attachment_path'])): ?>
-                                                    <a href="../<?= htmlspecialchars($report['attachment_path']); ?>" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg border border-slate-200 transition-all">
+                                                <?php if (!empty($filePath)): ?>
+                                                    <a href="/ICS-PORTAL/<?= htmlspecialchars($filePath); ?>" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg border border-slate-200 transition-all">
                                                         <span>📄 PDF Document</span>
                                                     </a>
                                                 <?php else: ?>
@@ -99,20 +110,24 @@
 
                                             <!-- Status Badge -->
                                             <td class="py-3 px-5">
-                                                <?php if ($report['status'] === 'Approved'): ?>
+                                                <?php if ($status === 'approved'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">● Approved</span>
-                                                <?php elseif ($report['status'] === 'Pending'): ?>
+                                                <?php elseif ($status === 'pending'): ?>
                                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-medium border border-amber-200/50">● Under Review</span>
                                                 <?php else: ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[11px] font-medium border border-rose-200/50">● Revision Needed</span>
+                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[11px] font-medium border border-rose-200/50">● Needs Revision</span>
                                                 <?php endif; ?>
                                             </td>
 
                                             <!-- Review / Details Action -->
-                                            <td class="py-3 px-5 text-right">
-                                                <a href="review_report.php?id=<?= $report['id']; ?>" class="px-3.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-semibold rounded-xl transition-all shadow-2xs inline-block">
-                                                    <?= $report['status'] === 'Pending' ? 'Evaluate / Review' : 'View Details'; ?>
-                                                </a>
+                                            <td class="py-3 px-5 text-right space-x-1.5">
+                                                <?php if (!empty($filePath)): ?>
+                                                    <a href="/ICS-PORTAL/<?= htmlspecialchars($filePath); ?>" 
+                                                       target="_blank" 
+                                                       class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-semibold rounded-xl transition-all shadow-2xs inline-block">
+                                                        Review PDF
+                                                    </a>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
