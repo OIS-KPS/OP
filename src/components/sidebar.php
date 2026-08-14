@@ -1,26 +1,24 @@
 <!-- src/components/sidebar.php -->
 <?php
-// Detect the current page filename to set active states dynamically
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 
 <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-20">
     <div>
-        <!-- Portal Brand Header -->
-        <div class="h-20 px-6 border-b border-slate-200/80 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-[#0F2854] text-white flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
-                🎓
+        <!-- Portal Brand Header (colored) -->
+        <div class="h-20 px-6 bg-[#0F2854] flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white/10 border border-white/15 text-white flex items-center justify-center font-bold text-base shrink-0">
+                N
             </div>
             <div class="min-w-0">
-                <h2 class="font-bold text-sm text-slate-900 leading-tight truncate">Student Portal</h2>
-                <p class="text-[11px] text-slate-500 font-medium truncate mt-0.5">NBSC • ICS Department</p>
+                <h2 class="font-bold text-sm text-white leading-tight truncate">Student Portal</h2>
+                <p class="text-[11px] text-blue-200/70 font-medium truncate mt-0.5">NBSC &middot; ICS Department</p>
             </div>
         </div>
 
         <!-- Navigation Links -->
         <nav class="p-4 space-y-1.5">
-            
-            <!-- Dashboard Link -->
+
             <?php $isDashboard = ($currentPage === 'dashboard.php'); ?>
             <a href="dashboard.php" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm <?= $isDashboard ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
                 <svg class="w-5 h-5 <?= $isDashboard ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -29,7 +27,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 Dashboard
             </a>
 
-            <!-- My Reports Link (Also stays active when submitting a report) -->
             <?php $isReports = ($currentPage === 'reports.php' || $currentPage === 'submit_report.php'); ?>
             <a href="reports.php" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm <?= $isReports ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
                 <svg class="w-5 h-5 <?= $isReports ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,7 +35,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 My Reports
             </a>
 
-            <!-- Profile Link -->
             <?php $isProfile = ($currentPage === 'profile.php' || $currentPage === 'edit_profile.php'); ?>
             <a href="profile.php" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm <?= $isProfile ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
                 <svg class="w-5 h-5 <?= $isProfile ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
