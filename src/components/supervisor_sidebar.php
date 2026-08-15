@@ -1,5 +1,5 @@
+<!-- src/components/supervisor_sidebar.php -->
 <?php
-// src/components/supervisor_sidebar.php
 $currentPage = basename($_SERVER['PHP_SELF']);
 
 // Dynamic Database Fetch for Pending Reports Badge
@@ -26,14 +26,14 @@ if (!isset($pendingCount)) {
 
 <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-20">
     <div>
-        <!-- Portal Brand Header -->
-        <div class="h-20 px-6 border-b border-slate-200/80 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-[#0F2854] text-white flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
-                👔
+        <!-- Portal Brand Header (colored - matches Student UI) -->
+        <div class="h-20 px-6 bg-[#0F2854] flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white/10 border border-white/15 text-white flex items-center justify-center font-bold text-base shrink-0">
+                S
             </div>
             <div class="min-w-0">
-                <h2 class="font-bold text-sm text-slate-900 leading-tight truncate">Supervisor Portal</h2>
-                <p class="text-[11px] text-slate-500 font-medium truncate mt-0.5">OJT Host Company</p>
+                <h2 class="font-bold text-sm text-white leading-tight truncate">Supervisor Portal</h2>
+                <p class="text-[11px] text-blue-200/70 font-medium truncate mt-0.5">NBSC &middot; ICS Department</p>
             </div>
         </div>
 
@@ -79,7 +79,7 @@ if (!isset($pendingCount)) {
                             <span class="truncate">Review Reports</span>
                         </div>
 
-                        <!-- Solid Dynamic Pending Counter Badge (No Fading) -->
+                        <!-- Solid Dynamic Pending Counter Badge -->
                         <?php if ($pendingCount > 0): ?>
                             <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white font-bold text-[10px] shrink-0 shadow-2xs">
                                 <?= $pendingCount; ?>
@@ -104,7 +104,6 @@ if (!isset($pendingCount)) {
 
     <!-- Bottom Logout -->
     <div class="p-4 border-t border-slate-200/80">
-        <!-- ✅ Absolute path to avoid 404 routing errors -->
         <a href="/ICS-PORTAL/auth/logout.php" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 text-sm font-semibold transition-all">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
