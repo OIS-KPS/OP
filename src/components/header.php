@@ -1,4 +1,29 @@
 <!-- src/components/header.php -->
+<?php
+// Resolve logged in user's role dynamically
+$userRole = strtolower($_SESSION['role'] ?? 'student');
+
+switch ($userRole) {
+    case 'supervisor':
+        $roleLabel = 'Industry Supervisor';
+        $statusColor = 'text-blue-700';
+        $dotColor = 'bg-blue-600';
+        break;
+    case 'coordinator':
+        $roleLabel = 'OJT Coordinator';
+        $statusColor = 'text-indigo-700';
+        $dotColor = 'bg-indigo-600';
+        break;
+    case 'student':
+    default:
+        $roleLabel = 'Intern active';
+        $statusColor = 'text-emerald-600';
+        $dotColor = 'bg-emerald-500';
+        break;
+}
+
+$displayName = $_SESSION['user_name'] ?? (!empty($student['name']) ? $student['name'] : 'User');
+?>
 <header class="bg-white/95 backdrop-blur-md h-20 px-8 flex justify-between items-center sticky top-0 z-10 border-b border-slate-200/80 transition-all select-none">
     
     <!-- Department Scope & Identity -->
@@ -27,14 +52,16 @@
                     <?php if (!empty($_SESSION['user_picture'])): ?>
                         <img src="<?= htmlspecialchars($_SESSION['user_picture']); ?>" alt="Profile" class="w-full h-full object-cover" referrerpolicy="no-referrer">
                     <?php else: ?>
-                        <?= !empty($student['name']) ? strtoupper(substr($student['name'], 0, 1)) : (!empty($_SESSION['user_name']) ? strtoupper(substr($_SESSION['user_name'], 0, 1)) : 'S'); ?>
+                        <?= strtoupper(substr($displayName, 0, 1)); ?>
                     <?php endif; ?>
                 </div>
-                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+                <!-- Dynamic Active Indicator Dot -->
+                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 <?= $dotColor; ?> rounded-full ring-2 ring-white"></span>
             </div>
             <div class="text-left hidden sm:block">
-                <p class="text-xs font-bold text-slate-900 leading-tight"><?= htmlspecialchars($_SESSION['user_name'] ?? 'Student'); ?></p>
-                <p class="text-[10px] text-emerald-600 font-semibold mt-0.5">Intern active</p>
+                <p class="text-xs font-bold text-slate-900 leading-tight"><?= htmlspecialchars($displayName); ?></p>
+                <!-- Dynamic Role Label -->
+                <p class="text-[10px] <?= $statusColor; ?> font-semibold mt-0.5"><?= htmlspecialchars($roleLabel); ?></p>
             </div>
         </div>
         
