@@ -1,10 +1,11 @@
 <?php
 // config/db.php
 
+// Must put these in .env
 $host     = 'localhost';
 $dbname   = 'nbsc_ojt'; 
 $username = 'root';      
-$password = 'paulinemaycoming31';          
+$password = '';          
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
