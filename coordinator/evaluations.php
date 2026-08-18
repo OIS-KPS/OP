@@ -4,15 +4,14 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 
-// 1. Authorization Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
     header("Location: ../auth/login.php");
     exit();
 }
 
-$pageTitle = "Final Student Evaluations";
+$pageTitle = "Final Evaluations";
 
-// 2. Active Filter Inputs
+// Filter Inputs
 $selectedCompany = $_GET['company_id'] ?? 'all';
 $selectedStatus  = $_GET['status'] ?? 'all';
 $searchQuery     = trim($_GET['search'] ?? '');
@@ -26,11 +25,11 @@ $completedCount = 0;
 $pendingCount   = 0;
 
 try {
-    // 3. Fetch Host Companies for the Filter Dropdown
+    // 1. Fetch Companies for Dropdown
     $stmtCompanies = $pdo->query("SELECT id, name FROM companies ORDER BY name ASC");
     $companiesList = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 4. Fetch All BSIT Interns with Evaluation Status (LEFT JOIN evaluations)
+    // 2. Fetch Students and Evaluations
     $sql = "
         SELECT 
             s.id AS student_id,
@@ -41,7 +40,6 @@ try {
             c.id AS company_id,
             c.name AS company_name,
             u_sup.name AS supervisor_name,
-            u_sup.email AS supervisor_email,
             e.id AS eval_id,
             e.technical_score,
             e.work_ethics_score,
@@ -68,20 +66,17 @@ try {
 
     $params = [];
 
-    // Filter by Company
     if ($selectedCompany !== 'all' && is_numeric($selectedCompany)) {
         $sql .= " AND c.id = :comp_id ";
         $params['comp_id'] = intval($selectedCompany);
     }
 
-    // Filter by Status
     if ($selectedStatus === 'Completed') {
         $sql .= " AND e.id IS NOT NULL AND e.otp_verified = 1 ";
     } elseif ($selectedStatus === 'Pending') {
         $sql .= " AND (e.id IS NULL OR e.otp_verified = 0) ";
     }
 
-    // Search Query (Student Name or Student Number)
     if (!empty($searchQuery)) {
         $sql .= " AND (u.name LIKE :search OR s.student_number LIKE :search) ";
         $params['search'] = "%{$searchQuery}%";
@@ -93,7 +88,7 @@ try {
     $stmt->execute($params);
     $filteredEvals = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 5. Compute Cohort Summary Metrics
+    // 3. Simple Summary Counts
     $stmtTotals = $pdo->query("
         SELECT 
             COUNT(s.id) AS total_interns,
@@ -108,7 +103,7 @@ try {
     $completedCount = intval($stats['completed_evals'] ?? 0);
     $pendingCount   = intval($stats['pending_evals'] ?? 0);
 
-    // 6. Fetch Active Evaluation for Inspection Modal
+    // 4. Modal Record Detail Loader
     if ($viewEvalId) {
         foreach ($filteredEvals as $ev) {
             if (intval($ev['eval_id'] ?? 0) === $viewEvalId || intval($ev['student_id']) === $viewEvalId) {
@@ -119,7 +114,7 @@ try {
     }
 
 } catch (PDOException $e) {
-    error_log("Database Error in coordinator/evaluations.php: " . $e->getMessage());
+    error_log("Evaluations Error: " . $e->getMessage());
     $filteredEvals = [];
 }
 
