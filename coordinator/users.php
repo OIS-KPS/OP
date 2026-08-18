@@ -2,179 +2,272 @@
 // coordinator/users.php
 session_start();
 
-// 1. Load Composer dependencies (PHPMailer & Dotenv)
-require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../src/services/MailerService.php';
 
 use services\MailerService;
 
-// 2. Load .env variables into $_ENV
-if (class_exists('Dotenv\Dotenv') && file_exists(__DIR__ . '/../.env')) {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-    $dotenv->safeLoad();
+// 1. Authorization Guard
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
+    header("Location: ../auth/login.php");
+    exit();
 }
 
-// Active Tab: 'students', 'supervisors', or 'companies'
-$tab = $_GET['tab'] ?? 'students';
+$tab     = $_GET['tab'] ?? 'students';
+$success = $_SESSION['flash_success'] ?? null;
+$error   = $_SESSION['flash_error'] ?? null;
+unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// Message handling
-$success = $_SESSION['success_msg'] ?? '';
-$error   = $_SESSION['error_msg'] ?? '';
-unset($_SESSION['success_msg'], $_SESSION['error_msg']);
+// Initialize Mailer Service
+$mailer = new MailerService();
 
-// Handle Account Creation & Import POST Requests
+// 2. Handle POST Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    // A. Handle Single Student Account Creation
-    if ($action === 'create_student' || $action === 'create_single_user') {
-        $mailer = new MailerService();
+    // Action A: Create Student Account & Send Invite
+    if ($action === 'create_student') {
+        $name          = trim($_POST['name'] ?? '');
+        $studentNumber = trim($_POST['student_number'] ?? '');
+        $email         = strtolower(trim($_POST['email'] ?? ''));
+        $program       = trim($_POST['program'] ?? 'BSIT');
 
-        $name           = trim($_POST['name'] ?? '');
-        $student_number = trim($_POST['student_number'] ?? '');
-        $email          = trim($_POST['email'] ?? '');
-        $program        = 'BSIT';
-
-        if (!empty($name) && !empty($student_number) && !empty($email)) {
+        if (!empty($name) && !empty($studentNumber) && !empty($email)) {
             try {
-                $stmt = $pdo->prepare("INSERT INTO students (name, student_number, email, program, created_at) VALUES (?, ?, ?, ?, NOW())");
-                $stmt->execute([$name, $student_number, $email, $program]);
+                $pdo->beginTransaction();
 
-                // Send Welcome/Invitation Email
+                // Check if user already exists
+                $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                $chk->execute([$email]);
+                $user = $chk->fetch(PDO::FETCH_ASSOC);
+
+                if ($user) {
+                    $userId = $user['id'];
+                } else {
+                    $stmtUser = $pdo->prepare("INSERT INTO users (name, email, role, created_at) VALUES (?, ?, 'student', NOW())");
+                    $stmtUser->execute([$name, $email]);
+                    $userId = $pdo->lastInsertId();
+                }
+
+                // Insert or update student profile
+                $stmtStudent = $pdo->prepare("
+                    INSERT INTO students (user_id, student_number, program) 
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE student_number = VALUES(student_number), program = VALUES(program)
+                ");
+                $stmtStudent->execute([$userId, $studentNumber, $program]);
+
+                $pdo->commit();
+
+                // 📧 Dispatch Welcome Email
                 $mailSent = $mailer->sendWelcomeEmail($email, $name, 'student');
-                
-                if ($mailSent) {
-                    $_SESSION['success_msg'] = "Student account for {$name} created & invitation email sent!";
-                } else {
-                    $_SESSION['success_msg'] = "Student account created, but invitation email could not be sent (check SMTP settings).";
-                }
-            } catch (PDOException $e) {
-                if ($e->getCode() == 23000) {
-                    $_SESSION['error_msg'] = "Student ID or Email already exists in the system.";
-                } else {
-                    $_SESSION['error_msg'] = "Database error: " . $e->getMessage();
-                }
+
+                $_SESSION['flash_success'] = "Student {$name} added successfully!" . ($mailSent ? " Invitation email dispatched." : " (Email notification could not be sent).");
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $_SESSION['flash_error'] = "Failed to add student: " . $e->getMessage();
             }
         } else {
-            $_SESSION['error_msg'] = "Please fill in all required student fields.";
+            $_SESSION['flash_error'] = "All student fields are required.";
         }
         header("Location: users.php?tab=students");
         exit();
+    }
 
-    // B. Handle Single Supervisor Account Creation
-    } elseif ($action === 'create_supervisor') {
-        $mailer     = new MailerService();
-        $name       = trim($_POST['name'] ?? '');
-        $email      = trim($_POST['supervisor_email'] ?? $_POST['email'] ?? '');
-        $company_id = !empty($_POST['company_id']) ? intval($_POST['company_id']) : null;
+    // Action B: Create Supervisor Account & Send Invite
+    if ($action === 'create_supervisor') {
+        $name      = trim($_POST['name'] ?? '');
+        $email     = strtolower(trim($_POST['email'] ?? ''));
+        $companyId = !empty($_POST['company_id']) ? intval($_POST['company_id']) : null;
 
         if (!empty($name) && !empty($email)) {
             try {
-                $stmt = $pdo->prepare("INSERT INTO supervisors (name, email, company_id, created_at) VALUES (?, ?, ?, NOW())");
-                $stmt->execute([$name, $email, $company_id]);
+                $pdo->beginTransaction();
 
-                // Send Welcome/Invitation Email
+                $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                $chk->execute([$email]);
+                $user = $chk->fetch(PDO::FETCH_ASSOC);
+
+                if ($user) {
+                    $userId = $user['id'];
+                } else {
+                    $stmtUser = $pdo->prepare("INSERT INTO users (name, email, role, created_at) VALUES (?, ?, 'supervisor', NOW())");
+                    $stmtUser->execute([$name, $email]);
+                    $userId = $pdo->lastInsertId();
+                }
+
+                $stmtSup = $pdo->prepare("
+                    INSERT INTO supervisors (user_id, company_id) 
+                    VALUES (?, ?)
+                    ON DUPLICATE KEY UPDATE company_id = VALUES(company_id)
+                ");
+                $stmtSup->execute([$userId, $companyId]);
+
+                $pdo->commit();
+
+                // 📧 Dispatch Welcome Email
                 $mailSent = $mailer->sendWelcomeEmail($email, $name, 'supervisor');
 
-                if ($mailSent) {
-                    $_SESSION['success_msg'] = "Supervisor account for {$name} created & invitation email sent!";
-                } else {
-                    $_SESSION['success_msg'] = "Supervisor account created, but invitation email could not be sent (check SMTP settings).";
-                }
-            } catch (PDOException $e) {
-                if ($e->getCode() == 23000) {
-                    $_SESSION['error_msg'] = "Supervisor Email address already exists.";
-                } else {
-                    $_SESSION['error_msg'] = "Database error: " . $e->getMessage();
-                }
+                $_SESSION['flash_success'] = "Supervisor {$name} added successfully!" . ($mailSent ? " Invitation email dispatched." : " (Email notification could not be sent).");
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $_SESSION['flash_error'] = "Failed to add supervisor: " . $e->getMessage();
             }
         } else {
-            $_SESSION['error_msg'] = "Please fill in all required supervisor fields.";
+            $_SESSION['flash_error'] = "Name and email are required.";
         }
         header("Location: users.php?tab=supervisors");
         exit();
+    }
 
-    // C. Handle Bulk Excel (.xlsx / .csv) Student Import
-    } elseif ($action === 'bulk_import_students') {
-        $mailer = new MailerService();
+    // Action C: Create Partner Company
+    if ($action === 'create_company') {
+        $name       = trim($_POST['name'] ?? '');
+        $department = trim($_POST['department'] ?? 'Main Office');
 
-        if (isset($_FILES['excel_file']) && $_FILES['excel_file']['error'] === UPLOAD_ERR_OK) {
-            $filePath = $_FILES['excel_file']['tmp_name'];
-            
+        if (!empty($name)) {
             try {
-                // Load Spreadsheet
-                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
-                $sheetData   = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
-
-                $successCount   = 0;
-                $emailSentCount = 0;
-                $failCount      = 0;
-
-                // Prepare PDO Statement
-                $stmt = $pdo->prepare("INSERT INTO students (name, student_number, email, program, created_at) VALUES (?, ?, ?, ?, NOW())");
-
-                // Loop through rows (Skip Row 1 header)
-                $isHeader = true;
-                foreach ($sheetData as $row) {
-                    if ($isHeader) {
-                        $isHeader = false;
-                        continue;
-                    }
-
-                    $name           = trim($row['A'] ?? '');
-                    $student_number = trim($row['B'] ?? '');
-                    $email          = trim($row['C'] ?? '');
-                    $program        = !empty($row['D']) ? trim($row['D']) : 'BSIT';
-
-                    if (!empty($name) && !empty($student_number) && !empty($email)) {
-                        try {
-                            $stmt->execute([$name, $student_number, $email, $program]);
-                            $successCount++;
-
-                            // Send welcome invitation email with a 0.2s micro-delay
-                            $mailSent = $mailer->sendWelcomeEmail($email, $name, 'student');
-                            if ($mailSent) {
-                                $emailSentCount++;
-                            }
-                            
-                            usleep(200000); // 0.2 seconds pause between emails
-                        } catch (PDOException $e) {
-                            $failCount++; // Skip duplicate ID or Email
-                        }
-                    }
-                }
-
-                $_SESSION['success_msg'] = "Bulk import completed! {$successCount} students added ({$emailSentCount} emails sent successfully). " . ($failCount > 0 ? "({$failCount} skipped due to duplicates)." : "");
-
+                $stmtComp = $pdo->prepare("INSERT INTO companies (name, department) VALUES (?, ?)");
+                $stmtComp->execute([$name, $department]);
+                $_SESSION['flash_success'] = "Partner company '{$name}' created successfully!";
             } catch (Exception $e) {
-                $_SESSION['error_msg'] = "Error parsing Excel file: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Failed to create company: " . $e->getMessage();
             }
         } else {
-            $_SESSION['error_msg'] = "Please select a valid Excel (.xlsx / .xls / .csv) file to upload.";
+            $_SESSION['flash_error'] = "Company name is required.";
         }
+        header("Location: users.php?tab=companies");
+        exit();
+    }
 
+    // Action D: Bulk Import Students & Send Invites
+    if ($action === 'bulk_import_students' && isset($_FILES['excel_file'])) {
+        $file = $_FILES['excel_file'];
+        if ($file['error'] === UPLOAD_ERR_OK) {
+            $handle = fopen($file['tmp_name'], "r");
+            $importedCount = 0;
+            
+            if ($handle !== FALSE) {
+                $pdo->beginTransaction();
+                try {
+                    $rowNumber = 0;
+                    $studentsToNotify = [];
+
+                    while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                        $rowNumber++;
+                        if ($rowNumber === 1 && (stripos($data[0], 'name') !== false || stripos($data[1], 'id') !== false)) {
+                            continue;
+                        }
+
+                        $stdName   = trim($data[0] ?? '');
+                        $stdNumber = trim($data[1] ?? '');
+                        $stdEmail  = strtolower(trim($data[2] ?? ''));
+                        $stdProg   = trim($data[3] ?? 'BSIT');
+
+                        if (!empty($stdName) && !empty($stdNumber) && !empty($stdEmail)) {
+                            $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                            $chk->execute([$stdEmail]);
+                            $u = $chk->fetch(PDO::FETCH_ASSOC);
+
+                            if ($u) {
+                                $uid = $u['id'];
+                            } else {
+                                $insU = $pdo->prepare("INSERT INTO users (name, email, role, created_at) VALUES (?, ?, 'student', NOW())");
+                                $insU->execute([$stdName, $stdEmail]);
+                                $uid = $pdo->lastInsertId();
+                            }
+
+                            $insS = $pdo->prepare("
+                                INSERT INTO students (user_id, student_number, program)
+                                VALUES (?, ?, ?)
+                                ON DUPLICATE KEY UPDATE student_number = VALUES(student_number), program = VALUES(program)
+                            ");
+                            $insS->execute([$uid, $stdNumber, $stdProg ?: 'BSIT']);
+                            $importedCount++;
+
+                            $studentsToNotify[] = ['email' => $stdEmail, 'name' => $stdName];
+                        }
+                    }
+                    fclose($handle);
+                    $pdo->commit();
+
+                    // Dispatch batch emails
+                    foreach ($studentsToNotify as $recipient) {
+                        $mailer->sendWelcomeEmail($recipient['email'], $recipient['name'], 'student');
+                    }
+
+                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} student records and sent invitations!";
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . $e->getMessage();
+                }
+            }
+        } else {
+            $_SESSION['flash_error'] = "File upload error. Please select a valid CSV file.";
+        }
         header("Location: users.php?tab=students");
         exit();
     }
 }
 
-// Fetch Real Records from Database
+// 3. Fetch Dynamic Data for View
+$students    = [];
+$supervisors = [];
+$companies   = [];
+
 try {
-    $stmtStudents = $pdo->query("SELECT s.*, c.name AS company_name, sup.name AS supervisor_name FROM students s LEFT JOIN companies c ON s.company_id = c.id LEFT JOIN supervisors sup ON s.supervisor_id = sup.id ORDER BY s.id DESC");
-    $students = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
+    $stmtStd = $pdo->query("
+        SELECT 
+            s.id AS student_id,
+            s.student_number,
+            s.program,
+            u.name,
+            u.email,
+            u.avatar_url,
+            u_sup.name AS supervisor_name,
+            c.name AS company_name
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+        LEFT JOIN users u_sup ON sup.user_id = u_sup.id
+        LEFT JOIN companies c ON sup.company_id = c.id
+        ORDER BY u.name ASC
+    ");
+    $students = $stmtStd->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    $stmtSup = $pdo->query("SELECT sup.*, c.name AS company_name, COUNT(s.id) AS assigned_interns FROM supervisors sup LEFT JOIN companies c ON sup.company_id = c.id LEFT JOIN students s ON s.supervisor_id = sup.id GROUP BY sup.id ORDER BY sup.id DESC");
-    $supervisors = $stmtSup->fetchAll(PDO::FETCH_ASSOC);
+    $stmtSup = $pdo->query("
+        SELECT 
+            sup.id,
+            u.name,
+            u.email,
+            u.avatar_url,
+            c.name AS company_name,
+            COUNT(s.id) AS assigned_interns
+        FROM supervisors sup
+        JOIN users u ON sup.user_id = u.id
+        LEFT JOIN companies c ON sup.company_id = c.id
+        LEFT JOIN students s ON sup.id = s.supervisor_id
+        GROUP BY sup.id, u.name, u.email, u.avatar_url, c.name
+        ORDER BY u.name ASC
+    ");
+    $supervisors = $stmtSup->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    $stmtComp = $pdo->query("SELECT c.*, COUNT(s.id) AS total_interns FROM companies c LEFT JOIN students s ON s.company_id = c.id GROUP BY c.id ORDER BY c.id DESC");
-    $companies = $stmtComp->fetchAll(PDO::FETCH_ASSOC);
+    $stmtComp = $pdo->query("
+        SELECT 
+            c.id,
+            c.name,
+            c.department,
+            COUNT(s.id) AS total_interns
+        FROM companies c
+        LEFT JOIN supervisors sup ON c.id = sup.company_id
+        LEFT JOIN students s ON sup.id = s.supervisor_id
+        GROUP BY c.id, c.name, c.department
+        ORDER BY c.name ASC
+    ");
+    $companies = $stmtComp->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-} catch (PDOException $e) {
-    $_SESSION['error_msg'] = "Failed to fetch records: " . $e->getMessage();
-    $students = [];
-    $supervisors = [];
-    $companies = [];
+} catch (Exception $e) {
+    error_log("Database Error in coordinator/users.php: " . $e->getMessage());
 }
 
 require_once __DIR__ . '/../src/pages/coordinator/usersPage.php';
