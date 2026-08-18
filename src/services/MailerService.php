@@ -82,4 +82,54 @@ class MailerService
             return false;
         }
     }
+
+    /**
+     * Send Password Reset / Change Email with One-Time Link
+     */
+    public function sendPasswordResetEmail($recipientEmail, $recipientName, $resetLink, $expiresMinutes = 15) 
+    {
+        try {
+            $this->mailer->clearAddresses();
+            $this->mailer->addAddress($recipientEmail, $recipientName);
+
+            $this->mailer->Subject = "Password Change Request — NBSC OJT Portal";
+
+            $this->mailer->Body = "
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1e293b;'>
+                    
+                    <!-- Header Bar -->
+                    <div style='background-color: #0F2854; padding: 20px 24px;'>
+                        <h2 style='color: #ffffff; margin: 0; font-size: 16px; letter-spacing: 0.5px;'>🔒 Password Change Request</h2>
+                    </div>
+                    
+                    <div style='padding: 24px;'>
+                        <p style='margin-top: 0;'>Hello <strong>" . htmlspecialchars($recipientName) . "</strong>,</p>
+                        <p>We received a request to change the password for your NBSC OJT Portal account. Click the button below to set a new password:</p>
+                        
+                        <!-- CTA Button -->
+                        <div style='text-align: center; margin: 28px 0;'>
+                            <a href='" . htmlspecialchars($resetLink) . "' style='background-color: #0F2854; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 14px;'>Change My Password</a>
+                        </div>
+
+                        <!-- Security Info Box -->
+                        <div style='background-color: #FFFBEB; border: 1px solid #FDE68A; padding: 14px 16px; border-radius: 8px; margin: 20px 0;'>
+                            <p style='margin: 0 0 6px; font-size: 13px; font-weight: bold; color: #92400E;'>⏱ This link expires in {$expiresMinutes} minutes</p>
+                            <p style='margin: 0; font-size: 12px; color: #92400E;'>If you did not request this change, you can safely ignore this email. Your password will remain unchanged.</p>
+                        </div>
+
+                        <p style='font-size: 12px; color: #64748b; margin-bottom: 0;'>If the button doesn't work, copy and paste this link into your browser:</p>
+                        <p style='font-size: 11px; color: #94a3b8; word-break: break-all;'>" . htmlspecialchars($resetLink) . "</p>
+                    </div>
+
+                    <hr style='border: none; border-top: 1px solid #e2e8f0; margin: 0;'>
+                    <p style='font-size: 11px; color: #94a3b8; text-align: center; padding: 16px 24px; margin: 0;'>Northern Bukidnon State College — Institute for Computer Studies</p>
+                </div>
+            ";
+
+            return $this->mailer->send();
+        } catch (Exception $e) {
+            error_log("Mailer Error (Password Reset): " . $this->mailer->ErrorInfo);
+            return false;
+        }
+    }
 }
