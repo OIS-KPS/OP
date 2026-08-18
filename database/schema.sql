@@ -86,6 +86,17 @@ CREATE TABLE IF NOT EXISTS `evaluations` (
   CONSTRAINT `fk_eval_supervisor` FOREIGN KEY (`supervisor_id`) REFERENCES `supervisors` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+CREATE TABLE IF NOT EXISTS `report_entities` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `report_id` INT NOT NULL,
+  `entity_name` VARCHAR(255) NOT NULL,
+  `category` VARCHAR(100) NOT NULL DEFAULT 'Software Dev',
+  `classification` ENUM('Technical', 'Clerical') NOT NULL DEFAULT 'Technical',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_entity_report` FOREIGN KEY (`report_id`) REFERENCES `reports` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- =============================================================
 -- 6. SEED DATA (Initial Default Records & Test Accounts)
 -- =============================================================
