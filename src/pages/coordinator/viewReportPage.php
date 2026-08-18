@@ -4,181 +4,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WAR Inspection - OJT Coordinator Portal</title>
+    <title>Report Inspection - Week <?= htmlspecialchars($report['week_number']); ?> - OJT Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased">
+<body class="bg-slate-50 text-slate-800 antialiased font-sans">
 
     <div class="flex min-h-screen">
         
-        <!-- Coordinator Sidebar Component -->
+        <!-- Sidebar Component -->
         <?php include __DIR__ . '/../../components/coordinator_sidebar.php'; ?>
 
-        <!-- Right Main Content -->
+        <!-- Right Side Main View -->
         <div class="flex-1 flex flex-col min-w-0">
 
-            <!-- Shared Top Header -->
+            <!-- Top Header Component -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
             <!-- Main Content Area -->
-            <main class="p-6 max-w-7xl w-full mx-auto space-y-5 flex-1 relative">
+            <main class="p-6 max-w-7xl w-full mx-auto space-y-6 flex-1 relative">
 
-                <!-- Navigation Header Bar -->
-                <div class="bg-white rounded-2xl p-4 px-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+                <!-- Navigation & Action Header -->
+                <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
-                        <a href="approved_reports.php" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs transition-all">
-                            ←
+                        <a href="approved_reports.php" class="p-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-600 transition-all text-xs font-bold shadow-2xs">
+                            ← Back to Approved WARs
                         </a>
                         <div>
-                            <h1 class="text-sm font-bold text-slate-900 leading-snug">
-                                Week <?= $report['week_number']; ?> Report — <span class="text-[#0F2854]"><?= htmlspecialchars($report['student_name']); ?></span>
+                            <h1 class="text-base font-bold text-slate-900 leading-snug">
+                                Week <?= htmlspecialchars($report['week_number']); ?> Weekly Activity Report
                             </h1>
-                            <p class="text-[11px] text-slate-400">Supervisor-verified submission and extracted activity tasks.</p>
+                            <p class="text-slate-500 text-xs">
+                                Submitted by <span class="font-semibold text-slate-700"><?= htmlspecialchars($report['student_name']); ?></span> (ID: <?= htmlspecialchars($report['student_number']); ?>)
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Action Buttons: Status Badge + Download Summary Button -->
                     <div class="flex items-center gap-2">
-                        <span class="px-3 py-1.5 bg-emerald-50 text-emerald-700 font-bold rounded-full border border-emerald-200 text-[11px] flex items-center gap-1">
-                            <span>✓</span> Supervisor Approved
+                        <span class="px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs <?= strtolower($report['status']) === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'; ?>">
+                            Status: <?= ucfirst(htmlspecialchars($report['status'])); ?>
                         </span>
-
-                        <!-- 📥 DOWNLOAD STUDENT SUMMARY BUTTON -->
-                        <button onclick="alert('Downloading full WAR summary report for <?= htmlspecialchars($report['student_name']); ?>...')" class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-[11px] transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer">
-                            <span>📥</span> Download Student Summary
-                        </button>
+                        
+                        <?php if (!empty($report['file_path'])): ?>
+                            <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim($report['file_path'], '/')); ?>" target="_blank" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs flex items-center gap-1.5">
+                                <span>📥</span> Open Original PDF
+                            </a>
+                        <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- 2-Column Clean Workspace -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Profile & Placement Info Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                     
-                    <!-- LEFT COLUMN (6 Cols): Embedded PDF Viewer & WAR History -->
-                    <div class="lg:col-span-6 space-y-5">
-                        
-                        <!-- DIRECT EMBEDDED PDF VIEWER (No Open Button!) -->
-                        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <h3 class="text-xs font-bold text-slate-900">Submitted Report (PDF Document)</h3>
-                                <span class="text-[10px] font-bold text-slate-400"><?= htmlspecialchars($report['pdf_file']); ?></span>
-                            </div>
-
-                            <!-- Embedded PDF Frame -->
-                            <div class="w-full h-[520px] bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
-                                <iframe src="/ICS-PORTAL/public/uploads/reports/<?= htmlspecialchars($report['pdf_file']); ?>#toolbar=0" class="w-full h-full border-0">
-                                    <div class="p-6 text-center text-xs text-slate-500">
-                                        Your browser does not support embedded PDFs. 
-                                        <a href="/ICS-PORTAL/public/uploads/reports/<?= htmlspecialchars($report['pdf_file']); ?>" target="_blank" class="text-blue-600 underline font-bold">Click here to view file</a>
-                                    </div>
-                                </iframe>
-                            </div>
+                    <!-- Card 1: Student Details -->
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-2">
+                        <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                            <span>👤</span> Student Trainee
                         </div>
-
+                        <div>
+                            <p class="text-sm font-bold text-slate-900"><?= htmlspecialchars($report['student_name']); ?></p>
+                            <p class="text-slate-500"><?= htmlspecialchars($report['student_email']); ?></p>
+                            <p class="text-[11px] text-slate-400 mt-1">Course: <?= htmlspecialchars($report['program'] ?? 'BSIT'); ?></p>
+                        </div>
                     </div>
 
-                    <!-- RIGHT COLUMN (6 Cols): Info, Task Ratio, Extracted Tags & WAR History -->
-                    <div class="lg:col-span-6 space-y-5">
-                        
-                        <!-- 1. Student & Placement Info -->
-                        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
-                            <h3 class="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2">Student & Placement Info</h3>
-                            
-                            <div class="grid grid-cols-2 gap-3 text-xs">
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <p class="text-[10px] font-bold uppercase text-slate-400">Student Intern</p>
-                                    <p class="font-bold text-slate-900 mt-0.5"><?= htmlspecialchars($report['student_name']); ?></p>
-                                    <p class="text-[11px] text-slate-500">ID: <?= htmlspecialchars($report['student_number']); ?> (<?= htmlspecialchars($report['program']); ?>)</p>
+                    <!-- Card 2: Company / Host Office -->
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-2">
+                        <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                            <span>🏢</span> Partner Agency
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-900"><?= htmlspecialchars($report['company_name'] ?? 'Unassigned Host'); ?></p>
+                            <p class="text-slate-500"><?= htmlspecialchars($report['company_dept'] ?? 'Main Office'); ?></p>
+                            <p class="text-[11px] text-slate-400 mt-1">Host Training Establishment</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Industry Supervisor -->
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-2">
+                        <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                            <span>👔</span> Supervisor Evaluator
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-900"><?= htmlspecialchars($report['supervisor_name'] ?? 'Unassigned Supervisor'); ?></p>
+                            <p class="text-slate-500"><?= htmlspecialchars($report['supervisor_email'] ?? 'No email on record'); ?></p>
+                            <p class="text-[11px] text-emerald-600 font-semibold mt-1">● Verified Industry Supervisor</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Main Grid: Report Viewer & Accomplishment Details -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- Left: PDF Embedded Viewer (2 Columns) -->
+                    <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col h-[700px]">
+                        <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <h2 class="font-bold text-xs text-slate-800 flex items-center gap-2">
+                                <span>📄</span> Submitted WAR Document
+                            </h2>
+                            <span class="text-[11px] text-slate-400">
+                                Submitted: <?= !empty($report['submitted_at']) ? date('M d, Y h:i A', strtotime($report['submitted_at'])) : 'N/A'; ?>
+                            </span>
+                        </div>
+
+                        <div class="flex-1 bg-slate-100 relative">
+                            <?php if (!empty($report['file_path'])): ?>
+                                <iframe 
+                                    src="/ICS-PORTAL/<?= htmlspecialchars(ltrim($report['file_path'], '/')); ?>#toolbar=0" 
+                                    class="w-full h-full border-none"
+                                    title="Student Weekly Report PDF">
+                                </iframe>
+                            <?php else: ?>
+                                <div class="flex flex-col items-center justify-center h-full text-slate-400 text-xs p-6 text-center">
+                                    <span class="text-3xl mb-2">📁</span>
+                                    <p class="font-bold text-slate-600">No Document Attached</p>
+                                    <p class="text-[11px]">No PDF file path is recorded for this submission entry.</p>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <p class="text-[10px] font-bold uppercase text-slate-400">Host Agency</p>
-                                    <p class="font-bold text-slate-900 mt-0.5"><?= htmlspecialchars($report['company_name']); ?></p>
-                                    <p class="text-[11px] text-slate-500"><?= htmlspecialchars($report['department']); ?></p>
-                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Right: Extracted Activities & Multi-Week History (1 Column) -->
+                    <div class="space-y-5 flex flex-col">
+
+                        <!-- Extracted Accomplishment Text Card -->
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <h2 class="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                                    <span>📝</span> Logged Accomplishments
+                                </h2>
+                                <span class="text-[10px] font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                                    Week <?= htmlspecialchars($report['week_number']); ?>
+                                </span>
                             </div>
 
-                            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex justify-between items-center text-slate-600 font-medium">
-                                <span>Verified Supervisor: <strong class="text-slate-900"><?= htmlspecialchars($report['supervisor_name']); ?></strong></span>
-                                <span>Date: <strong class="text-slate-900"><?= date("M d, Y", strtotime($report['approved_at'])); ?></strong></span>
+                            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/60 text-xs text-slate-700 leading-relaxed max-h-60 overflow-y-auto">
+                                <?php if (!empty($report['ocr_activities'])): ?>
+                                    <p class="whitespace-pre-line"><?= htmlspecialchars($report['ocr_activities']); ?></p>
+                                <?php else: ?>
+                                    <p class="text-slate-400 italic">No text excerpt extracted for this report.</p>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="text-[11px] text-slate-400 flex items-center justify-between pt-1">
+                                <span>OCR Text Extraction</span>
+                                <span>SpaCy AI: <em class="text-slate-500 font-semibold">Pending Integration</em></span>
                             </div>
                         </div>
 
-                        <!-- 2. Task Ratio (IT vs Clerical) -->
-                        <?php 
-                            $clericalPct = $report['clerical_ratio'];
-                            $itPct = 100 - $clericalPct;
-                        ?>
-                        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-2.5">
-                            <h3 class="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2">Task Ratio (IT vs Clerical)</h3>
-                            
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between items-center text-xs font-bold">
-                                    <span class="text-[#0F2854]">💻 IT Work: <?= $itPct; ?>%</span>
-                                    <span class="<?= $clericalPct >= 50 ? 'text-rose-600 font-extrabold' : 'text-slate-500'; ?>">
-                                        📁 Clerical Work: <?= $clericalPct; ?>%
-                                    </span>
-                                </div>
-                                <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex border border-slate-200">
-                                    <div style="width: <?= $itPct; ?>%" class="bg-[#0F2854] h-full"></div>
-                                    <div style="width: <?= $clericalPct; ?>%" class="bg-rose-500 h-full"></div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Submission History Timeline for this Trainee -->
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 flex-1">
+                            <h2 class="font-bold text-xs text-slate-800 border-b border-slate-100 pb-3 flex items-center gap-1.5">
+                                <span>⏱️</span> Intern Submission Timeline
+                            </h2>
 
-                        <!-- 3. Extracted Activity Tags -->
-                        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
-                            <h3 class="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2">Extracted Activity Tags</h3>
-                            
-                            <div class="space-y-3 text-xs">
-                                <div>
-                                    <p class="font-bold text-blue-700 text-[11px] mb-1.5">Core IT Competencies:</p>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        <?php if (empty($report['entities']['technical'])): ?>
-                                            <span class="text-slate-400 italic">None detected</span>
-                                        <?php else: ?>
-                                            <?php foreach ($report['entities']['technical'] as $t): ?>
-                                                <span class="px-2.5 py-1 bg-blue-50 text-[#0F2854] border border-blue-100 rounded-lg font-semibold text-[11px]">
-                                                    💻 <?= htmlspecialchars($t); ?>
+                            <div class="space-y-2.5 overflow-y-auto max-h-[300px] pr-1 text-xs">
+                                <?php if (empty($studentHistory)): ?>
+                                    <p class="text-slate-400 italic text-center py-4">No other reports on file.</p>
+                                <?php else: ?>
+                                    <?php foreach ($studentHistory as $hist): 
+                                        $isCurrent = intval($hist['id']) === intval($report['id']);
+                                    ?>
+                                        <a href="view_report.php?id=<?= $hist['id']; ?>" class="block p-3 rounded-xl border transition-all <?= $isCurrent ? 'bg-[#0F2854]/5 border-[#0F2854]/30 shadow-2xs' : 'bg-white hover:bg-slate-50 border-slate-200/70'; ?>">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <span class="font-bold text-slate-900 <?= $isCurrent ? 'text-[#0F2854]' : ''; ?>">
+                                                    Week <?= htmlspecialchars($hist['week_number']); ?>
+                                                    <?= $isCurrent ? '<span class="text-[10px] bg-[#0F2854] text-white px-1.5 py-0.2 rounded-md ml-1 font-normal">Active</span>' : ''; ?>
                                                 </span>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <p class="font-bold text-slate-500 text-[11px] mb-1.5">Clerical Activities:</p>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        <?php if (empty($report['entities']['clerical'])): ?>
-                                            <span class="text-slate-400 italic">None detected</span>
-                                        <?php else: ?>
-                                            <?php foreach ($report['entities']['clerical'] as $c): ?>
-                                                <span class="px-2.5 py-1 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg font-semibold text-[11px]">
-                                                    📁 <?= htmlspecialchars($c); ?>
+                                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full <?= strtolower($hist['status']) === 'approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'; ?>">
+                                                    <?= ucfirst(htmlspecialchars($hist['status'])); ?>
                                                 </span>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 4. Clean WAR Submission History (No 40hrs badges!) -->
-                        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
-                            <div class="border-b border-slate-100 pb-2 flex items-center justify-between">
-                                <h3 class="text-xs font-bold text-slate-900">Intern WAR Submission History</h3>
-                                <span class="text-[10px] text-slate-400 font-medium">Click week to switch view</span>
-                            </div>
-
-                            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                <?php foreach ($report['history'] as $hist): ?>
-                                    <a href="view_report.php?id=<?= $report['id']; ?>&week=<?= $hist['week']; ?>" class="p-2.5 rounded-xl border <?= $hist['week'] == $report['week_number'] ? 'bg-blue-50/80 border-blue-200 font-bold' : 'bg-slate-50/60 border-slate-200/60 hover:bg-slate-100'; ?> transition-all flex items-center justify-between text-xs block">
-                                        <div class="flex items-center gap-2">
-                                            <span class="w-2 h-2 rounded-full <?= $hist['week'] == $report['week_number'] ? 'bg-[#0F2854]' : 'bg-slate-300'; ?>"></span>
-                                            <p class="text-slate-900">Week <?= $hist['week']; ?> Report</p>
-                                        </div>
-                                        <span class="text-[10px] font-bold text-emerald-600">✓ Approved</span>
-                                    </a>
-                                <?php endforeach; ?>
+                                            </div>
+                                            <p class="text-[11px] text-slate-400 truncate">
+                                                <?= !empty($hist['ocr_activities']) ? htmlspecialchars($hist['ocr_activities']) : 'Accomplishment report on file'; ?>
+                                            </p>
+                                        </a>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </div>
                         </div>
 
