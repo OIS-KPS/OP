@@ -4,104 +4,82 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 
+// 1. Authorization Guard
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
 $pageTitle = "Approved WARs";
 
-// Active Filters
+// 2. Filter Inputs
 $selectedWeek    = $_GET['week'] ?? 'all';
 $selectedCompany = $_GET['company_id'] ?? 'all';
 $searchQuery     = trim($_GET['search'] ?? '');
-$viewReportId    = $_GET['view_id'] ?? null;
-$historyWeek     = $_GET['history_week'] ?? null;
 
-// Simulated Approved WAR Dataset
-$allApprovedWars = [
-    [
-        'id' => 101,
-        'student_id' => 1,
-        'student_name' => 'Katelyn Coming',
-        'student_number' => '20231053',
-        'company_name' => 'ICS IT Dept',
-        'supervisor_name' => 'Engr. John Doe',
-        'week_number' => 2,
-        'hours_logged' => 40,
-        'approved_at' => '2026-07-24 16:30:00',
-        'pdf_file' => 'WAR_Week2_Katelyn.pdf',
-        'summary_text' => 'Developed PHP REST API endpoints for student registration, optimized MySQL queries, configured router VLAN settings, and tested database connection pools.',
-        'entities' => [
-            'technical' => ['PHP REST API', 'MySQL Optimization', 'VLAN Configuration', 'Database Pooling'],
-            'clerical'  => []
-        ],
-        'clerical_ratio' => 0,
-        'history' => [
-            ['week' => 1, 'hours' => 40, 'approved_at' => '2026-07-17 16:00:00', 'clerical_ratio' => 0, 'summary' => 'Orientation, Git repository setup, local web server configuration.']
-        ]
-    ],
-    [
-        'id' => 102,
-        'student_id' => 2,
-        'student_name' => 'Pauline May Coming',
-        'student_number' => '20231054',
-        'company_name' => 'LGU Manolo Fortich',
-        'supervisor_name' => 'Jane Smith',
-        'week_number' => 2,
-        'hours_logged' => 40,
-        'approved_at' => '2026-07-24 15:10:00',
-        'pdf_file' => 'WAR_Week2_Pauline.pdf',
-        'summary_text' => 'Encoded voter registration records into Excel spreadsheets, filed paper documents in cabinet, reformatted office desktop PC, and photocopied incoming department memos.',
-        'entities' => [
-            'technical' => ['Desktop OS Reformatting'],
-            'clerical'  => ['Excel Data Entry', 'Document Filing', 'Photocopying Memos']
-        ],
-        'clerical_ratio' => 75,
-        'history' => [
-            ['week' => 1, 'hours' => 40, 'approved_at' => '2026-07-17 14:30:00', 'clerical_ratio' => 100, 'summary' => 'Sorted incoming mail, filed department folders, and conducted physical inventory of office paper supplies.']
-        ]
-    ],
-    [
-        'id' => 103,
-        'student_id' => 3,
-        'student_name' => 'Sander Perejan',
-        'student_number' => '20231055',
-        'company_name' => 'ICS IT Dept',
-        'supervisor_name' => 'Engr. John Doe',
-        'week_number' => 2,
-        'hours_logged' => 40,
-        'approved_at' => '2026-07-24 17:00:00',
-        'pdf_file' => 'WAR_Week2_Sander.pdf',
-        'summary_text' => 'Performed network cable crimping in Room 204, installed Windows 11 on 3 computer lab PCs, repaired faulty RAM, and logged daily IT support tickets.',
-        'entities' => [
-            'technical' => ['Network Cabling', 'Windows OS Setup', 'Hardware Maintenance'],
-            'clerical'  => ['Data Entry Logs']
-        ],
-        'clerical_ratio' => 25,
-        'history' => [
-            ['week' => 1, 'hours' => 40, 'approved_at' => '2026-07-17 15:00:00', 'clerical_ratio' => 20, 'summary' => 'Hardware inventory audit and network cable testing in Computer Lab 1.']
-        ]
-    ]
-];
+$filteredWars  = [];
+$companiesList = [];
 
-// Filter Logic
-$filteredWars = array_filter($allApprovedWars, function($w) use ($selectedWeek, $selectedCompany, $searchQuery) {
-    if ($selectedWeek !== 'all' && (int)$w['week_number'] !== (int)$selectedWeek) return false;
-    if ($selectedCompany !== 'all' && $w['company_name'] !== $selectedCompany) return false;
-    if ($searchQuery !== '') {
-        $term = strtolower($searchQuery);
-        $nameMatch = str_contains(strtolower($w['student_name']), $term);
-        $idMatch   = str_contains(strtolower($w['student_number']), $term);
-        if (!$nameMatch && !$idMatch) return false;
+try {
+    // 3. Fetch Host Companies for Filter Dropdown
+    $stmtCompanies = $pdo->query("SELECT id, name FROM companies ORDER BY name ASC");
+    $companiesList = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // 4. Schema-Accurate Query for Approved Reports
+    $sql = "
+        SELECT 
+            r.id,
+            r.student_id,
+            r.week_number,
+            r.file_path,
+            r.ocr_activities,
+            r.status,
+            r.submitted_at,
+            s.student_number,
+            s.program,
+            u.name AS student_name,
+            u.email AS student_email,
+            c.id AS company_id,
+            c.name AS company_name,
+            u_sup.name AS supervisor_name
+        FROM reports r
+        JOIN students s ON r.student_id = s.id
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN companies c ON s.company_id = c.id
+        LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+        LEFT JOIN users u_sup ON sup.user_id = u_sup.id
+        WHERE LOWER(r.status) = 'approved'
+    ";
+
+    $params = [];
+
+    // Week Filter
+    if ($selectedWeek !== 'all' && is_numeric($selectedWeek)) {
+        $sql .= " AND r.week_number = :week ";
+        $params['week'] = intval($selectedWeek);
     }
-    return true;
-});
 
-// Active Report Detail Selection
-$activeReport = null;
-if ($viewReportId) {
-    foreach ($allApprovedWars as $w) {
-        if ($w['id'] == $viewReportId) {
-            $activeReport = $w;
-            break;
-        }
+    // Company Filter
+    if ($selectedCompany !== 'all' && is_numeric($selectedCompany)) {
+        $sql .= " AND c.id = :comp_id ";
+        $params['comp_id'] = intval($selectedCompany);
     }
+
+    // Search Filter (Student Name or Student Number)
+    if (!empty($searchQuery)) {
+        $sql .= " AND (u.name LIKE :search OR s.student_number LIKE :search) ";
+        $params['search'] = "%{$searchQuery}%";
+    }
+
+    $sql .= " ORDER BY r.week_number DESC, r.submitted_at DESC, u.name ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $filteredWars = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+} catch (PDOException $e) {
+    error_log("Database Error in coordinator/approved_reports.php: " . $e->getMessage());
+    $filteredWars = [];
 }
 
 require_once __DIR__ . '/../src/pages/coordinator/approvedReportsPage.php';
