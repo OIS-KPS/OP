@@ -5,14 +5,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-20">
     <div>
-        <!-- Portal Brand Header -->
-        <div class="h-20 px-6 border-b border-slate-200/80 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-[#0F2854] text-white flex items-center justify-center font-extrabold text-sm shadow-xs shrink-0 tracking-tight">
+        <!-- Portal Brand Header (Matching Student Sidebar) -->
+        <div class="h-20 px-6 bg-[#0F2854] flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white/10 border border-white/15 text-white flex items-center justify-center font-bold text-base shrink-0">
                 ICS
             </div>
             <div class="min-w-0">
-                <h2 class="font-bold text-sm text-slate-900 leading-tight truncate">OJT Coordinator</h2>
-                <p class="text-[11px] text-slate-500 font-medium truncate mt-0.5">NBSC CQI Portal</p>
+                <h2 class="font-bold text-sm text-white leading-tight truncate">OJT Coordinator</h2>
+                <p class="text-[11px] text-blue-200/70 font-medium truncate mt-0.5">NBSC &middot; CQI Portal</p>
             </div>
         </div>
 
@@ -34,7 +34,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </a>
 
                     <!-- Approved WARs -->
-                    <?php $isApprovedWARs = ($currentPage === 'approved_reports.php'); ?>
+                    <?php $isApprovedWARs = ($currentPage === 'approved_reports.php' || $currentPage === 'view_report.php'); ?>
                     <a href="approved_reports.php" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-xs <?= $isApprovedWARs ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
                         <svg class="w-4 h-4 <?= $isApprovedWARs ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -85,8 +85,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <!-- Bottom Logout -->
     <div class="p-4 border-t border-slate-200/80">
-        <a href="auth/logout.php" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 text-sm font-semibold transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="../auth/logout.php" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 text-xs font-semibold transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
             </svg>
             Logout
