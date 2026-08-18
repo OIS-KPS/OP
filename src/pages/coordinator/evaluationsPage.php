@@ -278,5 +278,6 @@
         </div>
     <?php endif; ?>
 
+<?php include __DIR__ . '/../../components/password_change_popup.php'; ?>
 </body>
 </html>
