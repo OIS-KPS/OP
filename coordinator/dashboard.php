@@ -31,9 +31,9 @@ try {
 
 // 2. Company Performance Data
 $companyPerformance = [
-    ['name' => 'ICS IT Dept', 'percentage' => 93.0, 'level' => 'High'],
-    ['name' => 'Bukidnon Tech Labs', 'percentage' => 88.5, 'level' => 'High'],
-    ['name' => 'Provincial MIS Office', 'percentage' => 78.2, 'level' => 'Moderate'],
+    ['name' => 'NBSC IT Dept', 'percentage' => 93.0, 'level' => 'High'],
+    ['name' => 'NBSC ICTMO', 'percentage' => 88.5, 'level' => 'High'],
+    ['name' => 'NBSC SASDD', 'percentage' => 78.2, 'level' => 'Moderate'],
     ['name' => 'LGU Manolo Fortich', 'percentage' => 65.0, 'level' => 'Moderate']
 ];
 
