@@ -66,6 +66,26 @@ CREATE TABLE `reports` (
   CONSTRAINT `fk_report_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+CREATE TABLE IF NOT EXISTS `evaluations` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `student_id` INT UNIQUE NOT NULL,
+  `supervisor_id` INT NOT NULL,
+  `technical_score` DECIMAL(5,2) DEFAULT 0.00,
+  `work_ethics_score` DECIMAL(5,2) DEFAULT 0.00,
+  `communication_score` DECIMAL(5,2) DEFAULT 0.00,
+  `punctuality_score` DECIMAL(5,2) DEFAULT 0.00,
+  `final_score` DECIMAL(5,2) DEFAULT 0.00,
+  `grade_equivalent` VARCHAR(50) DEFAULT NULL,
+  `feedback` TEXT NULL,
+  `otp_verified` TINYINT(1) DEFAULT 0,
+  `otp_signed_at` DATETIME NULL,
+  `otp_ip_address` VARCHAR(45) NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_eval_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_eval_supervisor` FOREIGN KEY (`supervisor_id`) REFERENCES `supervisors` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- =============================================================
 -- 6. SEED DATA (Initial Default Records & Test Accounts)
 -- =============================================================
