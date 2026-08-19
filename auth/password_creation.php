@@ -61,6 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $updateStmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
         $updateStmt->execute([$hashedPassword, $userId]);
 
+        // Clear the session cache so the popup no longer appears
+        unset($_SESSION['needs_password']);
+
         $success = true;
 
         // Determine redirect URL

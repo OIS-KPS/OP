@@ -69,6 +69,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid) {
         // Mark token as used
         $pdo->prepare("UPDATE password_reset_tokens SET used = 1 WHERE token = ?")->execute([$token]);
 
+        // Clear the session cache so the popup no longer appears
+        unset($_SESSION['needs_password']);
+
+        // Destroy the session so all browser tabs are logged out.
+        // This forces re-authentication with the new password.
+        $_SESSION = array();
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        session_destroy();
+
         $success = true;
     }
 }
@@ -142,6 +157,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid) {
             Go to Login
         </a>
     </div>
+
+    <!-- Cross-tab logout: signal all other open tabs to redirect to login -->
+    <script>
+        localStorage.setItem('logout_event', Date.now().toString());
+        localStorage.removeItem('logout_event');
+    </script>
 
 <?php elseif (!$tokenValid): ?>
     <!-- ===================== INVALID / EXPIRED TOKEN STATE ===================== -->

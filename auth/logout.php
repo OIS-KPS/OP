@@ -15,7 +15,22 @@ if (ini_get("session.use_cookies")) {
 }
 
 session_destroy();
+?>
+<!DOCTYPE html>
+<html>
+<head><title>Logging out...</title></head>
+<body>
+<script>
+    // Signal all other open tabs to redirect to the login page
+    localStorage.setItem('logout_event', Date.now().toString());
+    localStorage.removeItem('logout_event');
 
-// Redirect to login page in the same folder
-header("Location: login.php");
-exit();
+    // Redirect this tab to login
+    window.location.href = '/ICS-PORTAL/auth/login.php';
+</script>
+<!-- Fallback for browsers with JS disabled -->
+<noscript>
+    <meta http-equiv="refresh" content="0;url=/ICS-PORTAL/auth/login.php">
+</noscript>
+</body>
+</html>
