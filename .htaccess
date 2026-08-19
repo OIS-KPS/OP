@@ -1,0 +1,45 @@
+# ==============================================================
+# ICS-PORTAL — Apache Security & Routing Configuration
+# ==============================================================
+
+# ----- 1. Disable Directory Listing -----
+Options -Indexes
+
+# ----- 2. Default Document (/ → dashboard.php) -----
+DirectoryIndex dashboard.php
+
+# ----- 3. Enable Rewrite Engine -----
+RewriteEngine On
+
+# ----- 4. Block Access to Sensitive Directories & Files -----
+# These should NEVER be directly accessible from the browser.
+
+# Block .env, .git, .gitignore, composer files
+RewriteRule ^\.env$                      - [F,L]
+RewriteRule ^\.git                       - [F,L]
+RewriteRule ^\.gitignore$                - [F,L]
+RewriteRule ^composer\.(json|lock)$      - [F,L]
+RewriteRule ^README\.md$                 - [F,L]
+
+# Block config/ — contains database credentials
+RewriteRule ^config/                     - [F,L]
+
+# Block src/ — internal components, pages, services (PHP includes only)
+RewriteRule ^src/                        - [F,L]
+
+# Block database/ — SQL schema and migrations
+RewriteRule ^database/                   - [F,L]
+
+# Block vendor/ — Composer dependencies (loaded via PHP autoload)
+RewriteRule ^vendor/                     - [F,L]
+
+# Block documentation/ — internal docs
+RewriteRule ^documentation/              - [F,L]
+
+# ----- 5. Allowed (everything else passes through) -----
+# ✅ Root PHP:      dashboard.php, profile.php, reports.php, submit_report.php
+# ✅ auth/:         login.php, logout.php, login-process.php, google-callback.php,
+#                   password_creation.php, change_password.php, reset_password.php
+# ✅ coordinator/:  All coordinator pages
+# ✅ supervisor/:   All supervisor pages
+# ✅ public/:       CSS, JS, and other static assets
