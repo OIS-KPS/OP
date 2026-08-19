@@ -16,12 +16,16 @@
 // Guard: Only run if user is logged in and $pdo exists
 if (isset($_SESSION['user_id']) && isset($pdo)) {
 
-    // Check if user's password_hash is NULL
-    $__pwCheckStmt = $pdo->prepare("SELECT password_hash FROM users WHERE id = ?");
-    $__pwCheckStmt->execute([$_SESSION['user_id']]);
-    $__pwResult = $__pwCheckStmt->fetch(PDO::FETCH_ASSOC);
+    // Use session cache to avoid querying the DB on every page load.
+    // The flag is checked once per session and cached in $_SESSION['needs_password'].
+    if (!isset($_SESSION['needs_password'])) {
+        $__pwCheckStmt = $pdo->prepare("SELECT password_hash FROM users WHERE id = ?");
+        $__pwCheckStmt->execute([$_SESSION['user_id']]);
+        $__pwResult = $__pwCheckStmt->fetch(PDO::FETCH_ASSOC);
+        $_SESSION['needs_password'] = ($__pwResult && $__pwResult['password_hash'] === null);
+    }
 
-    $__needsPassword = ($__pwResult && $__pwResult['password_hash'] === null);
+    $__needsPassword = $_SESSION['needs_password'];
 
     if ($__needsPassword) {
         // Save the current full URL to session so we can redirect back after password creation

@@ -154,4 +154,13 @@ $displayEmail = $_SESSION['email'] ?? '';
             if (chevron) chevron.style.transform = 'rotate(0deg)';
         }
     });
+
+    // Cross-tab logout: if another tab signals a password reset, redirect to login
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'logout_event') {
+            window.location.href = '/ICS-PORTAL/auth/login.php';
+        }
+    });
 </script>
+
+<?php include __DIR__ . '/password_change_popup.php'; ?>
