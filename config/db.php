@@ -1,11 +1,17 @@
 <?php
 // config/db.php
 
-// Must put these in .env
-$host     = 'localhost';
-$dbname   = 'nbsc_ojt'; 
-$username = 'root';      
-$password = '';          
+require_once __DIR__ . '/../vendor/autoload.php';
+
+if (class_exists('Dotenv\Dotenv') && file_exists(__DIR__ . '/../.env')) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+    $dotenv->safeLoad();
+}
+
+$host     = $_ENV['DB_HOST'] ?? 'localhost';
+$dbname   = $_ENV['DB_NAME'] ?? 'nbsc_ojt'; 
+$username = $_ENV['DB_USER'] ?? 'root';      
+$password = $_ENV['DB_PASSWORD'] ?? '';          
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
