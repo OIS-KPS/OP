@@ -7,17 +7,14 @@
  *
  * Supervisor Review Reports VIEW
  *
- * IMPORTANT:
- *
- * This file is loaded by:
+ * Loaded by:
  *
  * supervisor/review_reports.php
  *
- * Therefore:
- *
- * - DO NOT call session_start() here.
- * - DO NOT require db.php here.
- * - DO NOT execute database queries here.
+ * This file DOES NOT:
+ * - start a session
+ * - require db.php
+ * - execute database queries
  *
  * Controller provides:
  *
@@ -34,25 +31,17 @@
    SAFE DEFAULT VALUES
    ============================================================ */
 
-$filter_status =
-    $filter_status
-    ?? 'All';
+$filter_status = $filter_status ?? 'All';
 
-$message =
-    $message
-    ?? '';
+$message = $message ?? '';
 
-$reports =
-    $reports
-    ?? [];
+$reports = $reports ?? [];
 
-$activeReport =
-    $activeReport
-    ?? null;
+$activeReport = $activeReport ?? null;
 
 
 /* ============================================================
-   HELPER FUNCTIONS
+   HELPER FUNCTION
    ============================================================ */
 
 if (!function_exists('e')) {
@@ -74,48 +63,30 @@ if (!function_exists('e')) {
 
 if (!function_exists('statusUrl')) {
 
-    function statusUrl(
-        $status = null,
-        $reviewId = null
-    ) {
-
+    function statusUrl($status = null, $reviewId = null)
+    {
         $params = [];
 
+        if ($reviewId !== null) {
 
-        if (
-            $reviewId !== null
-        ) {
-
-            $params['review_id'] =
-                (int)$reviewId;
+            $params['review_id'] = (int)$reviewId;
         }
 
-
         if (
-            $status !== null
-            &&
+            $status !== null &&
             $status !== 'All'
         ) {
 
-            $params['status'] =
-                $status;
+            $params['status'] = $status;
         }
 
-
-        if (
-            empty($params)
-        ) {
+        if (empty($params)) {
 
             return 'review_reports.php';
         }
 
-
-        return
-            'review_reports.php?'
-            .
-            http_build_query(
-                $params
-            );
+        return 'review_reports.php?' .
+            http_build_query($params);
     }
 }
 
@@ -124,65 +95,38 @@ if (!function_exists('statusUrl')) {
    NORMALIZE STATUS
    ============================================================ */
 
-if (
-    !function_exists(
-        'normalizeReportStatus'
-    )
-) {
+if (!function_exists('normalizeReportStatus')) {
 
-    function normalizeReportStatus(
-        $status
-    ) {
+    function normalizeReportStatus($status)
+    {
+        $status = trim((string)$status);
 
-        $status =
-            trim(
-                (string)$status
-            );
-
-
-        if (
-            $status === ''
-        ) {
+        if ($status === '') {
 
             return 'pending';
         }
 
+        $lower = strtolower($status);
 
-        $lower =
-            strtolower(
-                $status
-            );
-
-
-        if (
-            $lower === 'approved'
-        ) {
+        if ($lower === 'approved') {
 
             return 'approved';
         }
 
-
-        if (
-            $lower === 'pending'
-        ) {
+        if ($lower === 'pending') {
 
             return 'pending';
         }
 
-
         if (
-            $lower === 'needs revision'
-            ||
-            $lower === 'needs_revision'
-            ||
-            $lower === 'revision'
-            ||
+            $lower === 'needs revision' ||
+            $lower === 'needs_revision' ||
+            $lower === 'revision' ||
             $lower === 'rejected'
         ) {
 
             return 'needs revision';
         }
-
 
         return $lower;
     }
@@ -193,28 +137,14 @@ if (
    IT RELATED CHECK
    ============================================================ */
 
-if (
-    !function_exists(
-        'isITRelated'
-    )
-) {
+if (!function_exists('isITRelated')) {
 
-    function isITRelated(
-        $value
-    ) {
-
-        $value =
-            strtolower(
-                trim(
-                    (string)$value
-                )
-            );
-
+    function isITRelated($value)
+    {
+        $value = strtolower(trim((string)$value));
 
         return in_array(
-
             $value,
-
             [
                 'yes',
                 'true',
@@ -223,7 +153,6 @@ if (
                 'it related',
                 'it-related'
             ],
-
             true
         );
     }
@@ -235,16 +164,11 @@ if (
    ============================================================ */
 
 $allowedFilters = [
-
     'All',
-
     'Pending',
-
     'Approved',
-
     'Needs Revision'
 ];
-
 
 if (
     !in_array(
@@ -254,8 +178,7 @@ if (
     )
 ) {
 
-    $filter_status =
-        'All';
+    $filter_status = 'All';
 }
 
 
@@ -264,153 +187,109 @@ if (
    ============================================================ */
 
 $hasActiveReport =
-    !empty($activeReport)
-    &&
+    !empty($activeReport) &&
     is_array($activeReport);
 
+$activeStatus = 'pending';
 
-$activeStatus =
-    'pending';
+$isApproved = false;
 
+$isRevision = false;
 
-$isApproved =
-    false;
+$activeFilePath = '';
 
+$activeSubmittedAt = null;
 
-$isRevision =
-    false;
+$extractedEntities = [];
 
+$extractionSummary = [];
 
-$activeFilePath =
-    '';
-
-
-$activeSubmittedAt =
-    null;
+$pdfText = '';
 
 
-$activeRemarks =
-    '';
-
-
-$extractedEntities =
-    [];
-
-
-$extractionSummary =
-    [];
-
-
-if (
-    $hasActiveReport
-) {
+if ($hasActiveReport) {
 
     $activeStatus =
         normalizeReportStatus(
-            $activeReport[
-                'status'
-            ]
-            ?? 'pending'
+            $activeReport['status'] ?? 'pending'
         );
-
 
     $isApproved =
-        (
-            $activeStatus
-            ===
-            'approved'
-        );
-
+        ($activeStatus === 'approved');
 
     $isRevision =
-        (
-            $activeStatus
-            ===
-            'needs revision'
-        );
+        ($activeStatus === 'needs revision');
 
 
     $activeFilePath =
-        $activeReport[
-            'file_path'
-        ]
+        $activeReport['file_path']
         ??
-        $activeReport[
-            'attachment_path'
-        ]
+        $activeReport['attachment_path']
         ??
         '';
 
 
     $activeSubmittedAt =
-        $activeReport[
-            'submitted_at'
-        ]
+        $activeReport['submitted_at']
         ??
-        $activeReport[
-            'created_at'
-        ]
+        $activeReport['created_at']
         ??
         null;
 
 
-    $activeRemarks =
-        $activeReport[
-            'supervisor_remarks'
-        ]
-        ??
-        $activeReport[
-            'remarks'
-        ]
-        ??
-        '';
-
-
     /*
-     * Extracted entities are supplied by
+     * Extracted entities supplied by
      * review_reports.php.
      */
 
     $extractedEntities =
-        $activeReport[
-            'extracted_entities'
-        ]
-        ??
-        [];
+        $activeReport['extracted_entities']
+        ?? [];
 
 
     if (
-        !is_array(
-            $extractedEntities
-        )
+        !is_array($extractedEntities)
     ) {
 
-        $extractedEntities =
-            [];
+        $extractedEntities = [];
     }
 
 
     /*
-     * Extraction summary from Python.
+     * Extraction summary.
      */
 
     $extractionSummary =
-        $activeReport[
-            'extraction_summary'
-        ]
-        ??
-        [];
+        $activeReport['extraction_summary']
+        ?? [];
 
 
     if (
-        !is_array(
-            $extractionSummary
-        )
+        !is_array($extractionSummary)
     ) {
 
-        $extractionSummary =
-            [];
+        $extractionSummary = [];
     }
+
+
+    /*
+     * PDF extracted text.
+     *
+     * This should preferably be supplied
+     * by review_reports.php after Python
+     * extraction.
+     */
+
+    $pdfText =
+        $activeReport['pdf_text']
+        ??
+        $activeReport['extracted_text']
+        ??
+        $activeReport['report_text']
+        ??
+        $activeReport['text']
+        ??
+        '';
 }
 
 
@@ -418,23 +297,18 @@ if (
    PDF URL
    ============================================================ */
 
-$pdfUrl =
-    '';
+$pdfUrl = '';
 
 
-if (
-    !empty($activeFilePath)
-) {
+if (!empty($activeFilePath)) {
 
     $cleanPath =
         ltrim(
-
             str_replace(
                 '\\',
                 '/',
                 $activeFilePath
             ),
-
             '/'
         );
 
@@ -443,21 +317,17 @@ if (
         stripos(
             $cleanPath,
             'ICS-PORTAL/'
-        )
-        ===
-        0
+        ) === 0
     ) {
 
         $pdfUrl =
-            '/'
-            .
+            '/' .
             $cleanPath;
 
     } else {
 
         $pdfUrl =
-            '/ICS-PORTAL/'
-            .
+            '/ICS-PORTAL/' .
             $cleanPath;
     }
 }
@@ -469,12 +339,76 @@ if (
 
 $closeUrl =
     statusUrl(
-
         $filter_status !== 'All'
             ? $filter_status
             : null
-
     );
+
+
+/* ============================================================
+   PREPARE ENTITY DATA FOR JAVASCRIPT
+   ============================================================ */
+
+$javascriptEntities = [];
+
+
+if (!empty($extractedEntities)) {
+
+    foreach (
+        $extractedEntities
+        as $entity
+    ) {
+
+        if (!is_array($entity)) {
+
+            continue;
+        }
+
+
+        $entityName =
+            $entity['entity_name']
+            ??
+            $entity['entity']
+            ??
+            $entity['canonical_name']
+            ??
+            $entity['matched_term']
+            ??
+            '';
+
+
+        $matchedTerm =
+            $entity['matched_term']
+            ??
+            $entityName;
+
+
+        $entityName =
+            trim((string)$entityName);
+
+        $matchedTerm =
+            trim((string)$matchedTerm);
+
+
+        if (
+            $entityName === '' &&
+            $matchedTerm === ''
+        ) {
+
+            continue;
+        }
+
+
+        $javascriptEntities[] = [
+
+            'name' =>
+                $entityName,
+
+            'matched' =>
+                $matchedTerm
+        ];
+    }
+}
 
 ?>
 
@@ -495,23 +429,171 @@ $closeUrl =
         Review Reports - Supervisor Portal
     </title>
 
-    <!-- Tailwind CSS -->
+
+    <!-- ======================================================
+         TAILWIND
+         ====================================================== -->
 
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Custom CSS -->
+
+    <!-- ======================================================
+         CUSTOM CSS
+         ====================================================== -->
 
     <link
         rel="stylesheet"
         href="/ICS-PORTAL/public/css/style.css"
     >
 
+
+    <style>
+
+        /*
+         * =====================================================
+         * PDF TEXT HIGHLIGHT
+         * =====================================================
+         */
+
+        .pdf-text-container {
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
+            font-size: 13px;
+
+            line-height: 1.65;
+
+            white-space: pre-wrap;
+
+            word-break: normal;
+
+            overflow-wrap: anywhere;
+
+            color: #334155;
+        }
+
+
+        .pdf-entity-highlight {
+
+            background-color: #fde68a;
+
+            color: #78350f;
+
+            border-radius: 4px;
+
+            padding: 1px 3px;
+
+            box-shadow:
+                0 0 0 1px
+                rgba(245, 158, 11, 0.25);
+
+            transition:
+                background-color 0.15s ease,
+                box-shadow 0.15s ease;
+        }
+
+
+        .pdf-entity-highlight.active {
+
+            background-color: #fbbf24;
+
+            color: #451a03;
+
+            box-shadow:
+                0 0 0 2px
+                rgba(245, 158, 11, 0.35);
+        }
+
+
+        /*
+         * =====================================================
+         * ENTITY BUTTON
+         * =====================================================
+         */
+
+        .entity-clickable {
+
+            cursor: pointer;
+
+            user-select: none;
+
+            transition:
+                background-color 0.15s ease,
+                border-color 0.15s ease,
+                transform 0.1s ease;
+        }
+
+
+        .entity-clickable:hover {
+
+            background-color: #fff7ed;
+
+            border-color: #fdba74;
+        }
+
+
+        .entity-clickable:active {
+
+            transform: scale(0.99);
+        }
+
+
+        .entity-clickable.selected {
+
+            background-color: #fff7ed;
+
+            border-color: #f59e0b;
+
+            box-shadow:
+                0 0 0 2px
+                rgba(245, 158, 11, 0.12);
+        }
+
+
+        /*
+         * =====================================================
+         * SHORT MODAL
+         * =====================================================
+         */
+
+        .review-modal {
+
+            max-height: 90vh;
+
+            height: auto;
+        }
+
+
+        /*
+         * =====================================================
+         * MOBILE
+         * =====================================================
+         */
+
+        @media (max-width: 1023px) {
+
+            .review-modal {
+
+                max-height: 94vh;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 
 <body
-    class="bg-slate-50 text-slate-800 antialiased"
+    class="
+        bg-slate-50
+        text-slate-800
+        antialiased
+    "
 >
+
 
 <div class="flex min-h-screen">
 
@@ -527,15 +609,20 @@ $closeUrl =
 
 
     <!-- =====================================================
-         RIGHT MAIN CONTENT
+         MAIN CONTENT
          ===================================================== -->
 
     <div
-        class="flex-1 flex flex-col min-w-0"
+        class="
+            flex-1
+            flex
+            flex-col
+            min-w-0
+        "
     >
 
 
-        <!-- Shared Header -->
+        <!-- HEADER -->
 
         <?php include
             __DIR__
@@ -544,7 +631,7 @@ $closeUrl =
 
 
         <!-- =================================================
-             MAIN CONTENT
+             MAIN
              ================================================= -->
 
         <main
@@ -587,7 +674,6 @@ $closeUrl =
                             text-base
                             font-bold
                             text-slate-900
-                            leading-snug
                         "
                     >
                         Review Weekly Accomplishment Reports
@@ -607,7 +693,7 @@ $closeUrl =
                 </div>
 
 
-                <!-- FILTER TABS -->
+                <!-- FILTER -->
 
                 <div
                     class="
@@ -622,8 +708,6 @@ $closeUrl =
                         text-xs
                     "
                 >
-
-                    <!-- ALL -->
 
                     <a
                         href="<?= e(statusUrl()); ?>"
@@ -642,8 +726,6 @@ $closeUrl =
                     </a>
 
 
-                    <!-- PENDING -->
-
                     <a
                         href="<?= e(statusUrl('Pending')); ?>"
                         class="
@@ -661,8 +743,6 @@ $closeUrl =
                     </a>
 
 
-                    <!-- APPROVED -->
-
                     <a
                         href="<?= e(statusUrl('Approved')); ?>"
                         class="
@@ -679,8 +759,6 @@ $closeUrl =
                         Approved
                     </a>
 
-
-                    <!-- NEEDS REVISION -->
 
                     <a
                         href="<?= e(statusUrl('Needs Revision')); ?>"
@@ -720,19 +798,10 @@ $closeUrl =
                         rounded-xl
                         text-xs
                         font-semibold
-                        flex
-                        items-center
-                        justify-between
-                        shadow-2xs
                     "
                 >
 
-                    <span>
-
-                        ✓
-                        <?= e($message); ?>
-
-                    </span>
+                    ✓ <?= e($message); ?>
 
                 </div>
 
@@ -760,37 +829,29 @@ $closeUrl =
                         px-5
                         border-b
                         border-slate-100
-                        flex
-                        justify-between
-                        items-center
                     "
                 >
 
-                    <div>
+                    <h3
+                        class="
+                            text-sm
+                            font-bold
+                            text-slate-900
+                        "
+                    >
+                        Submissions Queue
+                        (<?= count($reports); ?>)
+                    </h3>
 
-                        <h3
-                            class="
-                                text-sm
-                                font-bold
-                                text-slate-900
-                            "
-                        >
-                            Submissions Queue
-                            (<?= count($reports); ?>)
-                        </h3>
-
-                        <p
-                            class="
-                                text-[11px]
-                                text-slate-400
-                                mt-0.5
-                            "
-                        >
-                            Prioritizing pending submissions
-                            awaiting review
-                        </p>
-
-                    </div>
+                    <p
+                        class="
+                            text-[11px]
+                            text-slate-400
+                            mt-0.5
+                        "
+                    >
+                        Prioritizing pending submissions awaiting review
+                    </p>
 
                 </div>
 
@@ -822,27 +883,19 @@ $closeUrl =
                                     "
                                 >
 
-                                    <th
-                                        class="py-3 px-5"
-                                    >
+                                    <th class="py-3 px-5">
                                         Student Name
                                     </th>
 
-                                    <th
-                                        class="py-3 px-5"
-                                    >
+                                    <th class="py-3 px-5">
                                         Week Number
                                     </th>
 
-                                    <th
-                                        class="py-3 px-5"
-                                    >
+                                    <th class="py-3 px-5">
                                         Date & Time Submitted
                                     </th>
 
-                                    <th
-                                        class="py-3 px-5"
-                                    >
+                                    <th class="py-3 px-5">
                                         Status
                                     </th>
 
@@ -884,48 +937,34 @@ $closeUrl =
                                     );
 
                                 $submittedAt =
-                                    $item[
-                                        'submitted_at'
-                                    ]
+                                    $item['submitted_at']
                                     ??
-                                    $item[
-                                        'created_at'
-                                    ]
+                                    $item['created_at']
                                     ??
                                     null;
 
                                 $studentName =
-                                    $item[
-                                        'student_name'
-                                    ]
+                                    $item['student_name']
                                     ??
                                     'Unknown Student';
 
                                 $studentNumber =
-                                    $item[
-                                        'student_number'
-                                    ]
+                                    $item['student_number']
                                     ??
                                     'N/A';
 
                                 $program =
-                                    $item[
-                                        'program'
-                                    ]
+                                    $item['program']
                                     ??
                                     'BSIT';
 
                                 $avatar =
-                                    $item[
-                                        'student_avatar'
-                                    ]
+                                    $item['student_avatar']
                                     ??
                                     '';
 
                                 $weekNumber =
-                                    $item[
-                                        'week_number'
-                                    ]
+                                    $item['week_number']
                                     ??
                                     'N/A';
 
@@ -938,12 +977,9 @@ $closeUrl =
 
                                 $reviewUrl =
                                     statusUrl(
-
-                                        $filter_status
-                                            !== 'All'
+                                        $filter_status !== 'All'
                                             ? $filter_status
                                             : null,
-
                                         $reportId
                                     );
 
@@ -958,15 +994,9 @@ $closeUrl =
                                     "
                                 >
 
-
                                     <!-- STUDENT -->
 
-                                    <td
-                                        class="
-                                            py-3.5
-                                            px-5
-                                        "
-                                    >
+                                    <td class="py-3.5 px-5">
 
                                         <div
                                             class="
@@ -1060,12 +1090,7 @@ $closeUrl =
 
                                     <!-- WEEK -->
 
-                                    <td
-                                        class="
-                                            py-3.5
-                                            px-5
-                                        "
-                                    >
+                                    <td class="py-3.5 px-5">
 
                                         <p
                                             class="
@@ -1115,24 +1140,15 @@ $closeUrl =
 
                                     <!-- STATUS -->
 
-                                    <td
-                                        class="
-                                            py-3.5
-                                            px-5
-                                        "
-                                    >
+                                    <td class="py-3.5 px-5">
 
                                         <?php if (
-                                            $status
-                                            ===
-                                            'approved'
+                                            $status === 'approved'
                                         ): ?>
 
                                             <span
                                                 class="
                                                     inline-flex
-                                                    items-center
-                                                    gap-1
                                                     px-2.5
                                                     py-0.5
                                                     rounded-full
@@ -1141,23 +1157,19 @@ $closeUrl =
                                                     text-[11px]
                                                     font-medium
                                                     border
-                                                    border-emerald-200/50
+                                                    border-emerald-200
                                                 "
                                             >
                                                 ● Approved
                                             </span>
 
                                         <?php elseif (
-                                            $status
-                                            ===
-                                            'pending'
+                                            $status === 'pending'
                                         ): ?>
 
                                             <span
                                                 class="
                                                     inline-flex
-                                                    items-center
-                                                    gap-1
                                                     px-2.5
                                                     py-0.5
                                                     rounded-full
@@ -1166,7 +1178,7 @@ $closeUrl =
                                                     text-[11px]
                                                     font-medium
                                                     border
-                                                    border-amber-200/50
+                                                    border-amber-200
                                                 "
                                             >
                                                 ● Pending
@@ -1177,8 +1189,6 @@ $closeUrl =
                                             <span
                                                 class="
                                                     inline-flex
-                                                    items-center
-                                                    gap-1
                                                     px-2.5
                                                     py-0.5
                                                     rounded-full
@@ -1187,7 +1197,7 @@ $closeUrl =
                                                     text-[11px]
                                                     font-medium
                                                     border
-                                                    border-rose-200/50
+                                                    border-rose-200
                                                 "
                                             >
                                                 ● Needs Revision
@@ -1222,13 +1232,14 @@ $closeUrl =
                                                 border
                                                 border-slate-200
                                                 transition-all
-                                                shadow-2xs
                                                 inline-block
                                             "
                                         >
+
                                             <?= $status === 'pending'
                                                 ? 'Review'
                                                 : 'View Details'; ?>
+
                                         </a>
 
                                     </td>
@@ -1265,8 +1276,6 @@ $closeUrl =
                                 justify-center
                                 mx-auto
                                 mb-2
-                                text-base
-                                font-bold
                             "
                         >
                             📋
@@ -1286,13 +1295,11 @@ $closeUrl =
                             class="
                                 text-xs
                                 text-slate-500
-                                max-w-xs
-                                mx-auto
                                 mt-0.5
                             "
                         >
-                            There are currently no reports
-                            matching the selected filter criteria.
+                            There are currently no reports matching
+                            the selected filter criteria.
                         </p>
 
                     </div>
@@ -1315,6 +1322,7 @@ $closeUrl =
 <?php if ($hasActiveReport): ?>
 
 <div
+    id="reviewModal"
     class="
         fixed
         inset-0
@@ -1324,16 +1332,21 @@ $closeUrl =
         items-center
         justify-center
         z-50
-        p-4
-        sm:p-6
+        p-3
+        sm:p-5
         overflow-y-auto
     "
 >
 
-    <!-- MODAL -->
+
+    <!-- ========================================================
+         MODAL
+         SHORTER HEIGHT
+         ======================================================== -->
 
     <div
         class="
+            review-modal
             bg-white
             rounded-2xl
             border
@@ -1342,15 +1355,16 @@ $closeUrl =
             max-w-6xl
             w-full
             overflow-hidden
-            space-y-4
-            p-6
             relative
             my-auto
+            flex
+            flex-col
+            p-5
         "
     >
 
 
-        <!-- CLOSE BUTTON -->
+        <!-- CLOSE -->
 
         <a
             href="<?= e($closeUrl); ?>"
@@ -1371,7 +1385,7 @@ $closeUrl =
                 text-sm
                 font-bold
                 transition-all
-                z-10
+                z-20
             "
             aria-label="Close"
         >
@@ -1379,7 +1393,9 @@ $closeUrl =
         </a>
 
 
-        <!-- MODAL HEADER -->
+        <!-- ====================================================
+             MODAL HEADER
+             ==================================================== -->
 
         <div
             class="
@@ -1392,6 +1408,7 @@ $closeUrl =
                 justify-between
                 items-start
                 gap-2
+                shrink-0
             "
         >
 
@@ -1406,9 +1423,7 @@ $closeUrl =
                 >
 
                     <?= e(
-                        $activeReport[
-                            'student_name'
-                        ]
+                        $activeReport['student_name']
                         ??
                         'Unknown Student'
                     ); ?>
@@ -1418,9 +1433,7 @@ $closeUrl =
                     Week
 
                     <?= e(
-                        $activeReport[
-                            'week_number'
-                        ]
+                        $activeReport['week_number']
                         ??
                         'N/A'
                     ); ?>
@@ -1439,9 +1452,7 @@ $closeUrl =
                     Submitted on
 
                     <?php if (
-                        !empty(
-                            $activeSubmittedAt
-                        )
+                        !empty($activeSubmittedAt)
                     ): ?>
 
                         <?= e(
@@ -1466,9 +1477,7 @@ $closeUrl =
 
             <!-- STATUS -->
 
-            <div
-                class="mr-6"
-            >
+            <div class="mr-10">
 
                 <?php if ($isApproved): ?>
 
@@ -1532,7 +1541,7 @@ $closeUrl =
 
 
         <!-- ====================================================
-             TWO COLUMN CONTENT
+             TWO COLUMNS
              ==================================================== -->
 
         <div
@@ -1540,14 +1549,15 @@ $closeUrl =
                 grid
                 grid-cols-1
                 lg:grid-cols-5
-                gap-5
+                gap-4
+                mt-4
+                min-h-0
             "
         >
 
 
             <!-- =================================================
-                 LEFT COLUMN
-                 PDF VIEWER
+                 LEFT SIDE
                  ================================================= -->
 
             <div
@@ -1557,23 +1567,31 @@ $closeUrl =
                     rounded-xl
                     border
                     border-slate-200/80
-                    p-4
+                    p-3
                     flex
                     flex-col
-                    min-h-[650px]
+                    h-[62vh]
+                    min-h-[450px]
+                    max-h-[620px]
                 "
             >
 
 
                 <!-- PDF HEADER -->
 
-                <div class="mb-3">
+                <div
+                    class="
+                        mb-2
+                        shrink-0
+                    "
+                >
 
                     <div
                         class="
                             flex
                             items-center
                             justify-between
+                            gap-2
                         "
                     >
 
@@ -1598,16 +1616,16 @@ $closeUrl =
                                     mt-0.5
                                 "
                             >
+
                                 Week
                                 <?= e(
-                                    $activeReport[
-                                        'week_number'
-                                    ]
+                                    $activeReport['week_number']
                                     ??
                                     'N/A'
                                 ); ?>
 
                                 — PDF Document
+
                             </p>
 
                         </div>
@@ -1639,22 +1657,22 @@ $closeUrl =
                 </div>
 
 
-                <!-- PDF VIEWER -->
+                <!-- =================================================
+                     PDF VIEWER
+                     ================================================= -->
 
-                <?php if (
-                    !empty($pdfUrl)
-                ): ?>
+                <?php if (!empty($pdfUrl)): ?>
 
                     <div
                         class="
                             flex-1
+                            min-h-0
                             bg-white
                             rounded-xl
                             border
                             border-slate-200
                             overflow-hidden
                             shadow-2xs
-                            min-h-[580px]
                         "
                     >
 
@@ -1663,7 +1681,6 @@ $closeUrl =
                             class="
                                 w-full
                                 h-full
-                                min-h-[580px]
                                 border-0
                             "
                             title="Accomplishment Report PDF"
@@ -1677,6 +1694,7 @@ $closeUrl =
                     <div
                         class="
                             flex-1
+                            min-h-0
                             bg-white
                             rounded-xl
                             border
@@ -1687,7 +1705,6 @@ $closeUrl =
                             items-center
                             justify-center
                             text-center
-                            min-h-[580px]
                         "
                     >
 
@@ -1708,7 +1725,6 @@ $closeUrl =
                             📄
                         </div>
 
-
                         <p
                             class="
                                 text-xs
@@ -1719,7 +1735,6 @@ $closeUrl =
                             No PDF Document
                         </p>
 
-
                         <p
                             class="
                                 text-[10px]
@@ -1727,8 +1742,7 @@ $closeUrl =
                                 mt-1
                             "
                         >
-                            No attachment was uploaded
-                            for this report.
+                            No attachment was uploaded for this report.
                         </p>
 
                     </div>
@@ -1740,18 +1754,17 @@ $closeUrl =
 
                 <?php if (
                     !empty(
-                        $activeReport[
-                            'student_id'
-                        ]
+                        $activeReport['student_id']
                     )
                 ): ?>
 
                     <div
                         class="
-                            pt-3
-                            mt-3
+                            pt-2
+                            mt-2
                             border-t
                             border-slate-200/60
+                            shrink-0
                         "
                     >
 
@@ -1768,27 +1781,17 @@ $closeUrl =
                                 items-center
                                 justify-center
                                 gap-1.5
-                                py-1
                             "
                         >
 
-                            <span>
+                            View
+                            <?= e(
+                                $activeReport['student_name']
+                                ??
+                                'Student'
+                            ); ?>
 
-                                View
-
-                                <?= e(
-                                    $activeReport[
-                                        'student_name'
-                                    ]
-                                    ??
-                                    'Student'
-                                ); ?>
-
-                                's Full WAR History
-
-                            </span>
-
-                            <span>→</span>
+                            's Full WAR History →
 
                         </a>
 
@@ -1800,17 +1803,18 @@ $closeUrl =
 
 
             <!-- =================================================
-                 RIGHT COLUMN
-                 ENTITIES + FEEDBACK
+                 RIGHT SIDE
                  ================================================= -->
 
             <div
                 class="
                     lg:col-span-2
-                    space-y-4
                     flex
                     flex-col
-                    justify-between
+                    min-h-0
+                    h-[62vh]
+                    min-h-[450px]
+                    max-h-[620px]
                 "
             >
 
@@ -1825,8 +1829,11 @@ $closeUrl =
                         rounded-xl
                         border
                         border-slate-200/80
-                        p-3.5
-                        space-y-2
+                        p-3
+                        flex
+                        flex-col
+                        min-h-0
+                        flex-1
                     "
                 >
 
@@ -1835,6 +1842,8 @@ $closeUrl =
                             flex
                             items-center
                             justify-between
+                            shrink-0
+                            mb-2
                         "
                     >
 
@@ -1852,9 +1861,7 @@ $closeUrl =
 
 
                         <?php if (
-                            !empty(
-                                $extractedEntities
-                            )
+                            !empty($extractedEntities)
                         ): ?>
 
                             <span
@@ -1877,21 +1884,29 @@ $closeUrl =
                     </div>
 
 
+                    <p
+                        class="
+                            text-[10px]
+                            text-slate-400
+                            mb-2
+                            shrink-0
+                        "
+                    >
+                        Click an entity to locate and highlight
+                        it in the extracted report text.
+                    </p>
+
+
                     <?php if (
-                        !empty(
-                            $extractedEntities
-                        )
+                        !empty($extractedEntities)
                     ): ?>
-
-
-                        <!-- ENTITY LIST -->
 
                         <div
                             class="
                                 space-y-2
-                                max-h-[420px]
                                 overflow-y-auto
                                 pr-1
+                                min-h-0
                             "
                         >
 
@@ -1902,105 +1917,99 @@ $closeUrl =
 
                                 <?php
 
-                                /*
-                                 * Entity name can come from
-                                 * Python or report_entities.
-                                 */
+                                if (!is_array($entity)) {
+
+                                    continue;
+                                }
+
 
                                 $entityName =
-                                    $entity[
-                                        'entity_name'
-                                    ]
+                                    $entity['entity_name']
                                     ??
-                                    $entity[
-                                        'entity'
-                                    ]
+                                    $entity['entity']
                                     ??
-                                    $entity[
-                                        'canonical_name'
-                                    ]
+                                    $entity['canonical_name']
                                     ??
-                                    $entity[
-                                        'matched_term'
-                                    ]
+                                    $entity['matched_term']
                                     ??
                                     '';
 
 
                                 $category =
-                                    $entity[
-                                        'category'
-                                    ]
+                                    $entity['category']
                                     ??
                                     'Uncategorized';
 
 
                                 $activityType =
-                                    $entity[
-                                        'activity_type'
-                                    ]
+                                    $entity['activity_type']
                                     ??
                                     '';
 
 
                                 $itRelated =
-                                    $entity[
-                                        'it_related'
-                                    ]
+                                    $entity['it_related']
                                     ??
                                     '';
 
 
                                 $matchedTerm =
-                                    $entity[
-                                        'matched_term'
-                                    ]
+                                    $entity['matched_term']
                                     ??
                                     $entityName;
 
 
                                 $spacyLabel =
-                                    $entity[
-                                        'spacy_label'
-                                    ]
+                                    $entity['spacy_label']
                                     ??
                                     '';
 
 
                                 $frequency =
-                                    $entity[
-                                        'frequency'
-                                    ]
+                                    $entity['frequency']
                                     ??
                                     '';
 
 
                                 $confidence =
-                                    $entity[
-                                        'confidence_score'
-                                    ]
+                                    $entity['confidence_score']
                                     ??
                                     '';
+
+
+                                $clickTerm =
+                                    $matchedTerm !== ''
+                                        ? $matchedTerm
+                                        : $entityName;
 
                                 ?>
 
 
                                 <?php if (
-                                    $entityName !== ''
+                                    trim(
+                                        (string)$entityName
+                                    ) !== ''
                                 ): ?>
 
-                                    <div
+                                    <!-- =================================================
+                                         CLICKABLE ENTITY
+                                         ================================================= -->
+
+                                    <button
+                                        type="button"
                                         class="
+                                            entity-clickable
+                                            w-full
+                                            text-left
                                             bg-white
                                             border
                                             border-slate-200
                                             rounded-lg
                                             p-2.5
                                         "
+                                        data-entity="<?= e($clickTerm); ?>"
+                                        onclick="highlightEntity(this)"
                                     >
-
-
-                                        <!-- ENTITY NAME -->
 
                                         <div
                                             class="
@@ -2015,7 +2024,7 @@ $closeUrl =
                                                 class="
                                                     text-xs
                                                     font-bold
-                                                    text-slate-800
+                                                    text-orange-800
                                                 "
                                             >
                                                 <?= e(
@@ -2023,8 +2032,6 @@ $closeUrl =
                                                 ); ?>
                                             </span>
 
-
-                                            <!-- IT STATUS -->
 
                                             <?php if (
                                                 isITRelated(
@@ -2073,7 +2080,7 @@ $closeUrl =
                                         </div>
 
 
-                                        <!-- ENTITY DETAILS -->
+                                        <!-- DETAILS -->
 
                                         <div
                                             class="
@@ -2085,16 +2092,12 @@ $closeUrl =
                                             "
                                         >
 
-
-                                            <!-- CATEGORY -->
-
                                             <span
                                                 class="
                                                     text-[10px]
                                                     text-slate-500
                                                 "
                                             >
-
                                                 Category:
 
                                                 <strong
@@ -2110,12 +2113,8 @@ $closeUrl =
                                             </span>
 
 
-                                            <!-- ACTIVITY TYPE -->
-
                                             <?php if (
-                                                $activityType
-                                                !==
-                                                ''
+                                                $activityType !== ''
                                             ): ?>
 
                                                 <span
@@ -2124,7 +2123,6 @@ $closeUrl =
                                                         text-slate-500
                                                     "
                                                 >
-
                                                     Type:
 
                                                     <strong
@@ -2142,12 +2140,8 @@ $closeUrl =
                                             <?php endif; ?>
 
 
-                                            <!-- MATCHED TERM -->
-
                                             <?php if (
-                                                $matchedTerm
-                                                !==
-                                                ''
+                                                $matchedTerm !== ''
                                             ): ?>
 
                                                 <span
@@ -2156,7 +2150,6 @@ $closeUrl =
                                                         text-slate-500
                                                     "
                                                 >
-
                                                     Matched:
 
                                                     <strong
@@ -2174,12 +2167,8 @@ $closeUrl =
                                             <?php endif; ?>
 
 
-                                            <!-- SPACY LABEL -->
-
                                             <?php if (
-                                                $spacyLabel
-                                                !==
-                                                ''
+                                                $spacyLabel !== ''
                                             ): ?>
 
                                                 <span
@@ -2188,7 +2177,6 @@ $closeUrl =
                                                         text-slate-500
                                                     "
                                                 >
-
                                                     spaCy:
 
                                                     <strong
@@ -2206,12 +2194,8 @@ $closeUrl =
                                             <?php endif; ?>
 
 
-                                            <!-- FREQUENCY -->
-
                                             <?php if (
-                                                $frequency
-                                                !==
-                                                ''
+                                                $frequency !== ''
                                             ): ?>
 
                                                 <span
@@ -2220,7 +2204,6 @@ $closeUrl =
                                                         text-slate-500
                                                     "
                                                 >
-
                                                     Frequency:
 
                                                     <strong
@@ -2238,12 +2221,8 @@ $closeUrl =
                                             <?php endif; ?>
 
 
-                                            <!-- CONFIDENCE -->
-
                                             <?php if (
-                                                $confidence
-                                                !==
-                                                ''
+                                                $confidence !== ''
                                             ): ?>
 
                                                 <span
@@ -2252,7 +2231,6 @@ $closeUrl =
                                                         text-slate-500
                                                     "
                                                 >
-
                                                     Confidence:
 
                                                     <strong
@@ -2260,12 +2238,14 @@ $closeUrl =
                                                             text-slate-700
                                                         "
                                                     >
+
                                                         <?= e(
                                                             number_format(
                                                                 (float)$confidence,
                                                                 2
                                                             )
                                                         ); ?>%
+
                                                     </strong>
 
                                                 </span>
@@ -2274,7 +2254,7 @@ $closeUrl =
 
                                         </div>
 
-                                    </div>
+                                    </button>
 
                                 <?php endif; ?>
 
@@ -2282,11 +2262,7 @@ $closeUrl =
 
                         </div>
 
-
                     <?php else: ?>
-
-
-                        <!-- NO ENTITIES -->
 
                         <div
                             class="
@@ -2297,15 +2273,11 @@ $closeUrl =
                                 rounded-lg
                                 p-4
                                 text-center
+                                my-auto
                             "
                         >
 
-                            <div
-                                class="
-                                    text-xl
-                                    mb-1
-                                "
-                            >
+                            <div class="text-xl mb-1">
                                 🔍
                             </div>
 
@@ -2328,97 +2300,105 @@ $closeUrl =
 
 
                 <!-- =================================================
-                     APPROVED REPORT
+                     PDF TEXT / HIGHLIGHT AREA
                      ================================================= -->
 
-                <?php if (
-                    $isApproved
-                ): ?>
+                <div
+                    id="pdfTextPanel"
+                    class="
+                        hidden
+                        mt-3
+                        bg-white
+                        border
+                        border-slate-200
+                        rounded-xl
+                        p-3
+                        max-h-[180px]
+                        overflow-y-auto
+                        shadow-2xs
+                    "
+                >
 
                     <div
                         class="
-                            space-y-3
-                            pt-2
+                            flex
+                            items-center
+                            justify-between
+                            mb-2
                         "
                     >
 
-                        <div>
-
-                            <p
-                                class="
-                                    text-[11px]
-                                    font-semibold
-                                    text-slate-400
-                                    uppercase
-                                    tracking-wider
-                                    mb-1
-                                "
-                            >
-                                Supervisor Feedback
-                            </p>
-
-
-                            <div
-                                class="
-                                    bg-slate-50
-                                    border
-                                    border-slate-200
-                                    rounded-xl
-                                    p-3
-                                    text-xs
-                                    text-slate-800
-                                    font-medium
-                                    italic
-                                "
-                            >
-
-                                "
-
-                                <?= e(
-                                    $activeRemarks
-                                    !== ''
-                                        ? $activeRemarks
-                                        : 'Report verified and approved.'
-                                ); ?>
-
-                                "
-
-                            </div>
-
-                        </div>
-
-
-                        <div
+                        <p
                             class="
-                                flex
-                                items-center
-                                justify-end
-                                pt-2
-                                border-t
-                                border-slate-100
+                                text-[10px]
+                                font-bold
+                                uppercase
+                                tracking-wider
+                                text-slate-400
                             "
                         >
+                            Extracted Report Text
+                        </p>
 
-                            <a
-                                href="<?= e($closeUrl); ?>"
-                                class="
-                                    px-5
-                                    py-1.5
-                                    bg-slate-100
-                                    hover:bg-slate-200
-                                    text-slate-700
-                                    text-xs
-                                    font-semibold
-                                    rounded-full
-                                    border
-                                    border-slate-200
-                                    transition-all
-                                "
-                            >
-                                Close
-                            </a>
+                        <button
+                            type="button"
+                            onclick="clearEntityHighlight()"
+                            class="
+                                text-[10px]
+                                text-slate-400
+                                hover:text-slate-700
+                            "
+                        >
+                            Clear
+                        </button>
 
-                        </div>
+                    </div>
+
+
+                    <div
+                        id="pdfTextContent"
+                        class="pdf-text-container"
+                    ></div>
+
+                </div>
+
+
+                <!-- =================================================
+                     ACTIONS
+                     ================================================= -->
+
+                <?php if ($isApproved): ?>
+
+                    <div
+                        class="
+                            flex
+                            items-center
+                            justify-end
+                            pt-3
+                            mt-3
+                            border-t
+                            border-slate-100
+                            shrink-0
+                        "
+                    >
+
+                        <a
+                            href="<?= e($closeUrl); ?>"
+                            class="
+                                px-5
+                                py-1.5
+                                bg-slate-100
+                                hover:bg-slate-200
+                                text-slate-700
+                                text-xs
+                                font-semibold
+                                rounded-full
+                                border
+                                border-slate-200
+                            "
+                        >
+                            Close
+                        </a>
 
                     </div>
 
@@ -2426,21 +2406,18 @@ $closeUrl =
                 <?php else: ?>
 
 
-                    <!-- =================================================
-                         PENDING / REVISION REPORT
-                         ================================================= -->
-
                     <form
                         method="POST"
                         action="review_reports.php"
                         class="
                             space-y-3
-                            pt-2
+                            pt-3
+                            mt-3
+                            border-t
+                            border-slate-100
+                            shrink-0
                         "
                     >
-
-
-                        <!-- REPORT ID -->
 
                         <input
                             type="hidden"
@@ -2453,65 +2430,16 @@ $closeUrl =
                         >
 
 
-                        <!-- STUDENT NAME -->
-
                         <input
                             type="hidden"
                             name="student_name"
                             value="<?= e(
-                                $activeReport[
-                                    'student_name'
-                                ]
+                                $activeReport['student_name']
                                 ??
                                 ''
                             ); ?>"
                         >
 
-
-                        <!-- FEEDBACK -->
-
-                        <div>
-
-                            <label
-                                class="
-                                    block
-                                    text-[11px]
-                                    font-semibold
-                                    text-slate-400
-                                    uppercase
-                                    tracking-wider
-                                    mb-1
-                                "
-                            >
-                                Supervisor Feedback
-                            </label>
-
-
-                            <textarea
-                                name="supervisor_remarks"
-                                rows="4"
-                                placeholder="Enter comments or instructions for required revisions..."
-                                class="
-                                    w-full
-                                    text-xs
-                                    bg-slate-50
-                                    border
-                                    border-slate-200
-                                    rounded-xl
-                                    p-2.5
-                                    text-slate-800
-                                    focus:outline-none
-                                    focus:border-[#0F2854]
-                                    resize-none
-                                "
-                            ><?= e(
-                                $activeRemarks
-                            ); ?></textarea>
-
-                        </div>
-
-
-                        <!-- ACTION BUTTONS -->
 
                         <div
                             class="
@@ -2519,12 +2447,8 @@ $closeUrl =
                                 items-center
                                 justify-end
                                 gap-2
-                                pt-2
-                                border-t
-                                border-slate-100
                             "
                         >
-
 
                             <!-- CANCEL -->
 
@@ -2541,14 +2465,13 @@ $closeUrl =
                                     rounded-full
                                     border
                                     border-slate-200
-                                    transition-all
                                 "
                             >
                                 Cancel
                             </a>
 
 
-                            <!-- REQUEST REVISION -->
+                            <!-- REVISION -->
 
                             <button
                                 type="submit"
@@ -2565,8 +2488,6 @@ $closeUrl =
                                     rounded-full
                                     border
                                     border-rose-200
-                                    transition-all
-                                    cursor-pointer
                                 "
                             >
                                 Request Revision
@@ -2575,7 +2496,10 @@ $closeUrl =
 
                             <!-- APPROVE -->
 
-                            <button type="submit" name="status" value="Approved"
+                            <button
+                                type="submit"
+                                name="status"
+                                value="Approved"
                                 class="
                                     px-4
                                     py-1.5
@@ -2587,22 +2511,371 @@ $closeUrl =
                                     rounded-full
                                     border
                                     border-[#0F2854]
-                                    transition-all
-                                    shadow-2xs
-                                    cursor-pointer
                                 "
                             >
                                 Approve Report
                             </button>
+
                         </div>
+
                     </form>
+
                 <?php endif; ?>
+
             </div>
+
         </div>
+
     </div>
+
 </div>
 
 <?php endif; ?>
 
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+
+<script>
+
+    /*
+     * ==========================================================
+     * PDF TEXT FROM PHP
+     * ==========================================================
+     */
+
+    const pdfReportText =
+        <?= json_encode(
+            (string)$pdfText,
+            JSON_UNESCAPED_UNICODE |
+            JSON_UNESCAPED_SLASHES
+        ); ?>;
+
+
+    /*
+     * ==========================================================
+     * CURRENT HIGHLIGHT
+     * ==========================================================
+     */
+
+    let currentlyHighlightedEntity = null;
+
+
+    /*
+     * ==========================================================
+     * ESCAPE HTML
+     * ==========================================================
+     */
+
+    function escapeHtml(value) {
+
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+
+    /*
+     * ==========================================================
+     * ESCAPE REGEX
+     * ==========================================================
+     */
+
+    function escapeRegex(value) {
+
+        return String(value).replace(
+            /[.*+?^${}()|[\]\\]/g,
+            '\\$&'
+        );
+    }
+
+
+    /*
+     * ==========================================================
+     * HIGHLIGHT ENTITY
+     *
+     * IMPORTANT:
+     *
+     * There is NO highlight until the supervisor
+     * clicks an entity.
+     * ==========================================================
+     */
+
+    function highlightEntity(button) {
+
+        if (!button) {
+
+            return;
+        }
+
+
+        const entity =
+            button.getAttribute(
+                'data-entity'
+            );
+
+
+        if (
+            !entity ||
+            entity.trim() === ''
+        ) {
+
+            return;
+        }
+
+
+        /*
+         * Remove previous selected
+         * entity button.
+         */
+
+        document
+            .querySelectorAll(
+                '.entity-clickable.selected'
+            )
+            .forEach(
+                function(item) {
+
+                    item.classList.remove(
+                        'selected'
+                    );
+
+                }
+            );
+
+
+        /*
+         * Select clicked entity.
+         */
+
+        button.classList.add(
+            'selected'
+        );
+
+
+        /*
+         * If there is no extracted
+         * text, we cannot highlight
+         * inside the PDF viewer.
+         */
+
+        if (
+            !pdfReportText ||
+            pdfReportText.trim() === ''
+        ) {
+
+            return;
+        }
+
+
+        const panel =
+            document.getElementById(
+                'pdfTextPanel'
+            );
+
+
+        const content =
+            document.getElementById(
+                'pdfTextContent'
+            );
+
+
+        if (
+            !panel ||
+            !content
+        ) {
+
+            return;
+        }
+
+
+        /*
+         * Escape original PDF text.
+         */
+
+        let safeText =
+            escapeHtml(
+                pdfReportText
+            );
+
+
+        /*
+         * Highlight only the clicked
+         * entity.
+         */
+
+        const regex =
+            new RegExp(
+                escapeRegex(entity),
+                'gi'
+            );
+
+
+        let matchFound = false;
+
+
+        safeText =
+            safeText.replace(
+                regex,
+                function(match) {
+
+                    matchFound = true;
+
+                    return (
+                        '<mark class="pdf-entity-highlight active">' +
+                        escapeHtml(match) +
+                        '</mark>'
+                    );
+
+                }
+            );
+
+
+        /*
+         * Display the text panel only
+         * after an entity is clicked.
+         */
+
+        panel.classList.remove(
+            'hidden'
+        );
+
+
+        content.innerHTML =
+            safeText;
+
+
+        /*
+         * Scroll to the first
+         * highlighted entity.
+         */
+
+        const highlighted =
+            content.querySelector(
+                '.pdf-entity-highlight'
+            );
+
+
+        if (highlighted) {
+
+            highlighted.scrollIntoView({
+
+                behavior: 'smooth',
+
+                block: 'center'
+
+            });
+
+        }
+
+
+        currentlyHighlightedEntity =
+            entity;
+
+
+        /*
+         * If entity was not found,
+         * show a small message.
+         */
+
+        if (!matchFound) {
+
+            content.innerHTML =
+                '<div class="text-xs text-slate-400 italic">' +
+                'The entity "' +
+                escapeHtml(entity) +
+                '" was not found in the extracted report text.' +
+                '</div>';
+
+        }
+
+    }
+
+
+    /*
+     * ==========================================================
+     * CLEAR HIGHLIGHT
+     * ==========================================================
+     */
+
+    function clearEntityHighlight() {
+
+        document
+            .querySelectorAll(
+                '.entity-clickable.selected'
+            )
+            .forEach(
+                function(item) {
+
+                    item.classList.remove(
+                        'selected'
+                    );
+
+                }
+            );
+
+
+        const panel =
+            document.getElementById(
+                'pdfTextPanel'
+            );
+
+
+        const content =
+            document.getElementById(
+                'pdfTextContent'
+            );
+
+
+        if (panel) {
+
+            panel.classList.add(
+                'hidden'
+            );
+
+        }
+
+
+        if (content) {
+
+            content.innerHTML = '';
+
+        }
+
+
+        currentlyHighlightedEntity =
+            null;
+    }
+
+
+    /*
+     * ==========================================================
+     * ESCAPE KEY
+     * ==========================================================
+     */
+
+    document.addEventListener(
+        'keydown',
+        function(event) {
+
+            if (
+                event.key === 'Escape'
+            ) {
+
+                clearEntityHighlight();
+
+            }
+
+        }
+    );
+
+</script>
+
+
 </body>
+
 </html>
