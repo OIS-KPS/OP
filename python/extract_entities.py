@@ -2,7 +2,6 @@ import sys
 import os
 import json
 import re
-
 import pdfplumber
 import spacy
 import mysql.connector
@@ -47,12 +46,51 @@ def fail(message, details=None):
 # NORMALIZE TEXT
 # ============================================================
 
+# Common words that must never be treated as predefined entities.
+IGNORED_ENTITY_TERMS = {
+    "my"
+}
+
+
 def normalize(text):
-    return re.sub(
+    """
+    Normalize text for matching.
+
+    Example:
+        "PHP Programming"
+        "php programming"
+        "PHP   Programming"
+        "PHP-programming"
+
+    become easier to compare.
+    """
+
+    text = str(text or "")
+
+    text = text.lower()
+
+    # Replace different dash types with a normal space
+    text = re.sub(
+        r"[-–—]",
+        " ",
+        text
+    )
+
+    # Replace punctuation with spaces
+    text = re.sub(
+        r"[^\w\s+#.]",
+        " ",
+        text
+    )
+
+    # Normalize whitespace
+    text = re.sub(
         r"\s+",
         " ",
-        str(text or "").lower().strip()
+        text
     )
+
+    return text.strip()
 
 
 # ============================================================
@@ -85,35 +123,44 @@ def connect_database():
 
 
 # ============================================================
-# READ PREDEFINED ENTITIES
+# LOAD PREDEFINED ENTITIES
 # ============================================================
 
 def load_predefined_entities(connection):
 
-    cursor = connection.cursor(
-        dictionary=True
-    )
+    cursor = None
 
-    query = """
-        SELECT
-            id,
-            entity_name,
-            aliases,
-            category,
-            activity_type,
-            it_related,
-            description
-        FROM predefined_entities
-        ORDER BY LENGTH(entity_name) DESC
-    """
+    try:
 
-    cursor.execute(query)
+        cursor = connection.cursor(
+            dictionary=True
+        )
 
-    entities = cursor.fetchall()
+        query = """
+            SELECT
+                id,
+                entity_name,
+                aliases,
+                category,
+                activity_type,
+                it_related,
+                description
+            FROM predefined_entities
+            ORDER BY
+                LENGTH(entity_name) DESC,
+                entity_name ASC
+        """
 
-    cursor.close()
+        cursor.execute(query)
 
-    return entities
+        entities = cursor.fetchall()
+
+        return entities
+
+    finally:
+
+        if cursor is not None:
+            cursor.close()
 
 
 # ============================================================
@@ -138,7 +185,9 @@ def extract_pdf_text(pdf_path):
                     or ""
                 )
 
-                if page_text.strip():
+                page_text = page_text.strip()
+
+                if page_text:
 
                     full_text.append(
                         f"--- PAGE {page_number} ---\n"
@@ -156,25 +205,49 @@ def extract_pdf_text(pdf_path):
 
 
 # ============================================================
-# COUNT A TERM IN THE PDF
+# CREATE SEARCHABLE PDF TEXT
+# ============================================================
+
+def prepare_search_text(text):
+
+    """
+    Creates a normalized version of the PDF text.
+
+    The original PDF content is NOT changed.
+    This is only used internally for matching.
+    """
+
+    return normalize(text)
+
+
+# ============================================================
+# COUNT TERM OCCURRENCES
 # ============================================================
 
 def count_term(text, term):
 
-    term = normalize(term)
+    normalized_text = prepare_search_text(text)
 
-    if not term:
+    normalized_term = normalize(term)
+
+    if normalized_term in IGNORED_ENTITY_TERMS:
+        return 0
+
+    if not normalized_text:
+        return 0
+
+    if not normalized_term:
         return 0
 
     pattern = (
         r"(?<!\w)"
-        + re.escape(term)
+        + re.escape(normalized_term)
         + r"(?!\w)"
     )
 
     matches = re.findall(
         pattern,
-        text,
+        normalized_text,
         flags=re.IGNORECASE
     )
 
@@ -182,7 +255,105 @@ def count_term(text, term):
 
 
 # ============================================================
-# VERIFY PDF AGAINST PREDEFINED ENTITIES
+# SPLIT ALIASES
+# ============================================================
+
+def split_aliases(aliases):
+
+    if aliases is None:
+        return []
+
+    aliases = str(aliases).strip()
+
+    if not aliases:
+        return []
+
+    # Support:
+    #
+    # PHP|PHP Language|PHP Programming
+    #
+    # PHP, PHP Language, PHP Programming
+    #
+    # PHP;PHP Language
+    #
+    # all together.
+
+    parts = re.split(
+        r"[|;,]",
+        aliases
+    )
+
+    result = []
+
+    for part in parts:
+
+        part = part.strip()
+
+        if part:
+            result.append(part)
+
+    return result
+
+
+# ============================================================
+# BUILD SEARCH TERMS
+# ============================================================
+
+def build_entity_terms(entity):
+
+    terms = []
+
+    canonical_name = str(
+        entity.get("entity_name")
+        or ""
+    ).strip()
+
+    if canonical_name:
+        terms.append(
+            canonical_name
+        )
+
+    aliases = split_aliases(
+        entity.get("aliases")
+    )
+
+    terms.extend(
+        aliases
+    )
+
+    # Remove duplicate normalized values
+    unique_terms = []
+
+    seen = set()
+
+    for term in terms:
+
+        normalized_term = normalize(
+            term
+        )
+
+        if normalized_term in IGNORED_ENTITY_TERMS:
+            continue
+
+        if not normalized_term:
+            continue
+
+        if normalized_term in seen:
+            continue
+
+        seen.add(
+            normalized_term
+        )
+
+        unique_terms.append(
+            term
+        )
+
+    return unique_terms
+
+
+# ============================================================
+# FIND PREDEFINED ENTITY MATCHES
 # ============================================================
 
 def find_predefined_matches(
@@ -194,69 +365,26 @@ def find_predefined_matches(
 
     for entity in predefined_entities:
 
-        canonical_name = (
-            entity["entity_name"]
-            or ""
+        # Do not detect a database row whose canonical name is "my".
+        canonical_name = normalize(entity.get("entity_name", ""))
+        if canonical_name in IGNORED_ENTITY_TERMS:
+            continue
+
+        entity_terms = build_entity_terms(
+            entity
         )
 
-        aliases = (
-            entity.get("aliases")
-            or ""
-        )
-
-        # ----------------------------------------------------
-        # Build searchable terms
-        # ----------------------------------------------------
-
-        terms = []
-
-        if canonical_name.strip():
-            terms.append(
-                canonical_name
-            )
-
-        if aliases.strip():
-
-            alias_list = aliases.split("|")
-
-            for alias in alias_list:
-
-                alias = alias.strip()
-
-                if alias:
-                    terms.append(alias)
-
-        # ----------------------------------------------------
-        # Remove duplicate search terms
-        # ----------------------------------------------------
-
-        unique_terms = []
-
-        seen_terms = set()
-
-        for term in terms:
-
-            normalized_term = normalize(term)
-
-            if (
-                normalized_term
-                and normalized_term not in seen_terms
-            ):
-
-                seen_terms.add(
-                    normalized_term
-                )
-
-                unique_terms.append(term)
-
-        # ----------------------------------------------------
-        # Find the most frequent matching term
-        # ----------------------------------------------------
+        if not entity_terms:
+            continue
 
         best_term = ""
         best_frequency = 0
 
-        for term in unique_terms:
+        # ----------------------------------------------------
+        # Check canonical name and aliases
+        # ----------------------------------------------------
+
+        for term in entity_terms:
 
             frequency = count_term(
                 text,
@@ -270,58 +398,158 @@ def find_predefined_matches(
                 best_term = term
 
         # ----------------------------------------------------
-        # ONLY ADD IF FOUND IN PDF
+        # Only return entities actually found
+        # in the PDF.
         # ----------------------------------------------------
 
-        if best_frequency > 0:
+        if best_frequency <= 0:
+            continue
 
-            matches.append({
+        entity_name = str(
+            entity.get("entity_name")
+            or best_term
+        ).strip()
 
-                "predefined_id":
-                    entity["id"],
+        canonical_name = entity_name
 
-                "entity":
-                    entity["entity_name"],
+        category = str(
+            entity.get("category")
+            or "Other"
+        ).strip()
 
-                "entity_name":
-                    entity["entity_name"],
+        activity_type = str(
+            entity.get("activity_type")
+            or "Other"
+        ).strip()
 
-                "canonical_name":
-                    entity["entity_name"],
+        it_related = str(
+            entity.get("it_related")
+            or "unknown"
+        ).strip().lower()
 
-                "category":
-                    entity["category"],
+        # ----------------------------------------------------
+        # Validate activity type
+        # ----------------------------------------------------
 
-                "activity_type":
-                    entity["activity_type"],
+        allowed_activity_types = [
+            "Software",
+            "Hardware",
+            "Clerical",
+            "Other"
+        ]
 
-                "it_related":
-                    entity["it_related"],
+        if activity_type not in allowed_activity_types:
 
-                "description":
-                    entity.get("description"),
+            activity_type = "Other"
 
-                "matched_term":
-                    best_term,
+        # ----------------------------------------------------
+        # Validate IT related
+        # ----------------------------------------------------
 
-                "frequency":
-                    best_frequency,
+        if it_related not in [
+            "yes",
+            "no",
+            "unknown"
+        ]:
 
-                "source":
-                    "predefined"
+            it_related = "unknown"
 
-            })
+        # ----------------------------------------------------
+        # Add matched entity
+        # ----------------------------------------------------
+
+        matches.append({
+
+            "predefined_id":
+                int(entity["id"]),
+
+            "entity":
+                entity_name,
+
+            "entity_name":
+                entity_name,
+
+            "canonical_name":
+                canonical_name,
+
+            "category":
+                category,
+
+            "activity_type":
+                activity_type,
+
+            "it_related":
+                it_related,
+
+            "description":
+                entity.get("description"),
+
+            "matched_term":
+                best_term,
+
+            "frequency":
+                best_frequency,
+
+            "source":
+                "predefined"
+
+        })
 
     return matches
 
 
+def remove_overlapping_matches(text, matches):
+    """
+    Remove shorter entity matches whose text span is already covered by
+    a longer entity match. For example, keep "Windows 11" and suppress
+    the "Windows" match when both refer to the same occurrence.
+    """
+    normalized_text = prepare_search_text(text)
+    candidates = []
+
+    for index, match in enumerate(matches):
+        normalized_term = normalize(match.get("matched_term", ""))
+        if not normalized_term:
+            continue
+
+        pattern = r"(?<!\w)" + re.escape(normalized_term) + r"(?!\w)"
+        for occurrence in re.finditer(pattern, normalized_text, flags=re.IGNORECASE):
+            candidates.append({
+                "index": index,
+                "start": occurrence.start(),
+                "end": occurrence.end(),
+                "length": occurrence.end() - occurrence.start()
+            })
+
+    # Longest spans win. For equal lengths, retain the earlier occurrence.
+    candidates.sort(key=lambda item: (-item["length"], item["start"], item["index"]))
+
+    accepted_spans = []
+    retained_indexes = set()
+
+    for candidate in candidates:
+        overlaps = any(
+            candidate["start"] < accepted["end"]
+            and candidate["end"] > accepted["start"]
+            for accepted in accepted_spans
+        )
+
+        if not overlaps:
+            accepted_spans.append(candidate)
+            retained_indexes.add(candidate["index"])
+
+    return [
+        match
+        for index, match in enumerate(matches)
+        if index in retained_indexes
+    ]
+
+
 # ============================================================
-# GET SPACY ENTITIES
+# SPAcy ENTITIES
 # ============================================================
 
-def extract_spacy_entities(
-    doc
-):
+def extract_spacy_entities(doc):
 
     entities = []
 
@@ -330,7 +558,8 @@ def extract_spacy_entities(
     for ent in doc.ents:
 
         entity_text = (
-            ent.text.strip()
+            ent.text
+            .strip()
         )
 
         if not entity_text:
@@ -363,29 +592,75 @@ def extract_spacy_entities(
 # CALCULATE SUMMARY
 # ============================================================
 
-def calculate_summary(
-    entities
-):
+def calculate_summary(entities):
+
+    software_count = 0
+    hardware_count = 0
+    clerical_count = 0
+    other_count = 0
 
     it_related_count = 0
+    non_it_count = 0
 
-    clerical_count = 0
+    total_frequency = 0
 
     for entity in entities:
 
-        frequency = int(
-            entity.get(
-                "frequency",
-                1
+        try:
+
+            frequency = int(
+                entity.get(
+                    "frequency",
+                    1
+                )
             )
-        )
+
+        except Exception:
+
+            frequency = 1
+
+        if frequency < 1:
+            frequency = 1
+
+        total_frequency += frequency
+
+        # ----------------------------------------------------
+        # Activity type
+        # ----------------------------------------------------
+
+        activity_type = str(
+            entity.get(
+                "activity_type",
+                ""
+            )
+        ).strip().lower()
+
+        if activity_type == "software":
+
+            software_count += frequency
+
+        elif activity_type == "hardware":
+
+            hardware_count += frequency
+
+        elif activity_type == "clerical":
+
+            clerical_count += frequency
+
+        else:
+
+            other_count += frequency
+
+        # ----------------------------------------------------
+        # IT related
+        # ----------------------------------------------------
 
         it_related = str(
             entity.get(
                 "it_related",
                 ""
             )
-        ).lower()
+        ).strip().lower()
 
         if it_related == "yes":
 
@@ -393,27 +668,31 @@ def calculate_summary(
 
         elif it_related == "no":
 
-            clerical_count += frequency
+            non_it_count += frequency
 
-    total_count = (
+    # --------------------------------------------------------
+    # IT / Clerical percentage
+    # --------------------------------------------------------
+
+    classified_total = (
         it_related_count
-        + clerical_count
+        + non_it_count
     )
 
-    if total_count > 0:
+    if classified_total > 0:
 
         it_percentage = round(
             (
                 it_related_count
-                / total_count
+                / classified_total
             ) * 100,
             2
         )
 
         clerical_percentage = round(
             (
-                clerical_count
-                / total_count
+                non_it_count
+                / classified_total
             ) * 100,
             2
         )
@@ -421,26 +700,96 @@ def calculate_summary(
     else:
 
         it_percentage = 0
-
         clerical_percentage = 0
+
+    # --------------------------------------------------------
+    # Activity percentages
+    # --------------------------------------------------------
+
+    if total_frequency > 0:
+
+        software_percentage = round(
+            (
+                software_count
+                / total_frequency
+            ) * 100,
+            2
+        )
+
+        hardware_percentage = round(
+            (
+                hardware_count
+                / total_frequency
+            ) * 100,
+            2
+        )
+
+        clerical_activity_percentage = round(
+            (
+                clerical_count
+                / total_frequency
+            ) * 100,
+            2
+        )
+
+        other_percentage = round(
+            (
+                other_count
+                / total_frequency
+            ) * 100,
+            2
+        )
+
+    else:
+
+        software_percentage = 0
+        hardware_percentage = 0
+        clerical_activity_percentage = 0
+        other_percentage = 0
 
     return {
 
         "total":
-            total_count,
+            total_frequency,
+
+        "unique_entities":
+            len(entities),
 
         "it_related":
             it_related_count,
 
         "clerical":
-            clerical_count,
+            non_it_count,
 
         "it_percentage":
             it_percentage,
 
         "clerical_percentage":
-            clerical_percentage
+            clerical_percentage,
 
+        "software":
+            software_count,
+
+        "hardware":
+            hardware_count,
+
+        "clerical_activity":
+            clerical_count,
+
+        "other":
+            other_count,
+
+        "software_percentage":
+            software_percentage,
+
+        "hardware_percentage":
+            hardware_percentage,
+
+        "clerical_activity_percentage":
+            clerical_activity_percentage,
+
+        "other_percentage":
+            other_percentage
     }
 
 
@@ -450,9 +799,9 @@ def calculate_summary(
 
 def main():
 
-    # --------------------------------------------------------
-    # Get PDF path
-    # --------------------------------------------------------
+    # ========================================================
+    # 1. GET PDF PATH
+    # ========================================================
 
     if len(sys.argv) < 2:
 
@@ -464,9 +813,9 @@ def main():
         sys.argv[1]
     )
 
-    # --------------------------------------------------------
-    # Verify PDF
-    # --------------------------------------------------------
+    # ========================================================
+    # 2. VERIFY PDF
+    # ========================================================
 
     if not os.path.isfile(pdf_path):
 
@@ -475,9 +824,9 @@ def main():
             pdf_path
         )
 
-    # --------------------------------------------------------
-    # Load spaCy
-    # --------------------------------------------------------
+    # ========================================================
+    # 3. LOAD spaCy
+    # ========================================================
 
     try:
 
@@ -492,9 +841,9 @@ def main():
             str(e)
         )
 
-    # --------------------------------------------------------
-    # Extract PDF text
-    # --------------------------------------------------------
+    # ========================================================
+    # 4. EXTRACT PDF TEXT
+    # ========================================================
 
     text, pdf_error = (
         extract_pdf_text(
@@ -515,9 +864,9 @@ def main():
             "No extractable text was found in the PDF."
         )
 
-    # --------------------------------------------------------
-    # Process text using spaCy
-    # --------------------------------------------------------
+    # ========================================================
+    # 5. PROCESS PDF WITH spaCy
+    # ========================================================
 
     try:
 
@@ -530,12 +879,9 @@ def main():
             str(e)
         )
 
-    # --------------------------------------------------------
-    # Get normal spaCy entities
-    #
-    # These are NOT displayed directly.
-    # They are only the NLP processing result.
-    # --------------------------------------------------------
+    # ========================================================
+    # 6. GET spaCy ENTITIES
+    # ========================================================
 
     spacy_entities = (
         extract_spacy_entities(
@@ -543,9 +889,9 @@ def main():
         )
     )
 
-    # --------------------------------------------------------
-    # Connect to database
-    # --------------------------------------------------------
+    # ========================================================
+    # 7. CONNECT DATABASE
+    # ========================================================
 
     connection = None
 
@@ -559,9 +905,9 @@ def main():
                 "Unable to connect to database."
             )
 
-        # ----------------------------------------------------
-        # Load predefined entities
-        # ----------------------------------------------------
+        # ====================================================
+        # 8. LOAD PREDEFINED ENTITIES
+        # ====================================================
 
         predefined_entities = (
             load_predefined_entities(
@@ -569,12 +915,9 @@ def main():
             )
         )
 
-        # ----------------------------------------------------
-        # IMPORTANT:
-        #
-        # Only entities that exist in
-        # predefined_entities are returned.
-        # ----------------------------------------------------
+        # ====================================================
+        # 9. MATCH PDF AGAINST DATABASE
+        # ====================================================
 
         matched_entities = (
             find_predefined_matches(
@@ -583,17 +926,24 @@ def main():
             )
         )
 
-        # ----------------------------------------------------
-        # Calculate summary
-        # ----------------------------------------------------
+        # Prevent shorter terms such as "Windows" from being returned
+        # for the same occurrence as a longer term such as "Windows 11".
+        matched_entities = remove_overlapping_matches(
+            text,
+            matched_entities
+        )
+
+        # ====================================================
+        # 10. CALCULATE SUMMARY
+        # ====================================================
 
         summary = calculate_summary(
             matched_entities
         )
 
-        # ----------------------------------------------------
-        # Return JSON to PHP
-        # ----------------------------------------------------
+        # ====================================================
+        # 11. RETURN JSON TO PHP
+        # ====================================================
 
         result = {
 
@@ -603,9 +953,13 @@ def main():
             "content":
                 text,
 
+            # Raw spaCy entities are returned only
+            # for debugging / verification.
             "spacy_entities":
                 spacy_entities,
 
+            # These are the ONLY entities that
+            # should be displayed by the PHP page.
             "entities":
                 matched_entities,
 
@@ -652,6 +1006,7 @@ def main():
                     connection.close()
 
             except Exception:
+
                 pass
 
 

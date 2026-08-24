@@ -1,5 +1,4 @@
 <?php
-
 /*
  * ============================================================
  * src/pages/supervisor/reviewReportsPage.php
@@ -8,44 +7,26 @@
  * Supervisor Review Reports VIEW
  *
  * Loaded by:
- *
  * supervisor/review_reports.php
  *
- * This file DOES NOT:
- * - start a session
- * - require db.php
- * - execute database queries
- *
  * Controller provides:
- *
  * $filter_status
  * $message
  * $reports
  * $activeReport
- *
  * ============================================================
  */
 
-
-/* ============================================================
-   SAFE DEFAULT VALUES
-   ============================================================ */
-
 $filter_status = $filter_status ?? 'All';
-
 $message = $message ?? '';
-
 $reports = $reports ?? [];
-
 $activeReport = $activeReport ?? null;
-
 
 /* ============================================================
    HELPER FUNCTION
    ============================================================ */
 
 if (!function_exists('e')) {
-
     function e($value)
     {
         return htmlspecialchars(
@@ -56,65 +37,51 @@ if (!function_exists('e')) {
     }
 }
 
-
 /* ============================================================
    STATUS URL
    ============================================================ */
 
 if (!function_exists('statusUrl')) {
-
     function statusUrl($status = null, $reviewId = null)
     {
         $params = [];
 
         if ($reviewId !== null) {
-
             $params['review_id'] = (int)$reviewId;
         }
 
-        if (
-            $status !== null &&
-            $status !== 'All'
-        ) {
-
+        if ($status !== null && $status !== 'All') {
             $params['status'] = $status;
         }
 
         if (empty($params)) {
-
             return 'review_reports.php';
         }
 
-        return 'review_reports.php?' .
-            http_build_query($params);
+        return 'review_reports.php?' . http_build_query($params);
     }
 }
-
 
 /* ============================================================
    NORMALIZE STATUS
    ============================================================ */
 
 if (!function_exists('normalizeReportStatus')) {
-
     function normalizeReportStatus($status)
     {
         $status = trim((string)$status);
 
         if ($status === '') {
-
             return 'pending';
         }
 
         $lower = strtolower($status);
 
         if ($lower === 'approved') {
-
             return 'approved';
         }
 
         if ($lower === 'pending') {
-
             return 'pending';
         }
 
@@ -124,7 +91,6 @@ if (!function_exists('normalizeReportStatus')) {
             $lower === 'revision' ||
             $lower === 'rejected'
         ) {
-
             return 'needs revision';
         }
 
@@ -132,13 +98,11 @@ if (!function_exists('normalizeReportStatus')) {
     }
 }
 
-
 /* ============================================================
    IT RELATED CHECK
    ============================================================ */
 
 if (!function_exists('isITRelated')) {
-
     function isITRelated($value)
     {
         $value = strtolower(trim((string)$value));
@@ -158,7 +122,6 @@ if (!function_exists('isITRelated')) {
     }
 }
 
-
 /* ============================================================
    NORMALIZE FILTER
    ============================================================ */
@@ -170,17 +133,9 @@ $allowedFilters = [
     'Needs Revision'
 ];
 
-if (
-    !in_array(
-        $filter_status,
-        $allowedFilters,
-        true
-    )
-) {
-
+if (!in_array($filter_status, $allowedFilters, true)) {
     $filter_status = 'All';
 }
-
 
 /* ============================================================
    ACTIVE REPORT DATA
@@ -191,35 +146,23 @@ $hasActiveReport =
     is_array($activeReport);
 
 $activeStatus = 'pending';
-
 $isApproved = false;
-
 $isRevision = false;
 
 $activeFilePath = '';
-
 $activeSubmittedAt = null;
 
 $extractedEntities = [];
-
-$extractionSummary = [];
-
 $pdfText = '';
-
 
 if ($hasActiveReport) {
 
-    $activeStatus =
-        normalizeReportStatus(
-            $activeReport['status'] ?? 'pending'
-        );
+    $activeStatus = normalizeReportStatus(
+        $activeReport['status'] ?? 'pending'
+    );
 
-    $isApproved =
-        ($activeStatus === 'approved');
-
-    $isRevision =
-        ($activeStatus === 'needs revision');
-
+    $isApproved = ($activeStatus === 'approved');
+    $isRevision = ($activeStatus === 'needs revision');
 
     $activeFilePath =
         $activeReport['file_path']
@@ -228,7 +171,6 @@ if ($hasActiveReport) {
         ??
         '';
 
-
     $activeSubmittedAt =
         $activeReport['submitted_at']
         ??
@@ -236,49 +178,16 @@ if ($hasActiveReport) {
         ??
         null;
 
-
-    /*
-     * Extracted entities supplied by
-     * review_reports.php.
-     */
-
     $extractedEntities =
         $activeReport['extracted_entities']
-        ?? [];
+        ??
+        [];
 
-
-    if (
-        !is_array($extractedEntities)
-    ) {
-
+    if (!is_array($extractedEntities)) {
         $extractedEntities = [];
     }
 
-
-    /*
-     * Extraction summary.
-     */
-
-    $extractionSummary =
-        $activeReport['extraction_summary']
-        ?? [];
-
-
-    if (
-        !is_array($extractionSummary)
-    ) {
-
-        $extractionSummary = [];
-    }
-
-
-    /*
-     * PDF extracted text.
-     *
-     * This should preferably be supplied
-     * by review_reports.php after Python
-     * extraction.
-     */
+    /* The PDF is rendered client-side with PDF.js so its text layer can be highlighted. */
 
     $pdfText =
         $activeReport['pdf_text']
@@ -292,26 +201,22 @@ if ($hasActiveReport) {
         '';
 }
 
-
 /* ============================================================
    PDF URL
    ============================================================ */
 
 $pdfUrl = '';
 
-
 if (!empty($activeFilePath)) {
 
-    $cleanPath =
-        ltrim(
-            str_replace(
-                '\\',
-                '/',
-                $activeFilePath
-            ),
-            '/'
-        );
-
+    $cleanPath = ltrim(
+        str_replace(
+            '\\',
+            '/',
+            $activeFilePath
+        ),
+        '/'
+    );
 
     if (
         stripos(
@@ -320,100 +225,27 @@ if (!empty($activeFilePath)) {
         ) === 0
     ) {
 
-        $pdfUrl =
-            '/' .
-            $cleanPath;
+        $pdfUrl = '/' . $cleanPath;
 
     } else {
 
-        $pdfUrl =
-            '/ICS-PORTAL/' .
-            $cleanPath;
+        $pdfUrl = '/ICS-PORTAL/' . $cleanPath;
     }
 }
-
 
 /* ============================================================
    CLOSE URL
    ============================================================ */
 
-$closeUrl =
-    statusUrl(
-        $filter_status !== 'All'
-            ? $filter_status
-            : null
-    );
-
-
-/* ============================================================
-   PREPARE ENTITY DATA FOR JAVASCRIPT
-   ============================================================ */
-
-$javascriptEntities = [];
-
-
-if (!empty($extractedEntities)) {
-
-    foreach (
-        $extractedEntities
-        as $entity
-    ) {
-
-        if (!is_array($entity)) {
-
-            continue;
-        }
-
-
-        $entityName =
-            $entity['entity_name']
-            ??
-            $entity['entity']
-            ??
-            $entity['canonical_name']
-            ??
-            $entity['matched_term']
-            ??
-            '';
-
-
-        $matchedTerm =
-            $entity['matched_term']
-            ??
-            $entityName;
-
-
-        $entityName =
-            trim((string)$entityName);
-
-        $matchedTerm =
-            trim((string)$matchedTerm);
-
-
-        if (
-            $entityName === '' &&
-            $matchedTerm === ''
-        ) {
-
-            continue;
-        }
-
-
-        $javascriptEntities[] = [
-
-            'name' =>
-                $entityName,
-
-            'matched' =>
-                $matchedTerm
-        ];
-    }
-}
+$closeUrl = statusUrl(
+    $filter_status !== 'All'
+        ? $filter_status
+        : null
+);
 
 ?>
 
 <!DOCTYPE html>
-
 <html lang="en">
 
 <head>
@@ -429,206 +261,67 @@ if (!empty($extractedEntities)) {
         Review Reports - Supervisor Portal
     </title>
 
-
-    <!-- ======================================================
-         TAILWIND
-         ====================================================== -->
-
+    <!-- TAILWIND -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-
-    <!-- ======================================================
-         CUSTOM CSS
-         ====================================================== -->
-
+    <!-- CUSTOM CSS -->
     <link
         rel="stylesheet"
         href="/ICS-PORTAL/public/css/style.css"
     >
 
-
     <style>
 
-        /*
-         * =====================================================
-         * PDF TEXT HIGHLIGHT
-         * =====================================================
-         */
-
-        .pdf-text-container {
-            font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
-
-            font-size: 13px;
-
-            line-height: 1.65;
-
-            white-space: pre-wrap;
-
-            word-break: normal;
-
-            overflow-wrap: anywhere;
-
-            color: #334155;
-        }
-
-
-        .pdf-entity-highlight {
-
-            background-color: #fde68a;
-
-            color: #78350f;
-
-            border-radius: 4px;
-
-            padding: 1px 3px;
-
-            box-shadow:
-                0 0 0 1px
-                rgba(245, 158, 11, 0.25);
-
-            transition:
-                background-color 0.15s ease,
-                box-shadow 0.15s ease;
-        }
-
-
-        .pdf-entity-highlight.active {
-
-            background-color: #fbbf24;
-
-            color: #451a03;
-
-            box-shadow:
-                0 0 0 2px
-                rgba(245, 158, 11, 0.35);
-        }
-
-
-        /*
-         * =====================================================
-         * ENTITY BUTTON
-         * =====================================================
-         */
-
-        .entity-clickable {
-
-            cursor: pointer;
-
-            user-select: none;
-
-            transition:
-                background-color 0.15s ease,
-                border-color 0.15s ease,
-                transform 0.1s ease;
-        }
-
-
-        .entity-clickable:hover {
-
-            background-color: #fff7ed;
-
-            border-color: #fdba74;
-        }
-
-
-        .entity-clickable:active {
-
-            transform: scale(0.99);
-        }
-
-
-        .entity-clickable.selected {
-
-            background-color: #fff7ed;
-
-            border-color: #f59e0b;
-
-            box-shadow:
-                0 0 0 2px
-                rgba(245, 158, 11, 0.12);
-        }
-
-
-        /*
-         * =====================================================
-         * SHORT MODAL
-         * =====================================================
-         */
+        /* PDF.js text-layer highlighting */
+        #pdf-viewer { position: relative; width: 100%; min-width: 0; overflow-y: auto; overflow-x: hidden; background: #e2e8f0; }
+        .pdf-page { position: relative; max-width: 100%; margin: 0 auto 14px; background: #fff; box-shadow: 0 1px 4px rgba(15, 23, 42, .16); }
+        .pdf-page canvas { display: block; max-width: 100%; height: auto; }
+        .pdf-text-layer { position: absolute; inset: 0; overflow: hidden; line-height: 1; user-select: text; }
+        .pdf-text-layer span { position: absolute; color: transparent; white-space: pre; transform-origin: 0 0; cursor: text; }
+        .pdf-text-layer span.entity-highlight { color: #713f12; background: #fde68a; border-radius: 2px; box-shadow: 0 0 0 1px rgba(245, 158, 11, .35); }
+        .entity-card { cursor: pointer; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+        .entity-card:hover, .entity-card.entity-selected { border-color: #f59e0b; background: #fffbeb; box-shadow: 0 0 0 2px rgba(245, 158, 11, .12); }
 
         .review-modal {
-
             max-height: 90vh;
-
             height: auto;
         }
 
-
-        /*
-         * =====================================================
-         * MOBILE
-         * =====================================================
-         */
-
         @media (max-width: 1023px) {
-
             .review-modal {
-
                 max-height: 94vh;
             }
-
         }
 
     </style>
 
 </head>
 
-
-<body
-    class="
-        bg-slate-50
-        text-slate-800
-        antialiased
-    "
->
-
+<body class="bg-slate-50 text-slate-800 antialiased">
 
 <div class="flex min-h-screen">
-
 
     <!-- =====================================================
          SIDEBAR
          ===================================================== -->
 
     <?php include
-        __DIR__
-        . '/../../components/supervisor_sidebar.php';
+        __DIR__ .
+        '/../../components/supervisor_sidebar.php';
     ?>
-
 
     <!-- =====================================================
          MAIN CONTENT
          ===================================================== -->
 
-    <div
-        class="
-            flex-1
-            flex
-            flex-col
-            min-w-0
-        "
-    >
-
+    <div class="flex-1 flex flex-col min-w-0">
 
         <!-- HEADER -->
 
         <?php include
-            __DIR__
-            . '/../../components/header.php';
+            __DIR__ .
+            '/../../components/header.php';
         ?>
-
 
         <!-- =================================================
              MAIN
@@ -646,9 +339,8 @@ if (!empty($extractedEntities)) {
             "
         >
 
-
             <!-- =================================================
-                 HEADER BANNER
+                 PAGE HEADER
                  ================================================= -->
 
             <div
@@ -692,7 +384,6 @@ if (!empty($extractedEntities)) {
 
                 </div>
 
-
                 <!-- FILTER -->
 
                 <div
@@ -725,7 +416,6 @@ if (!empty($extractedEntities)) {
                         All
                     </a>
 
-
                     <a
                         href="<?= e(statusUrl('Pending')); ?>"
                         class="
@@ -742,7 +432,6 @@ if (!empty($extractedEntities)) {
                         Pending
                     </a>
 
-
                     <a
                         href="<?= e(statusUrl('Approved')); ?>"
                         class="
@@ -758,7 +447,6 @@ if (!empty($extractedEntities)) {
                     >
                         Approved
                     </a>
-
 
                     <a
                         href="<?= e(statusUrl('Needs Revision')); ?>"
@@ -780,7 +468,6 @@ if (!empty($extractedEntities)) {
 
             </div>
 
-
             <!-- =================================================
                  MESSAGE
                  ================================================= -->
@@ -800,13 +487,10 @@ if (!empty($extractedEntities)) {
                         font-semibold
                     "
                 >
-
                     ✓ <?= e($message); ?>
-
                 </div>
 
             <?php endif; ?>
-
 
             <!-- =================================================
                  SUBMISSIONS QUEUE
@@ -854,7 +538,6 @@ if (!empty($extractedEntities)) {
                     </p>
 
                 </div>
-
 
                 <?php if (!empty($reports)): ?>
 
@@ -913,7 +596,6 @@ if (!empty($extractedEntities)) {
 
                             </thead>
 
-
                             <tbody
                                 class="
                                     divide-y
@@ -923,10 +605,7 @@ if (!empty($extractedEntities)) {
                                 "
                             >
 
-                            <?php foreach (
-                                $reports
-                                as $item
-                            ): ?>
+                            <?php foreach ($reports as $item): ?>
 
                                 <?php
 
@@ -1025,9 +704,7 @@ if (!empty($extractedEntities)) {
                                                 "
                                             >
 
-                                                <?php if (
-                                                    !empty($avatar)
-                                                ): ?>
+                                                <?php if (!empty($avatar)): ?>
 
                                                     <img
                                                         src="<?= e($avatar); ?>"
@@ -1054,7 +731,6 @@ if (!empty($extractedEntities)) {
                                                 <?php endif; ?>
 
                                             </div>
-
 
                                             <div>
 
@@ -1087,7 +763,6 @@ if (!empty($extractedEntities)) {
 
                                     </td>
 
-
                                     <!-- WEEK -->
 
                                     <td class="py-3.5 px-5">
@@ -1104,7 +779,6 @@ if (!empty($extractedEntities)) {
 
                                     </td>
 
-
                                     <!-- DATE -->
 
                                     <td
@@ -1116,9 +790,7 @@ if (!empty($extractedEntities)) {
                                         "
                                     >
 
-                                        <?php if (
-                                            !empty($submittedAt)
-                                        ): ?>
+                                        <?php if (!empty($submittedAt)): ?>
 
                                             <?= e(
                                                 date(
@@ -1136,7 +808,6 @@ if (!empty($extractedEntities)) {
                                         <?php endif; ?>
 
                                     </td>
-
 
                                     <!-- STATUS -->
 
@@ -1207,7 +878,6 @@ if (!empty($extractedEntities)) {
 
                                     </td>
 
-
                                     <!-- ACTION -->
 
                                     <td
@@ -1235,11 +905,9 @@ if (!empty($extractedEntities)) {
                                                 inline-block
                                             "
                                         >
-
                                             <?= $status === 'pending'
                                                 ? 'Review'
                                                 : 'View Details'; ?>
-
                                         </a>
 
                                     </td>
@@ -1314,7 +982,6 @@ if (!empty($extractedEntities)) {
 
 </div>
 
-
 <!-- ============================================================
      ACTIVE REPORT MODAL
      ============================================================ -->
@@ -1338,12 +1005,6 @@ if (!empty($extractedEntities)) {
     "
 >
 
-
-    <!-- ========================================================
-         MODAL
-         SHORTER HEIGHT
-         ======================================================== -->
-
     <div
         class="
             review-modal
@@ -1362,7 +1023,6 @@ if (!empty($extractedEntities)) {
             p-5
         "
     >
-
 
         <!-- CLOSE -->
 
@@ -1391,7 +1051,6 @@ if (!empty($extractedEntities)) {
         >
             ✕
         </a>
-
 
         <!-- ====================================================
              MODAL HEADER
@@ -1440,7 +1099,6 @@ if (!empty($extractedEntities)) {
 
                 </h2>
 
-
                 <p
                     class="
                         text-xs
@@ -1451,9 +1109,7 @@ if (!empty($extractedEntities)) {
 
                     Submitted on
 
-                    <?php if (
-                        !empty($activeSubmittedAt)
-                    ): ?>
+                    <?php if (!empty($activeSubmittedAt)): ?>
 
                         <?= e(
                             date(
@@ -1473,7 +1129,6 @@ if (!empty($extractedEntities)) {
                 </p>
 
             </div>
-
 
             <!-- STATUS -->
 
@@ -1539,7 +1194,6 @@ if (!empty($extractedEntities)) {
 
         </div>
 
-
         <!-- ====================================================
              TWO COLUMNS
              ==================================================== -->
@@ -1555,9 +1209,8 @@ if (!empty($extractedEntities)) {
             "
         >
 
-
             <!-- =================================================
-                 LEFT SIDE
+                 LEFT SIDE - PDF
                  ================================================= -->
 
             <div
@@ -1575,7 +1228,6 @@ if (!empty($extractedEntities)) {
                     max-h-[620px]
                 "
             >
-
 
                 <!-- PDF HEADER -->
 
@@ -1616,7 +1268,6 @@ if (!empty($extractedEntities)) {
                                     mt-0.5
                                 "
                             >
-
                                 Week
                                 <?= e(
                                     $activeReport['week_number']
@@ -1625,15 +1276,11 @@ if (!empty($extractedEntities)) {
                                 ); ?>
 
                                 — PDF Document
-
                             </p>
 
                         </div>
 
-
-                        <?php if (
-                            !empty($pdfUrl)
-                        ): ?>
+                        <?php if (!empty($pdfUrl)): ?>
 
                             <a
                                 href="<?= e($pdfUrl); ?>"
@@ -1656,7 +1303,6 @@ if (!empty($extractedEntities)) {
 
                 </div>
 
-
                 <!-- =================================================
                      PDF VIEWER
                      ================================================= -->
@@ -1676,16 +1322,14 @@ if (!empty($extractedEntities)) {
                         "
                     >
 
-                        <iframe
-                            src="<?= e($pdfUrl); ?>#toolbar=1&navpanes=0&scrollbar=1"
-                            class="
-                                w-full
-                                h-full
-                                border-0
-                            "
-                            title="Accomplishment Report PDF"
+                        <div
+                            id="pdf-viewer"
+                            class="w-full h-full"
+                            data-pdf-url="<?= e($pdfUrl); ?>"
+                            aria-label="Accomplishment Report PDF"
                         >
-                        </iframe>
+                            <div class="h-full flex items-center justify-center text-xs text-slate-400 p-4">Loading PDF…</div>
+                        </div>
 
                     </div>
 
@@ -1749,7 +1393,6 @@ if (!empty($extractedEntities)) {
 
                 <?php endif; ?>
 
-
                 <!-- STUDENT HISTORY -->
 
                 <?php if (
@@ -1801,7 +1444,6 @@ if (!empty($extractedEntities)) {
 
             </div>
 
-
             <!-- =================================================
                  RIGHT SIDE
                  ================================================= -->
@@ -1817,7 +1459,6 @@ if (!empty($extractedEntities)) {
                     max-h-[620px]
                 "
             >
-
 
                 <!-- =================================================
                      EXTRACTED ENTITIES
@@ -1859,7 +1500,6 @@ if (!empty($extractedEntities)) {
                             Extracted Entities
                         </p>
 
-
                         <?php if (
                             !empty($extractedEntities)
                         ): ?>
@@ -1870,19 +1510,15 @@ if (!empty($extractedEntities)) {
                                     text-slate-400
                                 "
                             >
-
                                 <?= count(
                                     $extractedEntities
                                 ); ?>
-
                                 detected
-
                             </span>
 
                         <?php endif; ?>
 
                     </div>
-
 
                     <p
                         class="
@@ -1892,10 +1528,9 @@ if (!empty($extractedEntities)) {
                             shrink-0
                         "
                     >
-                        Click an entity to locate and highlight
-                        it in the extracted report text.
+                        Entities detected from the submitted
+                        accomplishment report.
                     </p>
-
 
                     <?php if (
                         !empty($extractedEntities)
@@ -1918,10 +1553,8 @@ if (!empty($extractedEntities)) {
                                 <?php
 
                                 if (!is_array($entity)) {
-
                                     continue;
                                 }
-
 
                                 $entityName =
                                     $entity['entity_name']
@@ -1934,56 +1567,37 @@ if (!empty($extractedEntities)) {
                                     ??
                                     '';
 
-
                                 $category =
                                     $entity['category']
                                     ??
                                     'Uncategorized';
-
 
                                 $activityType =
                                     $entity['activity_type']
                                     ??
                                     '';
 
-
                                 $itRelated =
                                     $entity['it_related']
                                     ??
                                     '';
-
 
                                 $matchedTerm =
                                     $entity['matched_term']
                                     ??
                                     $entityName;
 
-
                                 $spacyLabel =
                                     $entity['spacy_label']
                                     ??
                                     '';
-
 
                                 $frequency =
                                     $entity['frequency']
                                     ??
                                     '';
 
-
-                                $confidence =
-                                    $entity['confidence_score']
-                                    ??
-                                    '';
-
-
-                                $clickTerm =
-                                    $matchedTerm !== ''
-                                        ? $matchedTerm
-                                        : $entityName;
-
                                 ?>
-
 
                                 <?php if (
                                     trim(
@@ -1991,14 +1605,11 @@ if (!empty($extractedEntities)) {
                                     ) !== ''
                                 ): ?>
 
-                                    <!-- =================================================
-                                         CLICKABLE ENTITY
-                                         ================================================= -->
+                                    <!-- ENTITY CARD -->
 
-                                    <button
-                                        type="button"
+                                    <div
                                         class="
-                                            entity-clickable
+                                            entity-card
                                             w-full
                                             text-left
                                             bg-white
@@ -2007,9 +1618,14 @@ if (!empty($extractedEntities)) {
                                             rounded-lg
                                             p-2.5
                                         "
-                                        data-entity="<?= e($clickTerm); ?>"
-                                        onclick="highlightEntity(this)"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-pressed="false"
+                                        data-entity-term="<?= e($matchedTerm); ?>"
+                                        title="Click to highlight this entity in the PDF"
                                     >
+
+                                        <!-- ENTITY NAME -->
 
                                         <div
                                             class="
@@ -2031,7 +1647,6 @@ if (!empty($extractedEntities)) {
                                                     $entityName
                                                 ); ?>
                                             </span>
-
 
                                             <?php if (
                                                 isITRelated(
@@ -2079,7 +1694,6 @@ if (!empty($extractedEntities)) {
 
                                         </div>
 
-
                                         <!-- DETAILS -->
 
                                         <div
@@ -2091,6 +1705,8 @@ if (!empty($extractedEntities)) {
                                                 mt-1.5
                                             "
                                         >
+
+                                            <!-- CATEGORY -->
 
                                             <span
                                                 class="
@@ -2109,9 +1725,9 @@ if (!empty($extractedEntities)) {
                                                         $category
                                                     ); ?>
                                                 </strong>
-
                                             </span>
 
+                                            <!-- ACTIVITY TYPE -->
 
                                             <?php if (
                                                 $activityType !== ''
@@ -2134,11 +1750,11 @@ if (!empty($extractedEntities)) {
                                                             $activityType
                                                         ); ?>
                                                     </strong>
-
                                                 </span>
 
                                             <?php endif; ?>
 
+                                            <!-- MATCHED TERM -->
 
                                             <?php if (
                                                 $matchedTerm !== ''
@@ -2161,11 +1777,11 @@ if (!empty($extractedEntities)) {
                                                             $matchedTerm
                                                         ); ?>
                                                     </strong>
-
                                                 </span>
 
                                             <?php endif; ?>
 
+                                            <!-- SPACY LABEL -->
 
                                             <?php if (
                                                 $spacyLabel !== ''
@@ -2188,11 +1804,11 @@ if (!empty($extractedEntities)) {
                                                             $spacyLabel
                                                         ); ?>
                                                     </strong>
-
                                                 </span>
 
                                             <?php endif; ?>
 
+                                            <!-- FREQUENCY -->
 
                                             <?php if (
                                                 $frequency !== ''
@@ -2215,46 +1831,13 @@ if (!empty($extractedEntities)) {
                                                             $frequency
                                                         ); ?>
                                                     </strong>
-
-                                                </span>
-
-                                            <?php endif; ?>
-
-
-                                            <?php if (
-                                                $confidence !== ''
-                                            ): ?>
-
-                                                <span
-                                                    class="
-                                                        text-[10px]
-                                                        text-slate-500
-                                                    "
-                                                >
-                                                    Confidence:
-
-                                                    <strong
-                                                        class="
-                                                            text-slate-700
-                                                        "
-                                                    >
-
-                                                        <?= e(
-                                                            number_format(
-                                                                (float)$confidence,
-                                                                2
-                                                            )
-                                                        ); ?>%
-
-                                                    </strong>
-
                                                 </span>
 
                                             <?php endif; ?>
 
                                         </div>
 
-                                    </button>
+                                    </div>
 
                                 <?php endif; ?>
 
@@ -2263,6 +1846,8 @@ if (!empty($extractedEntities)) {
                         </div>
 
                     <?php else: ?>
+
+                        <!-- NO ENTITIES -->
 
                         <div
                             class="
@@ -2297,71 +1882,6 @@ if (!empty($extractedEntities)) {
                     <?php endif; ?>
 
                 </div>
-
-
-                <!-- =================================================
-                     PDF TEXT / HIGHLIGHT AREA
-                     ================================================= -->
-
-                <div
-                    id="pdfTextPanel"
-                    class="
-                        hidden
-                        mt-3
-                        bg-white
-                        border
-                        border-slate-200
-                        rounded-xl
-                        p-3
-                        max-h-[180px]
-                        overflow-y-auto
-                        shadow-2xs
-                    "
-                >
-
-                    <div
-                        class="
-                            flex
-                            items-center
-                            justify-between
-                            mb-2
-                        "
-                    >
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-bold
-                                uppercase
-                                tracking-wider
-                                text-slate-400
-                            "
-                        >
-                            Extracted Report Text
-                        </p>
-
-                        <button
-                            type="button"
-                            onclick="clearEntityHighlight()"
-                            class="
-                                text-[10px]
-                                text-slate-400
-                                hover:text-slate-700
-                            "
-                        >
-                            Clear
-                        </button>
-
-                    </div>
-
-
-                    <div
-                        id="pdfTextContent"
-                        class="pdf-text-container"
-                    ></div>
-
-                </div>
-
 
                 <!-- =================================================
                      ACTIONS
@@ -2402,9 +1922,7 @@ if (!empty($extractedEntities)) {
 
                     </div>
 
-
                 <?php else: ?>
-
 
                     <form
                         method="POST"
@@ -2429,7 +1947,6 @@ if (!empty($extractedEntities)) {
                             ); ?>"
                         >
 
-
                         <input
                             type="hidden"
                             name="student_name"
@@ -2439,7 +1956,6 @@ if (!empty($extractedEntities)) {
                                 ''
                             ); ?>"
                         >
-
 
                         <div
                             class="
@@ -2470,8 +1986,7 @@ if (!empty($extractedEntities)) {
                                 Cancel
                             </a>
 
-
-                            <!-- REVISION -->
+                            <!-- REQUEST REVISION -->
 
                             <button
                                 type="submit"
@@ -2492,7 +2007,6 @@ if (!empty($extractedEntities)) {
                             >
                                 Request Revision
                             </button>
-
 
                             <!-- APPROVE -->
 
@@ -2532,350 +2046,106 @@ if (!empty($extractedEntities)) {
 
 <?php endif; ?>
 
-
-<!-- ============================================================
-     JAVASCRIPT
-     ============================================================ -->
-
-<script>
-
-    /*
-     * ==========================================================
-     * PDF TEXT FROM PHP
-     * ==========================================================
-     */
-
-    const pdfReportText =
-        <?= json_encode(
-            (string)$pdfText,
-            JSON_UNESCAPED_UNICODE |
-            JSON_UNESCAPED_SLASHES
-        ); ?>;
-
-
-    /*
-     * ==========================================================
-     * CURRENT HIGHLIGHT
-     * ==========================================================
-     */
-
-    let currentlyHighlightedEntity = null;
-
-
-    /*
-     * ==========================================================
-     * ESCAPE HTML
-     * ==========================================================
-     */
-
-    function escapeHtml(value) {
-
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-
-    /*
-     * ==========================================================
-     * ESCAPE REGEX
-     * ==========================================================
-     */
-
-    function escapeRegex(value) {
-
-        return String(value).replace(
-            /[.*+?^${}()|[\]\\]/g,
-            '\\$&'
-        );
-    }
-
-
-    /*
-     * ==========================================================
-     * HIGHLIGHT ENTITY
-     *
-     * IMPORTANT:
-     *
-     * There is NO highlight until the supervisor
-     * clicks an entity.
-     * ==========================================================
-     */
-
-    function highlightEntity(button) {
-
-        if (!button) {
-
-            return;
-        }
-
-
-        const entity =
-            button.getAttribute(
-                'data-entity'
-            );
-
-
-        if (
-            !entity ||
-            entity.trim() === ''
-        ) {
-
-            return;
-        }
-
-
-        /*
-         * Remove previous selected
-         * entity button.
-         */
-
-        document
-            .querySelectorAll(
-                '.entity-clickable.selected'
-            )
-            .forEach(
-                function(item) {
-
-                    item.classList.remove(
-                        'selected'
-                    );
-
-                }
-            );
-
-
-        /*
-         * Select clicked entity.
-         */
-
-        button.classList.add(
-            'selected'
-        );
-
-
-        /*
-         * If there is no extracted
-         * text, we cannot highlight
-         * inside the PDF viewer.
-         */
-
-        if (
-            !pdfReportText ||
-            pdfReportText.trim() === ''
-        ) {
-
-            return;
-        }
-
-
-        const panel =
-            document.getElementById(
-                'pdfTextPanel'
-            );
-
-
-        const content =
-            document.getElementById(
-                'pdfTextContent'
-            );
-
-
-        if (
-            !panel ||
-            !content
-        ) {
-
-            return;
-        }
-
-
-        /*
-         * Escape original PDF text.
-         */
-
-        let safeText =
-            escapeHtml(
-                pdfReportText
-            );
-
-
-        /*
-         * Highlight only the clicked
-         * entity.
-         */
-
-        const regex =
-            new RegExp(
-                escapeRegex(entity),
-                'gi'
-            );
-
-
-        let matchFound = false;
-
-
-        safeText =
-            safeText.replace(
-                regex,
-                function(match) {
-
-                    matchFound = true;
-
-                    return (
-                        '<mark class="pdf-entity-highlight active">' +
-                        escapeHtml(match) +
-                        '</mark>'
-                    );
-
-                }
-            );
-
-
-        /*
-         * Display the text panel only
-         * after an entity is clicked.
-         */
-
-        panel.classList.remove(
-            'hidden'
-        );
-
-
-        content.innerHTML =
-            safeText;
-
-
-        /*
-         * Scroll to the first
-         * highlighted entity.
-         */
-
-        const highlighted =
-            content.querySelector(
-                '.pdf-entity-highlight'
-            );
-
-
-        if (highlighted) {
-
-            highlighted.scrollIntoView({
-
-                behavior: 'smooth',
-
-                block: 'center'
-
-            });
-
-        }
-
-
-        currentlyHighlightedEntity =
-            entity;
-
-
-        /*
-         * If entity was not found,
-         * show a small message.
-         */
-
-        if (!matchFound) {
-
-            content.innerHTML =
-                '<div class="text-xs text-slate-400 italic">' +
-                'The entity "' +
-                escapeHtml(entity) +
-                '" was not found in the extracted report text.' +
-                '</div>';
-
-        }
-
-    }
-
-
-    /*
-     * ==========================================================
-     * CLEAR HIGHLIGHT
-     * ==========================================================
-     */
-
-    function clearEntityHighlight() {
-
-        document
-            .querySelectorAll(
-                '.entity-clickable.selected'
-            )
-            .forEach(
-                function(item) {
-
-                    item.classList.remove(
-                        'selected'
-                    );
-
-                }
-            );
-
-
-        const panel =
-            document.getElementById(
-                'pdfTextPanel'
-            );
-
-
-        const content =
-            document.getElementById(
-                'pdfTextContent'
-            );
-
-
-        if (panel) {
-
-            panel.classList.add(
-                'hidden'
-            );
-
-        }
-
-
-        if (content) {
-
-            content.innerHTML = '';
-
-        }
-
-
-        currentlyHighlightedEntity =
-            null;
-    }
-
-
-    /*
-     * ==========================================================
-     * ESCAPE KEY
-     * ==========================================================
-     */
-
-    document.addEventListener(
-        'keydown',
-        function(event) {
-
-            if (
-                event.key === 'Escape'
-            ) {
-
-                clearEntityHighlight();
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        (() => {
+            const viewer = document.getElementById('pdf-viewer');
+            if (!viewer) return;
+            const entityCards = [...document.querySelectorAll('[data-entity-term]')];
+            const activeTerms = new Set();
+
+            pdfjsLib.GlobalWorkerOptions.workerSrc =
+                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+            const normalize = value => String(value || '')
+                .toLowerCase()
+                .replace(/[\u2010-\u2015]/g, '-')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            function updateCardState(term, active) {
+                entityCards
+                    .filter(card => normalize(card.dataset.entityTerm) === term)
+                    .forEach(card => {
+                        card.classList.toggle('entity-selected', active);
+                        card.setAttribute('aria-pressed', active ? 'true' : 'false');
+                    });
             }
 
-        }
-    );
+            function toggleEntity(card) {
+                const term = normalize(card.dataset.entityTerm);
+                if (!term) return;
+                const active = !activeTerms.has(term);
+                active ? activeTerms.add(term) : activeTerms.delete(term);
+                updateCardState(term, active);
+                document.querySelectorAll('.pdf-text-layer span').forEach(span => {
+                    const text = normalize(span.textContent);
+                    if (text && (text === term || text.includes(term) || term.includes(text))) {
+                        span.classList.toggle('entity-highlight', active);
+                    }
+                });
+            }
 
-</script>
+            entityCards.forEach(card => {
+                card.addEventListener('click', () => toggleEntity(card));
+                card.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleEntity(card);
+                    }
+                });
+            });
 
+            async function renderPdf() {
+                try {
+                    const pdf = await pdfjsLib.getDocument(viewer.dataset.pdfUrl).promise;
+                    viewer.replaceChildren();
+                    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+                        const page = await pdf.getPage(pageNumber);
+                        const baseViewport = page.getViewport({ scale: 1 });
+                        const availableWidth = Math.max(viewer.clientWidth - 16, 240);
+                        const scale = Math.min(1.25, availableWidth / baseViewport.width);
+                        const viewport = page.getViewport({ scale });
+                        const pageContainer = document.createElement('div');
+                        pageContainer.className = 'pdf-page';
+                        pageContainer.style.width = `${viewport.width}px`;
+                        pageContainer.style.height = `${viewport.height}px`;
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        pageContainer.appendChild(canvas);
+                        viewer.appendChild(pageContainer);
+                        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+                        const textLayer = document.createElement('div');
+                        textLayer.className = 'pdf-text-layer';
+                        pageContainer.appendChild(textLayer);
+                        const textContent = await page.getTextContent();
+                        textContent.items.forEach(item => {
+                            const span = document.createElement('span');
+                            span.textContent = item.str;
+                            const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                            const fontHeight = Math.hypot(tx[2], tx[3]);
+                            span.style.left = `${tx[4]}px`;
+                            span.style.top = `${tx[5] - fontHeight}px`;
+                            span.style.fontSize = `${fontHeight}px`;
+                            textLayer.appendChild(span);
+                            const text = normalize(item.str);
+                            if ([...activeTerms].some(term => text && (text === term || text.includes(term) || term.includes(text)))) {
+                                span.classList.add('entity-highlight');
+                            }
+                        });
+                    }
+                } catch (error) {
+                    viewer.innerHTML = '<div class="h-full flex items-center justify-center text-xs text-rose-500 p-4 text-center">Unable to render this PDF. Use “Open Fullscreen” to view it.</div>';
+                    console.error('PDF viewer error:', error);
+                }
+            }
+
+            renderPdf();
+        })();
+    </script>
 
 </body>
-
 </html>
