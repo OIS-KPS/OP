@@ -1,5 +1,4 @@
 <?php
-
 // ============================================================
 // supervisor/review_reports.php
 // ============================================================
@@ -8,21 +7,16 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 
-
 // ============================================================
 // CONFIGURATION
 // ============================================================
 
-define(
-    'PYTHON_EXEC',
-    'python'
-);
+define('PYTHON_EXEC', 'python');
 
 define(
     'PYTHON_SCRIPT',
     __DIR__ . '/../python/extract_entities.py'
 );
-
 
 // ============================================================
 // 1. AUTHORIZATION
@@ -32,244 +26,161 @@ if (
     !isset($_SESSION['user_id']) ||
     ($_SESSION['role'] ?? '') !== 'supervisor'
 ) {
-
-    header(
-        "Location: ../auth/login.php"
-    );
-
+    header("Location: ../auth/login.php");
     exit();
 }
 
-
-$userId = (int)$_SESSION['user_id'];
-
+$userId = (int) $_SESSION['user_id'];
 
 // ============================================================
 // MESSAGE
 // ============================================================
 
-$message =
-    $_SESSION['review_message']
-    ?? '';
+$message = $_SESSION['review_message'] ?? '';
 
-unset(
-    $_SESSION['review_message']
-);
-
+unset($_SESSION['review_message']);
 
 // ============================================================
 // 2. GET SUPERVISOR
 // ============================================================
 
-$stmtSup = $pdo->prepare(
-    "
+$stmtSup = $pdo->prepare("
     SELECT id
     FROM supervisors
     WHERE user_id = ?
     LIMIT 1
-    "
-);
+");
 
-$stmtSup->execute([
-    $userId
-]);
+$stmtSup->execute([$userId]);
 
-$supervisorRecord =
-    $stmtSup->fetch(
-        PDO::FETCH_ASSOC
-    );
-
+$supervisorRecord = $stmtSup->fetch(PDO::FETCH_ASSOC);
 
 if (!$supervisorRecord) {
-
     die(
-        "Supervisor profile not found. "
-        . "Please contact administrator."
+        "Supervisor profile not found. " .
+        "Please contact administrator."
     );
 }
 
+$supervisorId = (int) $supervisorRecord['id'];
 
-$supervisorId =
-    (int)$supervisorRecord['id'];
-
-
-// Keep supervisor id available to session.
-$_SESSION['supervisor_id'] =
-    $supervisorId;
-
+$_SESSION['supervisor_id'] = $supervisorId;
 
 // ============================================================
 // 3. RESOLVE PDF PATH
 // ============================================================
 
-function resolveReportPdfPath(
-    $filePath
-) {
-
-    if (
-        empty($filePath)
-    ) {
-
+function resolveReportPdfPath($filePath)
+{
+    if (empty($filePath)) {
         return false;
     }
 
-
-    /*
-     * Normalize Windows / Linux separators.
-     */
-
+    // Normalize slashes
     $filePath = str_replace(
         ['/', '\\'],
         DIRECTORY_SEPARATOR,
         $filePath
     );
 
+    // --------------------------------------------------------
+    // CASE 1:
+    // Database already contains absolute path
+    // --------------------------------------------------------
 
-    /*
-     * Case 1:
-     * Already an absolute path.
-     */
+    if (is_file($filePath)) {
 
-    if (
-        is_file($filePath)
-    ) {
-
-        $realPath =
-            realpath($filePath);
+        $realPath = realpath($filePath);
 
         if ($realPath !== false) {
-
             return $realPath;
         }
     }
 
+    // --------------------------------------------------------
+    // PROJECT ROOT
+    // --------------------------------------------------------
 
-    /*
-     * Project root.
-     *
-     * review_reports.php is:
-     *
-     * /ICS-PORTAL/supervisor/
-     *
-     * therefore:
-     *
-     * __DIR__ . '/..'
-     *
-     * points to:
-     *
-     * /ICS-PORTAL/
-     */
+    $projectRoot = realpath(
+        __DIR__ . '/..'
+    );
 
-    $projectRoot =
-        realpath(
-            __DIR__ . '/..'
+    if ($projectRoot !== false) {
+
+        $relativePath = ltrim(
+            $filePath,
+            DIRECTORY_SEPARATOR
         );
 
-
-    if (
-        $projectRoot !== false
-    ) {
-
-        $relativePath =
-            ltrim(
-                $filePath,
-                DIRECTORY_SEPARATOR
-            );
-
-        /*
-         * If the database contains:
-         *
-         * uploads/reports/file.pdf
-         *
-         */
+        // ----------------------------------------------------
+        // Example:
+        //
+        // uploads/reports/example.pdf
+        // ----------------------------------------------------
 
         $candidate =
-            $projectRoot
-            . DIRECTORY_SEPARATOR
-            . $relativePath;
+            $projectRoot .
+            DIRECTORY_SEPARATOR .
+            $relativePath;
 
+        if (is_file($candidate)) {
 
-        if (
-            is_file($candidate)
-        ) {
-
-            return realpath(
-                $candidate
-            );
+            return realpath($candidate);
         }
 
+        // ----------------------------------------------------
+        // Example:
+        //
+        // ICS-PORTAL/uploads/reports/example.pdf
+        // ----------------------------------------------------
 
-        /*
-         * If database contains:
-         *
-         * /ICS-PORTAL/uploads/reports/file.pdf
-         *
-         * remove the project folder.
-         */
+        $normalized = str_replace(
+            '\\',
+            '/',
+            $relativePath
+        );
 
-        $normalized =
-            str_replace(
-                '\\',
-                '/',
-                $relativePath
-            );
-
-        $normalized =
-            preg_replace(
-                '#^ICS-PORTAL/#i',
-                '',
-                $normalized
-            );
-
+        $normalized = preg_replace(
+            '#^ICS-PORTAL/#i',
+            '',
+            $normalized
+        );
 
         $candidate =
-            $projectRoot
-            . DIRECTORY_SEPARATOR
-            . str_replace(
+            $projectRoot .
+            DIRECTORY_SEPARATOR .
+            str_replace(
                 '/',
                 DIRECTORY_SEPARATOR,
                 $normalized
             );
 
+        if (is_file($candidate)) {
 
-        if (
-            is_file($candidate)
-        ) {
-
-            return realpath(
-                $candidate
-            );
+            return realpath($candidate);
         }
     }
 
-
-    /*
-     * Case 3:
-     * Relative to supervisor directory.
-     */
+    // --------------------------------------------------------
+    // CASE 3:
+    // Relative to supervisor directory
+    // --------------------------------------------------------
 
     $candidate =
-        __DIR__
-        . DIRECTORY_SEPARATOR
-        . ltrim(
+        __DIR__ .
+        DIRECTORY_SEPARATOR .
+        ltrim(
             $filePath,
             DIRECTORY_SEPARATOR
         );
 
+    if (is_file($candidate)) {
 
-    if (
-        is_file($candidate)
-    ) {
-
-        return realpath(
-            $candidate
-        );
+        return realpath($candidate);
     }
-
 
     return false;
 }
-
 
 // ============================================================
 // 4. RUN PYTHON / SPACY
@@ -281,112 +192,70 @@ function extractEntitiesWithSpaCy(
     PDO $pdo
 ) {
 
-    if (
-        !is_file($pdfPath)
-    ) {
+    // --------------------------------------------------------
+    // Validate PDF
+    // --------------------------------------------------------
+
+    if (!is_file($pdfPath)) {
 
         return [
-
-            'success' =>
-                false,
-
-            'error' =>
-                'PDF file was not found.',
-
-            'entities' =>
-                [],
-
-            'content' =>
-                ''
+            'success' => false,
+            'error' => 'PDF file was not found.',
+            'entities' => [],
+            'content' => '',
+            'summary' => []
         ];
     }
 
+    // --------------------------------------------------------
+    // Resolve Python script
+    // --------------------------------------------------------
 
-    /*
-     * Resolve Python script.
-     */
+    $pythonScript = realpath(PYTHON_SCRIPT);
 
-    $pythonScript =
-        realpath(
-            PYTHON_SCRIPT
-        );
-
-
-    if (
-        $pythonScript === false
-    ) {
+    if ($pythonScript === false) {
 
         return [
-
-            'success' =>
-                false,
-
+            'success' => false,
             'error' =>
-                'Python extraction script was not found: '
-                . PYTHON_SCRIPT,
-
-            'entities' =>
-                [],
-
-            'content' =>
-                ''
+                'Python extraction script was not found: ' .
+                PYTHON_SCRIPT,
+            'entities' => [],
+            'content' => '',
+            'summary' => []
         ];
     }
 
+    // --------------------------------------------------------
+    // Resolve PDF
+    // --------------------------------------------------------
 
-    /*
-     * Resolve PDF path again.
-     */
+    $realPdfPath = realpath($pdfPath);
 
-    $realPdfPath =
-        realpath($pdfPath);
-
-
-    if (
-        $realPdfPath === false
-    ) {
+    if ($realPdfPath === false) {
 
         return [
-
-            'success' =>
-                false,
-
-            'error' =>
-                'Unable to resolve PDF path.',
-
-            'entities' =>
-                [],
-
-            'content' =>
-                ''
+            'success' => false,
+            'error' => 'Unable to resolve PDF path.',
+            'entities' => [],
+            'content' => '',
+            'summary' => []
         ];
     }
-
 
     // ========================================================
     // EXECUTE PYTHON
     // ========================================================
 
     $command =
-        escapeshellarg(
-            PYTHON_EXEC
-        )
-        . ' '
-        . escapeshellarg(
-            $pythonScript
-        )
-        . ' '
-        . escapeshellarg(
-            $realPdfPath
-        )
-        . ' 2>&1';
+        escapeshellarg(PYTHON_EXEC) .
+        ' ' .
+        escapeshellarg($pythonScript) .
+        ' ' .
+        escapeshellarg($realPdfPath) .
+        ' 2>&1';
 
-
-    $output =
-        shell_exec(
-            $command
-        );
-
+    $output = shell_exec($command);
 
     if (
         $output === null ||
@@ -394,86 +263,60 @@ function extractEntitiesWithSpaCy(
     ) {
 
         return [
-
-            'success' =>
-                false,
-
-            'error' =>
-                'Python returned no output.',
-
-            'entities' =>
-                [],
-
-            'content' =>
-                ''
+            'success' => false,
+            'error' => 'Python returned no output.',
+            'entities' => [],
+            'content' => '',
+            'summary' => []
         ];
     }
-
 
     // ========================================================
     // DECODE JSON
     // ========================================================
 
-    $data =
-        json_decode(
-            $output,
-            true
-        );
-
+    $data = json_decode(
+        $output,
+        true
+    );
 
     if (
-        json_last_error()
-        !== JSON_ERROR_NONE
+        json_last_error() !== JSON_ERROR_NONE
     ) {
 
         error_log(
-            "spaCy JSON error: "
-            . json_last_error_msg()
-            . " | Output: "
-            . $output
+            "spaCy JSON error: " .
+            json_last_error_msg() .
+            " | Output: " .
+            $output
         );
 
-
         return [
-
-            'success' =>
-                false,
-
+            'success' => false,
             'error' =>
                 'Python returned invalid JSON.',
-
-            'entities' =>
-                [],
-
-            'content' =>
-                '',
-
-            'raw_output' =>
-                $output
+            'entities' => [],
+            'content' => '',
+            'summary' => [],
+            'raw_output' => $output
         ];
     }
 
-
-    if (
-        !is_array($data)
-    ) {
+    if (!is_array($data)) {
 
         return [
-
-            'success' =>
-                false,
-
+            'success' => false,
             'error' =>
                 'Invalid extraction response.',
-
-            'entities' =>
-                [],
-
-            'content' =>
-                ''
+            'entities' => [],
+            'content' => '',
+            'summary' => []
         ];
     }
 
+    // ========================================================
+    // PYTHON ERROR
+    // ========================================================
 
     if (
         isset($data['error']) &&
@@ -481,160 +324,136 @@ function extractEntitiesWithSpaCy(
     ) {
 
         return [
-
-            'success' =>
-                false,
-
-            'error' =>
-                $data['error'],
-
-            'details' =>
-                $data['details']
-                ?? '',
-
-            'entities' =>
-                [],
-
-            'content' =>
-                ''
+            'success' => false,
+            'error' => $data['error'],
+            'details' => $data['details'] ?? '',
+            'entities' => [],
+            'content' => $data['content'] ?? '',
+            'summary' => $data['summary'] ?? []
         ];
     }
 
+    // ========================================================
+    // GET ENTITIES
+    // ========================================================
 
-    $entities =
-        $data['entities']
-        ?? [];
+    $entities = $data['entities'] ?? [];
 
-
-    if (
-        !is_array($entities)
-    ) {
-
+    if (!is_array($entities)) {
         $entities = [];
     }
 
-
     // ========================================================
-    // SAVE TO report_entities
+    // SAVE EXTRACTED ENTITIES
     // ========================================================
 
     try {
 
         $pdo->beginTransaction();
 
-
         // ----------------------------------------------------
-        // Remove old extraction for this report
+        // Remove previous extraction
         // ----------------------------------------------------
 
-        $deleteStmt =
-            $pdo->prepare(
-                "
-                DELETE FROM report_entities
-                WHERE report_id = ?
-                "
-            );
-
+        $deleteStmt = $pdo->prepare("
+            DELETE FROM report_entities
+            WHERE report_id = ?
+        ");
 
         $deleteStmt->execute([
             $reportId
         ]);
 
-
         // ----------------------------------------------------
-        // Insert new extraction
-        //
-        // Based on your schema:
-        //
-        // report_entities
-        //   report_id
-        //   entity_name
-        //   canonical_name
-        //   category
-        //   activity_type
-        //   it_related
-        //   source
-        //   confidence_score
+        // Insert extracted entities
         // ----------------------------------------------------
 
-        $insertStmt =
-            $pdo->prepare(
-                "
-                INSERT INTO report_entities
-                (
-                    report_id,
-                    entity_name,
-                    canonical_name,
-                    category,
-                    activity_type,
-                    it_related,
-                    source,
-                    confidence_score
-                )
-                VALUES
-                (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?
-                )
-                "
-            );
+        $insertStmt = $pdo->prepare("
+            INSERT INTO report_entities
+            (
+                report_id,
+                entity_name,
+                canonical_name,
+                category,
+                activity_type,
+                it_related,
+                source,
+                confidence_score
+            )
+            VALUES
+            (
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?
+            )
+        ");
 
+        foreach ($entities as $entity) {
 
-        foreach (
-            $entities as $entity
-        ) {
-
-            $entityName =
-                trim(
-                    $entity['entity_name']
-                    ??
-                    $entity['entity']
-                    ??
-                    ''
-                );
-
-
-            if (
-                $entityName === ''
-            ) {
-
+            if (!is_array($entity)) {
                 continue;
             }
 
+            // ------------------------------------------------
+            // Entity name
+            // ------------------------------------------------
 
-            $canonicalName =
-                trim(
-                    $entity['canonical_name']
-                    ??
-                    $entityName
-                );
+            $entityName = trim(
+                $entity['entity_name']
+                ??
+                $entity['entity']
+                ??
+                $entity['text']
+                ??
+                ''
+            );
 
+            if ($entityName === '') {
+                continue;
+            }
 
-            $category =
-                trim(
-                    $entity['category']
-                    ??
-                    'Other'
-                );
+            // ------------------------------------------------
+            // Canonical name
+            // ------------------------------------------------
 
+            $canonicalName = trim(
+                $entity['canonical_name']
+                ??
+                $entityName
+            );
 
-            $activityType =
-                trim(
-                    $entity['activity_type']
-                    ??
-                    'Other'
-                );
+            if ($canonicalName === '') {
+                $canonicalName = $entityName;
+            }
 
+            // ------------------------------------------------
+            // Category
+            // ------------------------------------------------
 
-            /*
-             * Ensure ENUM compatibility.
-             */
+            $category = trim(
+                $entity['category']
+                ??
+                'Other'
+            );
+
+            if ($category === '') {
+                $category = 'Other';
+            }
+
+            // ------------------------------------------------
+            // Activity type
+            // ------------------------------------------------
+
+            $activityType = trim(
+                $entity['activity_type']
+                ??
+                'Other'
+            );
 
             if (
                 !in_array(
@@ -648,25 +467,20 @@ function extractEntitiesWithSpaCy(
                     true
                 )
             ) {
-
-                $activityType =
-                    'Other';
+                $activityType = 'Other';
             }
 
+            // ------------------------------------------------
+            // IT related
+            // ------------------------------------------------
 
-            $itRelated =
-                strtolower(
-                    trim(
-                        $entity['it_related']
-                        ??
-                        'unknown'
-                    )
-                );
-
-
-            /*
-             * Ensure ENUM compatibility.
-             */
+            $itRelated = strtolower(
+                trim(
+                    $entity['it_related']
+                    ??
+                    'unknown'
+                )
+            );
 
             if (
                 !in_array(
@@ -679,23 +493,18 @@ function extractEntitiesWithSpaCy(
                     true
                 )
             ) {
-
-                $itRelated =
-                    'unknown';
+                $itRelated = 'unknown';
             }
 
+            // ------------------------------------------------
+            // Source
+            // ------------------------------------------------
 
-            $source =
-                trim(
-                    $entity['source']
-                    ??
-                    'spacy_predefined'
-                );
-
-
-            /*
-             * Ensure ENUM compatibility.
-             */
+            $source = trim(
+                $entity['source']
+                ??
+                'spacy_predefined'
+            );
 
             if (
                 !in_array(
@@ -708,169 +517,119 @@ function extractEntitiesWithSpaCy(
                     true
                 )
             ) {
-
-                $source =
-                    'spacy_predefined';
+                $source = 'spacy_predefined';
             }
 
+            // ------------------------------------------------
+            // Confidence
+            // ------------------------------------------------
 
-            $confidence =
-                isset(
-                    $entity['confidence_score']
-                )
-                    ? (float)$entity['confidence_score']
-                    : 100.00;
+            $confidence = isset(
+                $entity['confidence_score']
+            )
+                ? (float) $entity['confidence_score']
+                : 100.00;
 
-
-            if (
-                $confidence < 0
-            ) {
-
+            if ($confidence < 0) {
                 $confidence = 0;
             }
 
-
-            if (
-                $confidence > 100
-            ) {
-
+            if ($confidence > 100) {
                 $confidence = 100;
             }
 
+            // ------------------------------------------------
+            // Insert
+            // ------------------------------------------------
 
             $insertStmt->execute([
-
                 $reportId,
-
                 $entityName,
-
                 $canonicalName,
-
                 $category,
-
                 $activityType,
-
                 $itRelated,
-
                 $source,
-
                 $confidence
             ]);
         }
 
-
         $pdo->commit();
 
+    } catch (Throwable $e) {
 
-    } catch (
-        Throwable $e
-    ) {
-
-        if (
-            $pdo->inTransaction()
-        ) {
-
+        if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
 
-
         error_log(
-            "Unable to save extracted entities: "
-            . $e->getMessage()
+            "Unable to save extracted entities: " .
+            $e->getMessage()
         );
 
-
         return [
-
-            'success' =>
-                false,
-
+            'success' => false,
             'error' =>
                 'Unable to save extracted entities.',
-
             'details' =>
                 $e->getMessage(),
-
-            'entities' =>
-                [],
-
-            'content' =>
-                ''
+            'entities' => [],
+            'content' => '',
+            'summary' => []
         ];
     }
 
-
     // ========================================================
-    // RETURN RESULT TO CONTROLLER
+    // RETURN EXTRACTION RESULT
     // ========================================================
 
     return [
-
-        'success' =>
-            true,
-
+        'success' => true,
         'content' =>
-            $data['content']
-            ?? '',
-
+            $data['content'] ?? '',
         'entities' =>
             $entities,
-
         'summary' =>
-            $data['summary']
-            ?? [],
-
+            $data['summary'] ?? [],
         'entity_count' =>
             count($entities)
     ];
 }
-
 
 // ============================================================
 // 5. HANDLE SUPERVISOR APPROVAL / REVISION
 // ============================================================
 
 if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-    &&
-    isset(
-        $_POST['action_report_id']
-    )
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['action_report_id'])
 ) {
 
-    $reportId =
-        (int)$_POST[
-            'action_report_id'
-        ];
+    $reportId = (int) $_POST[
+        'action_report_id'
+    ];
 
+    $newStatus = strtolower(
+        trim(
+            $_POST['status']
+            ?? 'pending'
+        )
+    );
 
-    $newStatus =
-        strtolower(
-            trim(
-                $_POST['status']
-                ?? 'pending'
-            )
-        );
-
-
-    /*
-     * Your reports table uses:
-     *
-     * pending
-     * approved
-     * rejected
-     *
-     * Therefore "Needs Revision" is saved as rejected.
-     */
+    // --------------------------------------------------------
+    // Needs Revision -> rejected
+    // --------------------------------------------------------
 
     if (
         $newStatus === 'needs revision'
     ) {
 
-        $newStatus =
-            'rejected';
+        $newStatus = 'rejected';
     }
 
+    // --------------------------------------------------------
+    // Validate status
+    // --------------------------------------------------------
 
     if (
         !in_array(
@@ -884,149 +643,141 @@ if (
         )
     ) {
 
-        $newStatus =
-            'pending';
+        $newStatus = 'pending';
     }
 
-
-    $remarks =
-        trim(
-            $_POST[
-                'supervisor_remarks'
-            ]
-            ?? ''
-        );
-
+    $remarks = trim(
+        $_POST['supervisor_remarks']
+        ?? ''
+    );
 
     $studentName =
-        $_POST[
-            'student_name'
-        ]
+        $_POST['student_name']
         ?? 'Student';
-
 
     try {
 
-        /*
-         * The existing reports table has
-         * ocr_activities, so we keep it.
-         *
-         * The extracted entities themselves are stored
-         * in report_entities.
-         */
+        // ----------------------------------------------------
+        // Make sure report belongs to supervisor
+        // ----------------------------------------------------
 
-        $updateStmt =
-            $pdo->prepare(
-                "
-                UPDATE reports r
+        $updateStmt = $pdo->prepare("
+            UPDATE reports r
+
+            JOIN students s
+                ON r.student_id = s.id
+
+            SET
+                r.status = ?,
+
+                r.ocr_activities =
+                    CASE
+                        WHEN ? <> ''
+                        THEN ?
+                        ELSE r.ocr_activities
+                    END
+
+            WHERE
+                r.id = ?
+
+                AND
+                s.supervisor_id = ?
+        ");
+
+        $updateStmt->execute([
+            $newStatus,
+            $remarks,
+            $remarks,
+            $reportId,
+            $supervisorId
+        ]);
+
+        // ----------------------------------------------------
+        // Check whether report actually belongs to supervisor
+        // ----------------------------------------------------
+
+        if ($updateStmt->rowCount() === 0) {
+
+            // The status may already have the same value,
+            // so verify ownership separately.
+
+            $verifyStmt = $pdo->prepare("
+                SELECT r.id
+                FROM reports r
 
                 JOIN students s
                     ON r.student_id = s.id
 
-                SET
-                    r.status = ?,
-
-                    r.ocr_activities =
-                        CASE
-                            WHEN ? <> ''
-                            THEN ?
-                            ELSE r.ocr_activities
-                        END
-
                 WHERE
                     r.id = ?
-
                     AND
                     s.supervisor_id = ?
-                "
-            );
 
+                LIMIT 1
+            ");
 
-        $updateStmt->execute([
+            $verifyStmt->execute([
+                $reportId,
+                $supervisorId
+            ]);
 
-            $newStatus,
+            if (!$verifyStmt->fetch()) {
 
-            $remarks,
+                throw new Exception(
+                    'Report does not belong to this supervisor.'
+                );
+            }
+        }
 
-            $remarks,
-
-            $reportId,
-
-            $supervisorId
-        ]);
-
-
-        $_SESSION[
-            'review_message'
-        ] =
-            "Report for {$studentName} "
-            . "updated successfully.";
-
+        $_SESSION['review_message'] =
+            "Report for {$studentName} " .
+            "updated successfully.";
 
         $redirect =
             "review_reports.php";
 
-
         if (
-            isset(
-                $_GET['status']
-            )
-            &&
+            isset($_GET['status']) &&
             $_GET['status'] !== ''
         ) {
 
             $redirect .=
-                "?status="
-                . urlencode(
-                    $_GET['status']
-                );
+                "?status=" .
+                urlencode($_GET['status']);
         }
 
-
         header(
-            "Location: "
-            . $redirect
+            "Location: " .
+            $redirect
         );
 
         exit();
 
-
-    } catch (
-        Throwable $e
-    ) {
+    } catch (Throwable $e) {
 
         error_log(
-            "Error updating report: "
-            . $e->getMessage()
+            "Error updating report: " .
+            $e->getMessage()
         );
-
 
         $message =
             "Unable to update report.";
     }
 }
 
-
 // ============================================================
 // 6. STATUS FILTER
 // ============================================================
 
 $filter_status =
-    $_GET['status']
-    ?? 'All';
-
+    $_GET['status'] ?? 'All';
 
 $validStatuses = [
-
     'All',
-
     'Pending',
-
     'Approved',
-
     'Needs Revision'
 ];
-
 
 if (
     !in_array(
@@ -1036,87 +787,62 @@ if (
     )
 ) {
 
-    $filter_status =
-        'All';
+    $filter_status = 'All';
 }
-
 
 // ============================================================
 // 7. BUILD WHERE
 // ============================================================
 
-$whereSQL =
-    "
+$whereSQL = "
     WHERE
         s.supervisor_id = :supervisor_id
-    ";
+";
 
-
-if (
-    $filter_status !== 'All'
-) {
+if ($filter_status !== 'All') {
 
     if (
         $filter_status === 'Needs Revision'
     ) {
 
-        /*
-         * Database ENUM uses rejected.
-         */
-
-        $whereSQL .=
-            "
-            AND LOWER(r.status)
-            = 'rejected'
-            ";
+        $whereSQL .= "
+            AND LOWER(r.status) = 'rejected'
+        ";
 
     } else {
 
-        $whereSQL .=
-            "
-            AND LOWER(r.status)
-            = :status
-            ";
+        $whereSQL .= "
+            AND LOWER(r.status) = :status
+        ";
     }
 }
-
 
 // ============================================================
 // 8. GET REPORTS
 // ============================================================
 
-$reportsSql =
-    "
+$reportsSql = "
     SELECT
-
         r.id,
-
         r.student_id,
-
         r.week_number,
-
         r.file_path,
 
-        r.file_path
-            AS attachment_path,
+        r.file_path AS attachment_path,
 
         r.ocr_activities,
 
-        r.ocr_activities
-            AS remarks,
+        r.ocr_activities AS remarks,
 
         r.status,
 
         r.submitted_at,
 
-        r.submitted_at
-            AS created_at,
+        r.submitted_at AS created_at,
 
-        u.name
-            AS student_name,
+        u.name AS student_name,
 
-        u.avatar_url
-            AS student_avatar,
+        u.avatar_url AS student_avatar,
 
         s.student_number,
 
@@ -1141,162 +867,129 @@ $reportsSql =
         END,
 
         r.submitted_at DESC
-    ";
+";
 
-
-$stmtReports =
-    $pdo->prepare(
-        $reportsSql
-    );
-
+$stmtReports = $pdo->prepare(
+    $reportsSql
+);
 
 $params = [
-
     'supervisor_id' =>
         $supervisorId
 ];
 
-
 if (
-    $filter_status !== 'All'
-    &&
+    $filter_status !== 'All' &&
     $filter_status !== 'Needs Revision'
 ) {
 
     $params['status'] =
-        strtolower(
-            $filter_status
-        );
+        strtolower($filter_status);
 }
-
 
 $stmtReports->execute(
     $params
 );
 
-
 $reports =
     $stmtReports->fetchAll(
         PDO::FETCH_ASSOC
-    )
-    ?: [];
-
+    ) ?: [];
 
 // ============================================================
 // 9. ACTIVE REPORT
 // ============================================================
 
 $review_id =
-    isset(
-        $_GET['review_id']
-    )
-        ? (int)$_GET['review_id']
+    isset($_GET['review_id'])
+        ? (int) $_GET['review_id']
         : null;
 
+$activeReport = null;
 
-$activeReport =
-    null;
+// ============================================================
+// ONLY EXTRACT WHEN review_id EXISTS
+// ============================================================
 
-
-if (
-    $review_id
-) {
+if ($review_id) {
 
     // ========================================================
-    // FIRST SEARCH CURRENT REPORT LIST
+    // FIND REPORT
     // ========================================================
 
-    foreach (
-        $reports as $rep
-    ) {
+    foreach ($reports as $rep) {
 
         if (
-            (int)$rep['id']
-            === $review_id
+            (int) $rep['id'] ===
+            $review_id
         ) {
 
-            $activeReport =
-                $rep;
+            $activeReport = $rep;
 
             break;
         }
     }
 
-
     // ========================================================
-    // FETCH DIRECTLY IF FILTER HIDES REPORT
+    // IF FILTER HIDES REPORT
+    // FETCH DIRECTLY
     // ========================================================
 
-    if (
-        !$activeReport
-    ) {
+    if (!$activeReport) {
 
-        $singleStmt =
-            $pdo->prepare(
-                "
-                SELECT
+        $singleStmt = $pdo->prepare("
+            SELECT
+                r.id,
+                r.student_id,
+                r.week_number,
+                r.file_path,
 
-                    r.id,
+                r.file_path
+                    AS attachment_path,
 
-                    r.student_id,
+                r.ocr_activities,
 
-                    r.week_number,
+                r.ocr_activities
+                    AS remarks,
 
-                    r.file_path,
+                r.status,
 
-                    r.file_path
-                        AS attachment_path,
+                r.submitted_at,
 
-                    r.ocr_activities,
+                r.submitted_at
+                    AS created_at,
 
-                    r.ocr_activities
-                        AS remarks,
+                u.name
+                    AS student_name,
 
-                    r.status,
+                u.avatar_url
+                    AS student_avatar,
 
-                    r.submitted_at,
+                s.student_number,
 
-                    r.submitted_at
-                        AS created_at,
+                s.program
 
-                    u.name
-                        AS student_name,
+            FROM reports r
 
-                    u.avatar_url
-                        AS student_avatar,
+            JOIN students s
+                ON r.student_id = s.id
 
-                    s.student_number,
+            JOIN users u
+                ON s.user_id = u.id
 
-                    s.program
+            WHERE
+                r.id = ?
 
-                FROM reports r
+                AND
+                s.supervisor_id = ?
 
-                JOIN students s
-                    ON r.student_id = s.id
-
-                JOIN users u
-                    ON s.user_id = u.id
-
-                WHERE
-
-                    r.id = ?
-
-                    AND
-
-                    s.supervisor_id = ?
-
-                LIMIT 1
-                "
-            );
-
+            LIMIT 1
+        ");
 
         $singleStmt->execute([
-
             $review_id,
-
             $supervisorId
         ]);
-
 
         $activeReport =
             $singleStmt->fetch(
@@ -1304,249 +997,376 @@ if (
             );
     }
 
-
     // ========================================================
-    // RUN SPACY WHEN REVIEW BUTTON IS CLICKED
+    // REPORT FOUND
     // ========================================================
 
-    if (
-        $activeReport
-    ) {
+    if ($activeReport) {
+
+        // ----------------------------------------------------
+        // Initialize extraction values
+        // ----------------------------------------------------
+
+        $activeReport[
+            'extracted_entities'
+        ] = [];
+
+        $activeReport[
+            'extracted_content'
+        ] = '';
+
+        $activeReport[
+            'extraction_summary'
+        ] = [];
+
+        $activeReport[
+            'extraction_result'
+        ] = [
+            'success' => false,
+            'entities' => [],
+            'content' => '',
+            'summary' => []
+        ];
+
+        // ====================================================
+        // RESOLVE PDF
+        // ====================================================
 
         $pdfPath =
             resolveReportPdfPath(
-                $activeReport[
-                    'file_path'
-                ]
+                $activeReport['file_path']
             );
 
+        if ($pdfPath === false) {
 
-        if (
-            $pdfPath !== false
-        ) {
+            $message =
+                "PDF Extraction Error: " .
+                "The PDF file could not be located.";
 
-            /*
-             * This is where the complete
-             * extraction process starts.
-             *
-             * Review button:
-             *
-             * review_id
-             *
-             * ->
-             *
-             * resolve PDF
-             *
-             * ->
-             *
-             * Python
-             *
-             * ->
-             *
-             * spaCy
-             *
-             * ->
-             *
-             * predefined_entities
-             *
-             * ->
-             *
-             * report_entities
-             *
-             * ->
-             *
-             * modal
-             */
+            $activeReport[
+                'extraction_result'
+            ] = [
+                'success' => false,
+                'error' =>
+                    'The PDF file could not be located.',
+                'entities' => [],
+                'content' => '',
+                'summary' => []
+            ];
+
+        } else {
+
+            // =================================================
+            // RUN PYTHON
+            // =================================================
 
             $extractionResult =
                 extractEntitiesWithSpaCy(
                     $pdfPath,
-                    (int)$activeReport['id'],
+                    (int) $activeReport['id'],
                     $pdo
                 );
 
+            // -------------------------------------------------
+            // Store result for page
+            // -------------------------------------------------
 
             $activeReport[
                 'extraction_result'
-            ] =
-                $extractionResult;
-
+            ] = $extractionResult;
 
             $activeReport[
                 'extracted_entities'
             ] =
                 $extractionResult[
                     'entities'
-                ]
-                ?? [];
-
+                ] ?? [];
 
             $activeReport[
                 'extracted_content'
             ] =
                 $extractionResult[
                     'content'
-                ]
-                ?? '';
-
+                ] ?? '';
 
             $activeReport[
                 'extraction_summary'
             ] =
                 $extractionResult[
                     'summary'
-                ]
-                ?? [];
+                ] ?? [];
 
-
-            /*
-             * If extraction failed, expose
-             * the error to the view.
-             */
+            // -------------------------------------------------
+            // Extraction failed
+            // -------------------------------------------------
 
             if (
                 empty(
-                    $extractionResult[
-                        'success'
-                    ]
+                    $extractionResult['success']
                 )
             ) {
 
                 $message =
-                    "PDF Extraction Error: "
-                    .
+                    "PDF Extraction Error: " .
                     (
-                        $extractionResult[
-                            'error'
-                        ]
+                        $extractionResult['error']
                         ??
                         'Unknown extraction error.'
                     );
+
+                // Include details in PHP log
+                if (
+                    !empty(
+                        $extractionResult['details']
+                    )
+                ) {
+
+                    error_log(
+                        "Extraction details: " .
+                        $extractionResult['details']
+                    );
+                }
             }
-
-        } else {
-
-            $activeReport[
-                'extraction_result'
-            ] = [
-
-                'success' =>
-                    false,
-
-                'error' =>
-                    'The PDF file could not be located.'
-            ];
-
-
-            $activeReport[
-                'extracted_entities'
-            ] = [];
-
-
-            $activeReport[
-                'extracted_content'
-            ] = '';
-
-
-            $activeReport[
-                'extraction_summary'
-            ] = [];
-
-
-            $message =
-                "PDF Extraction Error: "
-                . "The PDF file could not be located.";
         }
-
 
         // ====================================================
         // LOAD SAVED ENTITIES
         //
-        // This is a fallback / verification step.
-        //
-        // The Python extraction has already inserted the
-        // entities into report_entities.
+        // This guarantees that the modal receives the
+        // entities actually stored in report_entities.
         // ====================================================
 
-        if (
-            empty(
+        try {
+
+            $entityStmt = $pdo->prepare("
+                SELECT
+                    id,
+                    report_id,
+                    entity_name,
+                    canonical_name,
+                    category,
+                    activity_type,
+                    it_related,
+                    source,
+                    confidence_score
+
+                FROM report_entities
+
+                WHERE report_id = ?
+
+                ORDER BY
+                    entity_name ASC
+            ");
+
+            $entityStmt->execute([
+                $activeReport['id']
+            ]);
+
+            $savedEntities =
+                $entityStmt->fetchAll(
+                    PDO::FETCH_ASSOC
+                ) ?: [];
+
+            // ------------------------------------------------
+            // Always use saved entities if available
+            // ------------------------------------------------
+
+            if (
+                !empty($savedEntities)
+            ) {
+
+                $activeReport[
+                    'extracted_entities'
+                ] = $savedEntities;
+            }
+
+        } catch (Throwable $e) {
+
+            error_log(
+                "Unable to load report entities: " .
+                $e->getMessage()
+            );
+        }
+
+        // ====================================================
+        // ENTITY ANALYTICS
+        // ====================================================
+
+        $entityCount =
+            count(
                 $activeReport[
                     'extracted_entities'
                 ]
-            )
+            );
+
+        $softwareCount = 0;
+        $hardwareCount = 0;
+        $clericalCount = 0;
+        $otherCount = 0;
+
+        $itRelatedCount = 0;
+        $notItRelatedCount = 0;
+
+        foreach (
+            $activeReport[
+                'extracted_entities'
+            ] as $entity
         ) {
 
-            try {
-
-                $entityStmt =
-                    $pdo->prepare(
-                        "
-                        SELECT
-
-                            id,
-
-                            report_id,
-
-                            entity_name,
-
-                            canonical_name,
-
-                            category,
-
-                            activity_type,
-
-                            it_related,
-
-                            source,
-
-                            confidence_score
-
-                        FROM report_entities
-
-                        WHERE report_id = ?
-
-                        ORDER BY
-                            entity_name ASC
-                        "
-                    );
-
-
-                $entityStmt->execute([
-                    $activeReport['id']
-                ]);
-
-
-                $savedEntities =
-                    $entityStmt->fetchAll(
-                        PDO::FETCH_ASSOC
+            $activityType =
+                strtolower(
+                    trim(
+                        $entity['activity_type']
+                        ?? 'other'
                     )
-                    ?: [];
-
-
-                $activeReport[
-                    'extracted_entities'
-                ] =
-                    $savedEntities;
-
-
-            } catch (
-                Throwable $e
-            ) {
-
-                error_log(
-                    "Unable to load report entities: "
-                    . $e->getMessage()
                 );
+
+            switch ($activityType) {
+
+                case 'software':
+                    $softwareCount++;
+                    break;
+
+                case 'hardware':
+                    $hardwareCount++;
+                    break;
+
+                case 'clerical':
+                    $clericalCount++;
+                    break;
+
+                default:
+                    $otherCount++;
+                    break;
+            }
+
+            $itRelated =
+                strtolower(
+                    trim(
+                        $entity['it_related']
+                        ?? 'unknown'
+                    )
+                );
+
+            if ($itRelated === 'yes') {
+                $itRelatedCount++;
+            }
+
+            if ($itRelated === 'no') {
+                $notItRelatedCount++;
             }
         }
+
+        // ----------------------------------------------------
+        // Calculate percentages
+        // ----------------------------------------------------
+
+        $softwarePercentage = 0;
+        $hardwarePercentage = 0;
+        $clericalPercentage = 0;
+        $otherPercentage = 0;
+        $itRelatedPercentage = 0;
+        $notItRelatedPercentage = 0;
+
+        if ($entityCount > 0) {
+
+            $softwarePercentage =
+                round(
+                    ($softwareCount / $entityCount) * 100,
+                    2
+                );
+
+            $hardwarePercentage =
+                round(
+                    ($hardwareCount / $entityCount) * 100,
+                    2
+                );
+
+            $clericalPercentage =
+                round(
+                    ($clericalCount / $entityCount) * 100,
+                    2
+                );
+
+            $otherPercentage =
+                round(
+                    ($otherCount / $entityCount) * 100,
+                    2
+                );
+
+            $itRelatedPercentage =
+                round(
+                    ($itRelatedCount / $entityCount) * 100,
+                    2
+                );
+
+            $notItRelatedPercentage =
+                round(
+                    ($notItRelatedCount / $entityCount) * 100,
+                    2
+                );
+        }
+
+        // ====================================================
+        // MAKE ANALYTICS AVAILABLE TO VIEW
+        // ====================================================
+
+        $activeReport[
+            'entity_analytics'
+        ] = [
+
+            'total' =>
+                $entityCount,
+
+            'software' => [
+                'count' =>
+                    $softwareCount,
+                'percentage' =>
+                    $softwarePercentage
+            ],
+
+            'hardware' => [
+                'count' =>
+                    $hardwareCount,
+                'percentage' =>
+                    $hardwarePercentage
+            ],
+
+            'clerical' => [
+                'count' =>
+                    $clericalCount,
+                'percentage' =>
+                    $clericalPercentage
+            ],
+
+            'other' => [
+                'count' =>
+                    $otherCount,
+                'percentage' =>
+                    $otherPercentage
+            ],
+
+            'it_related' => [
+                'count' =>
+                    $itRelatedCount,
+                'percentage' =>
+                    $itRelatedPercentage
+            ],
+
+            'not_it_related' => [
+                'count' =>
+                    $notItRelatedCount,
+                'percentage' =>
+                    $notItRelatedPercentage
+            ]
+        ];
     }
 }
-
 
 // ============================================================
 // 10. RENDER VIEW
 // ============================================================
 
 require_once
-    __DIR__
-    . '/../src/pages/supervisor/reviewReportsPage.php';
+    __DIR__ .
+    '/../src/pages/supervisor/reviewReportsPage.php';
