@@ -4,11 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ICS OJT Portal - My Reports</title>
-    <!-- Tailwind CSS -->
+    <title>My Reports - OJT Portal</title>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Global Custom Stylesheet -->
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
@@ -17,32 +22,29 @@
         <!-- Sidebar Component -->
         <?php include __DIR__ . '/../../components/sidebar.php'; ?>
 
-        <!-- Right Side: Content Area -->
         <div class="flex-1 flex flex-col min-w-0">
 
-            <!-- Sticky Top Header Component -->
+            <!-- Top Header Component -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
-            <!-- Main Scrollable Body -->
-            <main class="p-6 max-w-7xl w-full mx-auto space-y-5 flex-1">
+            <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
-                <!-- Success Alert Banner -->
+                <!-- Alert Messages -->
                 <?php if (isset($_GET['submitted']) && $_GET['submitted'] === 'success'): ?>
-                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-xs">
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs">
                         <div class="flex items-center gap-2.5">
                             <span class="text-emerald-600 font-bold text-sm">✓</span>
                             <div>
-                                <p class="font-bold text-xs">WAR Submitted Successfully!</p>
-                                <p class="text-[11px] text-emerald-600">Your accomplishment report has been uploaded and is under review.</p>
+                                <p class="font-bold text-xs">Report Submitted</p>
+                                <p class="text-[11px] text-emerald-700">Your weekly accomplishment report has been uploaded and is waiting for review.</p>
                             </div>
                         </div>
-                        <a href="reports.php" class="text-[11px] font-semibold text-emerald-700 hover:underline">Dismiss</a>
+                        <a href="reports.php" class="text-xs font-semibold text-emerald-700 hover:underline">Dismiss</a>
                     </div>
                 <?php endif; ?>
 
-                <!-- Error Alert Banner -->
                 <?php if (!empty($_SESSION['error_message'])): ?>
-                    <div class="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-xs">
+                    <div class="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs">
                         <div class="flex items-center gap-2.5">
                             <span class="text-rose-600 font-bold text-sm">✕</span>
                             <p class="font-semibold text-xs"><?= htmlspecialchars($_SESSION['error_message']); ?></p>
@@ -51,126 +53,132 @@
                     </div>
                 <?php endif; ?>
 
-                <!-- Header Card with Dynamic Button -->
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <!-- Header Actions Card -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
                     <div>
-                        <h2 class="text-base font-bold text-slate-900">Weekly Accomplishment Reports</h2>
-                        <p class="text-slate-500 text-xs mt-0.5">
-                            <?php if (empty($reports)): ?>
-                                Start tracking your OJT progress by submitting your Week 1 report.
-                            <?php else: ?>
-                                Manage, track, and upload your weekly OJT accomplishment logs.
-                            <?php endif; ?>
-                        </p>
+                        <h1 class="text-base font-bold text-slate-900 leading-snug">Weekly Accomplishment Reports</h1>
+                        <p class="text-xs font-medium text-slate-500 mt-1">Manage and track your weekly OJT accomplishment logs.</p>
                     </div>
 
-                    <?php $nextWeekToSubmit = count($reports) + 1; ?>
-                    <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-medium rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap">
+                    <?php $nextWeekToSubmit = count($reports ?? []) + 1; ?>
+                    <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="px-5 py-3 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
                         <span>+</span> Submit Week <?= $nextWeekToSubmit; ?> Report
                     </a>
                 </div>
 
-                <!-- Summary Overview Cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-                        <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total IT Tasks %</p>
-                        <p class="text-xl font-extrabold text-[#0F2854] mt-1"><?= intval($overallIT ?? 0); ?>%</p>
+                <!-- Status Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-1">
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reports Submitted</span>
+                        <p class="text-3xl font-extrabold text-slate-900"><?= $totalReportsCount ?? count($reports ?? []); ?></p>
+                        <p class="text-xs font-medium text-slate-500 pt-0.5">Total accomplishment logs</p>
                     </div>
-                    <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-                        <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Clerical Tasks %</p>
-                        <p class="text-xl font-extrabold text-slate-700 mt-1"><?= intval($overallClerical ?? 0); ?>%</p>
+
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-1">
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reports Approved</span>
+                        <p class="text-3xl font-extrabold text-emerald-600"><?= $totalApproved ?? 0; ?></p>
+                        <p class="text-xs font-medium text-slate-500 pt-0.5">Verified by supervisor</p>
                     </div>
-                    <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-                        <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Submitted</p>
-                        <p class="text-xl font-extrabold text-emerald-600 mt-1">
-                            <?= count($reports ?? []); ?> <?= count($reports ?? []) === 1 ? 'Week' : 'Weeks'; ?>
-                        </p>
+
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-1">
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Waiting for Review</span>
+                        <p class="text-3xl font-extrabold text-amber-600"><?= $totalPending ?? 0; ?></p>
+                        <p class="text-xs font-medium text-slate-500 pt-0.5">Pending review</p>
                     </div>
                 </div>
 
                 <!-- Reports Table Container -->
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                    <div class="p-4 px-5 border-b border-slate-100 flex justify-between items-center">
-                        <h3 class="font-bold text-slate-900 text-sm">Submission History</h3>
-                        <span class="text-[11px] text-slate-400 font-medium">Sorted by Week Number</span>
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Submission History</h3>
+                            <p class="text-[11px] font-medium text-slate-500 mt-0.5">Chronological record of weekly accomplishment logs</p>
+                        </div>
+                        <span class="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-lg border border-slate-200/70 shadow-2xs">
+                            Sorted by Week
+                        </span>
                     </div>
 
-                    <?php if (!empty($reports) && count($reports) > 0): ?>
+                    <?php if (!empty($reports)): ?>
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="bg-slate-50/60 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-100 font-semibold">
-                                        <th class="py-3 px-5">Week</th>
-                                        <th class="py-3 px-5">Date & Time Submitted</th>
-                                        <th class="py-3 px-5">IT Task %</th>
-                                        <th class="py-3 px-5">Clerical %</th>
-                                        <th class="py-3 px-5">Status</th>
-                                        <th class="py-3 px-5 text-right">Action</th>
+                                    <tr class="bg-slate-50/70 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-100 font-bold">
+                                        <th class="py-4 px-6">Week #</th>
+                                        <th class="py-4 px-6">Submitted Date & Time</th>
+                                        <th class="py-4 px-6">Review Status</th>
+                                        <th class="py-4 px-6 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700 text-xs">
+                                <tbody class="divide-y divide-slate-100 text-slate-700">
                                     <?php foreach ($reports as $report): 
                                         $status = strtolower($report['status'] ?? 'pending');
-                                        $filePath = $report['file_path'] ?? $report['attachment_path'] ?? '';
-                                        $dateSubmitted = $report['submitted_at'] ?? $report['created_at'] ?? null;
+                                        $filePath = $report['file_path'] ?? '';
+                                        $dateSubmitted = $report['submitted_at'] ?? null;
                                         $isApproved = ($status === 'approved');
                                     ?>
-                                        <tr class="hover:bg-slate-50/80 transition-colors">
-                                            <!-- Week -->
-                                            <td class="py-3 px-5 font-semibold text-slate-900">
-                                                Week <?= htmlspecialchars($report['week_number']); ?>
+                                        <tr class="hover:bg-slate-50/80 transition-colors group">
+                                            
+                                            <!-- 1. Week Indicator Chip -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] font-bold text-xs flex items-center justify-center border border-slate-200/80 group-hover:bg-[#0F2854] group-hover:text-white group-hover:border-[#0F2854] transition-all duration-200">
+                                                        W<?= htmlspecialchars($report['week_number']); ?>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-bold text-slate-900 text-sm">Week <?= htmlspecialchars($report['week_number']); ?></span>
+                                                        <span class="block text-[10px] font-semibold text-slate-400">Accomplishment Log</span>
+                                                    </div>
+                                                </div>
                                             </td>
 
-                                            <!-- Date & Time Submitted -->
-                                            <td class="py-3 px-5 text-slate-600 font-medium">
-                                                <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
-                                            </td>
-
-                                            <!-- IT % -->
-                                            <td class="py-3 px-5 font-medium text-slate-700">
-                                                <?= htmlspecialchars($report['it_percent'] ?? '0'); ?>%
-                                            </td>
-
-                                            <!-- Clerical % -->
-                                            <td class="py-3 px-5 font-medium text-slate-500">
-                                                <?= htmlspecialchars($report['clerical_percent'] ?? '0'); ?>%
-                                            </td>
-
-                                            <!-- Status Badge -->
-                                            <td class="py-3 px-5">
-                                                <?php if ($isApproved): ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">
-                                                        ● Approved
+                                            <!-- 2. Date & Time Submitted -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
+                                                <div class="flex items-center gap-2 text-slate-600">
+                                                    <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+                                                    </svg>
+                                                    <span class="font-medium text-xs">
+                                                        <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
                                                     </span>
-                                                <?php elseif ($status === 'pending'): ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-medium border border-amber-200/50">
-                                                        ● Under Review
+                                                </div>
+                                            </td>
+
+                                            <!-- 3. Status Badge -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
+                                                <?php if ($isApproved): ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                        Approved
+                                                    </span>
+                                                <?php elseif ($status === 'rejected'): ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                        Needs Changes
                                                     </span>
                                                 <?php else: ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[11px] font-medium border border-rose-200/50">
-                                                        ● Needs Revision
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                        Waiting for Review
                                                     </span>
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Actions -->
-                                            <td class="py-3 px-5 text-right">
-                                                <div class="flex items-center justify-end gap-1.5">
+                                            <!-- 4. Actions -->
+                                            <td class="py-4 px-6 text-right whitespace-nowrap">
+                                                <div class="flex items-center justify-end gap-2">
                                                     <?php if (!empty($filePath)): ?>
-                                                        <a href="/ICS-PORTAL/<?= htmlspecialchars($filePath); ?>" target="_blank" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg border border-slate-200 transition-all">
-                                                            View
+                                                        <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim($filePath, '/')); ?>" target="_blank" class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200/90 shadow-2xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
+                                                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                                            <span>View File</span>
                                                         </a>
                                                     <?php endif; ?>
 
-                                                    <!-- Hide Re-upload button if the report is APPROVED -->
                                                     <?php if (!$isApproved): ?>
-                                                        <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-medium rounded-lg transition-all shadow-2xs">
-                                                            <?= !empty($filePath) ? 'Re-upload' : 'Submit'; ?>
+                                                        <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+                                                            <span><?= !empty($filePath) ? 'Re-upload' : 'Submit'; ?></span>
                                                         </a>
-                                                    <?php else: ?>
-                                                        <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-lg border border-emerald-200/60 inline-flex items-center gap-1">
-                                                            Approved
-                                                        </span>
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
@@ -180,15 +188,14 @@
                             </table>
                         </div>
                     <?php else: ?>
-                        <!-- Empty State for Brand New Users -->
-                        <div class="text-center py-12 px-4">
-                            <div class="w-10 h-10 bg-blue-50 text-[#0F2854] rounded-xl flex items-center justify-center mx-auto mb-2 text-lg font-bold">
-                                📊
+                        <div class="text-center py-14 px-4 space-y-2">
+                            <div class="w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto text-lg font-bold border border-slate-200">
+                                📄
                             </div>
-                            <h4 class="text-sm font-semibold text-slate-800">No accomplishment reports logged</h4>
-                            <p class="text-xs text-slate-500 max-w-xs mx-auto mt-0.5 mb-4">Start tracking your weekly OJT progress by submitting your first report.</p>
-                            <a href="submit_report.php?week=1" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-medium rounded-xl text-xs transition-all shadow-xs inline-block">
-                                Submit Week 1 Report →
+                            <h4 class="text-sm font-bold text-slate-800">No accomplishment reports logged</h4>
+                            <p class="text-xs font-medium text-slate-500 max-w-xs mx-auto mb-3">Start tracking your weekly OJT progress by submitting your first report.</p>
+                            <a href="submit_report.php?week=1" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all shadow-xs inline-block">
+                                Submit Week 1 Report &rarr;
                             </a>
                         </div>
                     <?php endif; ?>
