@@ -4,102 +4,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Final Intern Evaluation - Supervisor Portal</title>
-    <!-- Tailwind CSS -->
+    <title>Final Evaluation - Supervisor Portal</title>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Global Custom Stylesheet -->
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
     <div class="flex min-h-screen">
         
-        <!-- Shared Sidebar Component -->
+        <!-- Supervisor Sidebar Component -->
         <?php include __DIR__ . '/../../components/supervisor_sidebar.php'; ?>
 
         <!-- Right Side Main Content -->
         <div class="flex-1 flex flex-col min-w-0">
 
-            <!-- Shared Top Header Component -->
+            <!-- Top Header Component -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
             <!-- Main Page Scrollable Body -->
-            <main class="p-6 max-w-7xl w-full mx-auto space-y-5 flex-1 relative">
+            <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1 relative">
 
                 <!-- Header Banner Card -->
-                <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-wrap justify-between items-center gap-3">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
                     <div>
-                        <h1 class="text-base font-bold text-slate-900 leading-snug">Final Intern Evaluation</h1>
-                        <p class="text-slate-500 text-xs mt-0.5">
-                            <span class="font-semibold text-slate-700"><?= htmlspecialchars($supervisor['company_name'] ?? 'Host Company'); ?></span> • Evaluate interns who have fulfilled the required Weekly Accomplishment Reports (~486 Hours Target).
+                        <h1 class="text-base font-bold text-slate-900 leading-snug">Final Student Evaluation</h1>
+                        <p class="text-xs font-medium text-slate-500 mt-1">
+                            <?= htmlspecialchars($supervisor['company_name'] ?? 'Host Company'); ?> &bull; Submit final performance evaluations for students completing their internship.
                         </p>
                     </div>
-                    <div class="px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-blue-200/60 text-[11px] font-semibold tracking-wide">
-                        ● <?= count($students ?? []); ?> Interns Roster
-                    </div>
+
+                    <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold shadow-2xs">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
+                        <?= count($students ?? []); ?> Total <?= count($students ?? []) === 1 ? 'Student' : 'Students'; ?>
+                    </span>
                 </div>
 
                 <!-- Roster Table Card -->
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                    <div class="p-4 px-5 border-b border-slate-100 flex justify-between items-center">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-900">Assigned Interns Evaluation Status</h3>
-                            <p class="text-[11px] text-slate-400 mt-0.5">Requires completion of 12 weekly accomplishment reports (~486 hours compliance)</p>
+                            <h3 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Student Evaluation List</h3>
+                            <p class="text-[11px] font-medium text-slate-500 mt-0.5">Students require 12 weekly reports before final evaluation</p>
                         </div>
+                        <span class="text-xs font-medium text-slate-400">Requirement: 12 Weeks</span>
                     </div>
 
                     <?php if (!empty($students) && count($students) > 0): ?>
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="bg-slate-50/60 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-100 font-semibold">
-                                        <th class="py-3 px-5">Student Name</th>
-                                        <th class="py-3 px-5">WAR Progress (486 Hours)</th>
-                                        <th class="py-3 px-5">Evaluation Status</th>
-                                        <th class="py-3 px-5">Final Rating</th>
-                                        <th class="py-3 px-5 text-right">Action</th>
+                                    <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
+                                        <th class="py-4 px-6">Student</th>
+                                        <th class="py-4 px-6">Completed Reports</th>
+                                        <th class="py-4 px-6">Evaluation Status</th>
+                                        <th class="py-4 px-6">Final Grade</th>
+                                        <th class="py-4 px-6 text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700 text-xs">
-                                    <?php foreach ($students as $student): ?>
-                                        <?php 
-                                            $requiredWeeks = 12; // Benchmark target
-                                            $submittedWars = intval($student['submitted_wars'] ?? 0);
-                                            $approvedWars  = intval($student['approved_wars'] ?? 0);
-                                            
-                                            // WARs are complete if approved count meets target benchmark
-                                            $isWARComplete = ($approvedWars >= $requiredWeeks || $submittedWars >= $requiredWeeks);
-                                            
-                                            // Evaluation is finished if an evaluation_id exists or status is verified
-                                            $evalStatus   = strtolower($student['evaluation_status'] ?? '');
-                                            $isEvaluated  = !empty($student['evaluation_id']) || in_array($evalStatus, ['verified', 'completed', 'approved']);
-                                        ?>
-                                        <tr class="transition-colors <?= ($isWARComplete && !$isEvaluated) ? 'bg-amber-50/40 hover:bg-amber-100/50 border-l-4 border-l-amber-500' : 'hover:bg-slate-50/80'; ?>">
+                                <tbody class="divide-y divide-slate-100 text-slate-700">
+                                    <?php foreach ($students as $student): 
+                                        $requiredWeeks = 12;
+                                        $submittedWars = intval($student['submitted_wars'] ?? 0);
+                                        $approvedWars  = intval($student['approved_wars'] ?? 0);
+                                        $isWARComplete = ($approvedWars >= $requiredWeeks || $submittedWars >= $requiredWeeks);
+                                        $evalStatus    = strtolower($student['evaluation_status'] ?? '');
+                                        $isEvaluated   = !empty($student['evaluation_id']) || in_array($evalStatus, ['verified', 'completed', 'approved']);
+                                        $needsAction   = ($isWARComplete && !$isEvaluated);
+                                    ?>
+                                        <tr class="hover:bg-slate-50/70 transition-colors group <?= $needsAction ? 'bg-amber-50/15' : ''; ?>">
                                             
                                             <!-- Student Info -->
-                                            <td class="py-3.5 px-5">
+                                            <td class="py-4 px-6">
                                                 <div class="flex items-center gap-3">
-                                                    <div class="w-8 h-8 rounded-full bg-[#0F2854]/10 text-[#0F2854] flex items-center justify-center font-extrabold text-xs shrink-0 overflow-hidden border border-slate-200">
+                                                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/80 group-hover:border-[#0F2854] transition-colors">
                                                         <?php if (!empty($student['avatar_url'])): ?>
                                                             <img src="<?= htmlspecialchars($student['avatar_url']); ?>" class="w-full h-full object-cover">
                                                         <?php else: ?>
-                                                            <?= strtoupper(substr($student['name'] ?? 'I', 0, 1)); ?>
+                                                            <?= strtoupper(substr($student['name'] ?? 'S', 0, 1)); ?>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="font-bold text-slate-900"><?= htmlspecialchars($student['name'] ?? 'Intern'); ?></p>
-                                                        <p class="text-[11px] text-slate-400">ID: <?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?> • <?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
+                                                        <p class="font-bold text-slate-900 text-sm"><?= htmlspecialchars($student['name'] ?? 'Student'); ?></p>
+                                                        <p class="text-[11px] text-slate-400 font-medium">ID: <?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
                                                     </div>
                                                 </div>
                                             </td>
 
-                                            <!-- WAR Progress Count -->
-                                            <td class="py-3.5 px-5 font-medium">
+                                            <!-- Progress Count -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
                                                 <div class="flex items-center gap-2">
-                                                    <span class="font-bold text-slate-800"><?= $submittedWars; ?> / <?= $requiredWeeks; ?> WARs</span>
+                                                    <span class="font-bold text-slate-800 text-xs"><?= $submittedWars; ?> of <?= $requiredWeeks; ?> Weeks</span>
                                                     <?php if ($isWARComplete): ?>
-                                                        <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-200/60">
-                                                            ✓ 486 Hrs Fulfilled
+                                                        <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-200">
+                                                            Complete
                                                         </span>
                                                     <?php else: ?>
                                                         <span class="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-medium rounded-md">
@@ -109,41 +113,45 @@
                                                 </div>
                                             </td>
 
-                                            <!-- Evaluation Status Badge -->
-                                            <td class="py-3.5 px-5">
+                                            <!-- Evaluation Status -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
                                                 <?php if ($isEvaluated): ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200/50">
-                                                        ● Verified & Submitted
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                        Completed
                                                     </span>
                                                 <?php elseif ($isWARComplete): ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200/50">
-                                                        ● Ready for Evaluation
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                        Ready for Evaluation
                                                     </span>
                                                 <?php else: ?>
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-medium border border-slate-200">
-                                                        ● Awaiting Final WAR
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-xs font-medium">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                                        Pending Reports
                                                     </span>
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Final Score -->
-                                            <td class="py-3.5 px-5 font-bold text-slate-900">
-                                                <?= !empty($student['final_score']) ? number_format($student['final_score'], 1) . ' / 100%' : '—'; ?>
+                                            <!-- Final Grade -->
+                                            <td class="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">
+                                                <?= !empty($student['final_score']) ? number_format($student['final_score'], 1) . '%' : '—'; ?>
                                             </td>
 
                                             <!-- Action Button -->
-                                            <td class="py-3.5 px-5 text-right">
+                                            <td class="py-4 px-6 text-right whitespace-nowrap">
                                                 <?php if ($isEvaluated): ?>
-                                                    <a href="evaluate_view.php?id=<?= $student['evaluation_id']; ?>" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-full border border-slate-200 transition-all shadow-2xs inline-block">
-                                                        View Evaluation
+                                                    <a href="evaluate_view.php?id=<?= $student['evaluation_id']; ?>" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-2xs transition-all inline-block">
+                                                        View Result
                                                     </a>
                                                 <?php elseif ($isWARComplete): ?>
-                                                    <a href="evaluate_form.php?student_id=<?= $student['id']; ?>" class="px-4 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-semibold rounded-full transition-all shadow-2xs inline-block">
-                                                        Evaluate Intern
+                                                    <a href="evaluate_form.php?student_id=<?= $student['id']; ?>" class="px-4 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5">
+                                                        <span>Evaluate</span>
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
                                                     </a>
                                                 <?php else: ?>
-                                                    <button disabled class="px-4 py-1.5 bg-slate-100/70 text-slate-400 text-[11px] font-semibold rounded-full border border-slate-200/80 cursor-not-allowed inline-block">
-                                                        Incomplete WARs
+                                                    <button disabled class="px-3.5 py-1.5 bg-slate-100 text-slate-400 text-xs font-medium rounded-xl border border-slate-200 cursor-not-allowed inline-block">
+                                                        Incomplete Weeks
                                                     </button>
                                                 <?php endif; ?>
                                             </td>
@@ -153,11 +161,12 @@
                             </table>
                         </div>
                     <?php else: ?>
-                        <!-- Empty State -->
-                        <div class="text-center py-12 px-4">
-                            <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-base font-bold">⭐</div>
-                            <h4 class="text-sm font-semibold text-slate-800">No interns found</h4>
-                            <p class="text-xs text-slate-500 max-w-xs mx-auto mt-0.5">There are currently no interns assigned to your supervisor account for evaluation.</p>
+                        <div class="text-center py-16 px-4 space-y-2">
+                            <div class="w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto text-lg font-bold border border-slate-200">
+                                📋
+                            </div>
+                            <h4 class="text-sm font-bold text-slate-800">No students found</h4>
+                            <p class="text-xs font-medium text-slate-500 max-w-xs mx-auto">There are currently no students assigned to your account for evaluation.</p>
                         </div>
                     <?php endif; ?>
                 </div>
