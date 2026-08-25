@@ -55,11 +55,18 @@ foreach ($reports as $r) {
     }
 }
 
-// 4. Calculate Next Due Week (e.g., if Week 1 submitted, Next Week is 2)
+// 4. Calculate Next Due Week
 $nextWeek = 1;
 while (in_array($nextWeek, $submittedWeeks)) {
     $nextWeek++;
 }
+
+// 5. Calculate OJT Target Progress (12 Weeks standard cohort target)
+$targetWeeks = 12;
+$progressPercentage = min(100, round(($totalApproved / $targetWeeks) * 100));
+
+// 6. 2 Most Recent Reports for Snapshot Feed
+$recentReports = array_slice(array_reverse($reports), 0, 2);
 
 // Render Dashboard View
 require_once __DIR__ . '/src/pages/student/dashboardPage.php';
