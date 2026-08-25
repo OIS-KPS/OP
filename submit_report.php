@@ -10,17 +10,23 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
     exit();
 }
 
-// Resolve student_id dynamically
-$userId = $_SESSION['user_id'];
-$stmtStudent = $pdo->prepare("SELECT id FROM students WHERE user_id = ?");
-$stmtStudent->execute([$userId]);
-$studentRecord = $stmtStudent->fetch(PDO::FETCH_ASSOC);
-$student_id = $studentRecord['id'] ?? ($_SESSION['student_id'] ?? null);
+$sessionUserId = $_SESSION['user_id'];
+
+// Resolve student_id directly from students table using user_id
+$stmtStudent = $pdo->prepare("SELECT id FROM students WHERE user_id = ? LIMIT 1");
+$stmtStudent->execute([$sessionUserId]);
+$student_id = $stmtStudent->fetchColumn();
+
+if (!$student_id) {
+    $_SESSION['error_message'] = "Student profile record not found.";
+    header("Location: reports.php");
+    exit();
+}
 
 $weekNumber = isset($_GET['week']) ? intval($_GET['week']) : 1;
 $errors = [];
 
-// 🔒 BACKEND GUARD: Prevent modifying an already APPROVED report
+// Prevent modifying an already APPROVED report
 $stmtCheckApproved = $pdo->prepare("SELECT status FROM reports WHERE student_id = ? AND week_number = ?");
 $stmtCheckApproved->execute([$student_id, $weekNumber]);
 $existingStatus = strtolower($stmtCheckApproved->fetchColumn() ?: '');
@@ -45,13 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mkdir($uploadDir, 0777, true);
             }
 
-            // Cleanup previous file if replacing a pending/needs revision report
+            // Remove existing file from disk if re-uploading
             $stmtCheck = $pdo->prepare("SELECT file_path FROM reports WHERE student_id = ? AND week_number = ?");
             $stmtCheck->execute([$student_id, $weekNumber]);
-            $existingReport = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            $oldPath = $stmtCheck->fetchColumn();
 
-            if ($existingReport && !empty($existingReport['file_path'])) {
-                $oldFileDiskPath = __DIR__ . '/' . $existingReport['file_path'];
+            if ($oldPath) {
+                $oldFileDiskPath = __DIR__ . '/' . ltrim($oldPath, '/');
                 if (file_exists($oldFileDiskPath)) {
                     unlink($oldFileDiskPath);
                 }
@@ -74,24 +80,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         try {
-            $sql = "INSERT INTO reports (student_id, week_number, file_path, status, submitted_at)
-                    VALUES (?, ?, ?, 'pending', NOW())
-                    ON DUPLICATE KEY UPDATE 
-                        file_path = VALUES(file_path),
-                        status = 'pending',
-                        submitted_at = NOW()";
+            $stmtCheckRow = $pdo->prepare("SELECT id FROM reports WHERE student_id = ? AND week_number = ?");
+            $stmtCheckRow->execute([$student_id, $weekNumber]);
+            $existingId = $stmtCheckRow->fetchColumn();
 
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$student_id, $weekNumber, $filePath]);
+            if ($existingId) {
+                $stmtUpdate = $pdo->prepare("
+                    UPDATE reports 
+                    SET file_path = ?, status = 'pending', submitted_at = NOW() 
+                    WHERE id = ?
+                ");
+                $stmtUpdate->execute([$filePath, $existingId]);
+            } else {
+                $stmtInsert = $pdo->prepare("
+                    INSERT INTO reports (student_id, week_number, file_path, status, submitted_at)
+                    VALUES (?, ?, ?, 'pending', NOW())
+                ");
+                $stmtInsert->execute([$student_id, $weekNumber, $filePath]);
+            }
+
+            $logAction = $existingId ? 'REPORT_REUPLOAD' : 'REPORT_SUBMISSION';
+            $logDesc   = "Student submitted Week {$weekNumber} accomplishment report.";
+            
+            logActivity($pdo, $sessionUserId, 'student', $logAction, $logDesc);
 
             header("Location: reports.php?submitted=success");
             exit();
 
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             $errors[] = "Database Error: " . $e->getMessage();
         }
     }
 }
 
-// Render View
 require_once __DIR__ . '/src/pages/student/submitReportPage.php';
