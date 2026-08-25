@@ -2,6 +2,17 @@
 // auth/logout.php
 session_start();
 
+require_once __DIR__ . '/../config/db.php';
+
+// Audit Log: Record Logout Event before clearing session data
+if (isset($_SESSION['user_id'])) {
+    $userId   = $_SESSION['user_id'];
+    $userRole = $_SESSION['role'] ?? 'guest';
+    $userName = $_SESSION['user_name'] ?? 'User';
+
+    logActivity($pdo, $userId, $userRole, 'USER_LOGOUT', "User {$userName} logged out of the system.");
+}
+
 // Clear session variables
 $_SESSION = array();
 

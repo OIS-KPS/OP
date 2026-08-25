@@ -30,6 +30,9 @@ $stmt->execute([$email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$user) {
+    //Audit Log: Unknown Email Attempt
+    logActivity($pdo, null, 'guest', 'LOGIN_FAILED', "Failed login attempt for unknown email: " . substr($email, 0, 50));
+
     $_SESSION['login_error'] = 'No account found with that email address.';
     header("Location: login.php");
     exit();
@@ -39,6 +42,9 @@ if (!$user) {
 // 3. Check if User Has a Password Set
 // ------------------------------------------------------------------
 if ($user['password_hash'] === null) {
+    //Audit Log: Attempted login on account without password
+    logActivity($pdo, $user['id'], $user['role'] ?? 'guest', 'LOGIN_FAILED', "Login attempted on account without password set ({$user['email']}).");
+
     $_SESSION['login_error'] = 'Your account doesn\'t have a password yet. Please sign in with Google first, then set up your password.';
     header("Location: login.php");
     exit();
@@ -48,6 +54,9 @@ if ($user['password_hash'] === null) {
 // 4. Verify Password
 // ------------------------------------------------------------------
 if (!password_verify($password, $user['password_hash'])) {
+    //Audit Log: Incorrect Password Attempt
+    logActivity($pdo, $user['id'], $user['role'] ?? 'guest', 'LOGIN_FAILED', "Incorrect password entered for user {$user['email']}.");
+
     $_SESSION['login_error'] = 'Incorrect password. Please try again.';
     header("Location: login.php");
     exit();
@@ -65,6 +74,8 @@ $_SESSION['email']        = $user['email'];
 $_SESSION['user_picture'] = $user['avatar_url'] ?? null;
 $_SESSION['role']         = $userRole;
 
+// Audit Log: Successful Login
+logActivity($pdo, $userId, $userRole, 'USER_LOGIN', "User {$user['name']} ({$user['email']}) logged in successfully.");
 // ------------------------------------------------------------------
 // 6. Role-Specific Extension Linking & Redirect
 // ------------------------------------------------------------------
