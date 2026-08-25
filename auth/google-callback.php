@@ -54,6 +54,9 @@ if (isset($_GET['code'])) {
             $insertUser->execute([$name, $email, $picture]);
             $userId   = $pdo->lastInsertId();
             $userRole = 'student';
+
+            // Audit Log: New User Registration via Google OAuth
+            logActivity($pdo, $userId, 'student', 'USER_REGISTER_GOOGLE', "New user registered via Google OAuth: {$name} ({$email})");
         } else {
             $userId   = $user['id'];
             $userRole = strtolower($user['role'] ?? 'student');
@@ -63,6 +66,9 @@ if (isset($_GET['code'])) {
                 $updateAvatar = $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
                 $updateAvatar->execute([$picture, $userId]);
             }
+
+            // Audit Log: Successful Google OAuth Login
+            logActivity($pdo, $userId, $userRole, 'GOOGLE_LOGIN', "User {$name} ({$email}) logged in via Google OAuth.");
         }
 
         // Establish Core Base Sessions
@@ -137,6 +143,9 @@ if (isset($_GET['code'])) {
         }
 
     } catch (Exception $e) {
+        // Audit Log: Google OAuth Failure
+        logActivity($pdo, null, 'guest', 'GOOGLE_LOGIN_FAILED', "Google OAuth failed for " . ($email ?? 'unknown') . ": " . $e->getMessage());
+
         $emailContext = isset($email) ? " for <strong>" . htmlspecialchars($email) . "</strong>" : "";
         $_SESSION['login_error'] = "Authentication error{$emailContext}: " . htmlspecialchars($e->getMessage());
         header("Location: login.php");
