@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import re
+import unicodedata
 import pdfplumber
 import spacy
 import mysql.connector
@@ -17,6 +18,9 @@ DB_PORT = 3306
 DB_NAME = "nbsc_ojt"
 DB_USER = "root"
 DB_PASSWORD = ""
+
+# Generic words should never become predefined entities.
+IGNORED_ENTITY_TERMS = {"my"}
 
 
 # ============================================================
@@ -46,12 +50,6 @@ def fail(message, details=None):
 # NORMALIZE TEXT
 # ============================================================
 
-# Common words that must never be treated as predefined entities.
-IGNORED_ENTITY_TERMS = {
-    "my"
-}
-
-
 def normalize(text):
     """
     Normalize text for matching.
@@ -65,32 +63,10 @@ def normalize(text):
     become easier to compare.
     """
 
-    text = str(text or "")
-
-    text = text.lower()
-
-    # Replace different dash types with a normal space
-    text = re.sub(
-        r"[-–—]",
-        " ",
-        text
-    )
-
-    # Replace punctuation with spaces
-    text = re.sub(
-        r"[^\w\s+#.]",
-        " ",
-        text
-    )
-
-    # Normalize whitespace
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    )
-
-    return text.strip()
+    text = unicodedata.normalize("NFKC", str(text or "")).lower()
+    text = re.sub(r"[-–—‑]", " ", text)
+    text = re.sub(r"[^\w\s+#.]", " ", text, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 # ============================================================
@@ -146,8 +122,9 @@ def load_predefined_entities(connection):
                 it_related,
                 description
             FROM predefined_entities
+            WHERE LOWER(TRIM(entity_name)) <> 'my'
             ORDER BY
-                LENGTH(entity_name) DESC,
+                CHAR_LENGTH(entity_name) DESC,
                 entity_name ASC
         """
 
@@ -221,37 +198,26 @@ def prepare_search_text(text):
 
 
 # ============================================================
-# COUNT TERM OCCURRENCES
+# TERM OCCURRENCES
 # ============================================================
+
+def find_term_occurrences(text, term):
+    normalized_text = prepare_search_text(text)
+    normalized_term = normalize(term)
+
+    if not normalized_text or not normalized_term:
+        return []
+
+    if normalized_term in IGNORED_ENTITY_TERMS:
+        return []
+
+    pattern = r"(?<!\w)" + re.escape(normalized_term) + r"(?!\w)"
+    return list(re.finditer(pattern, normalized_text, flags=re.IGNORECASE))
+
 
 def count_term(text, term):
 
-    normalized_text = prepare_search_text(text)
-
-    normalized_term = normalize(term)
-
-    if normalized_term in IGNORED_ENTITY_TERMS:
-        return 0
-
-    if not normalized_text:
-        return 0
-
-    if not normalized_term:
-        return 0
-
-    pattern = (
-        r"(?<!\w)"
-        + re.escape(normalized_term)
-        + r"(?!\w)"
-    )
-
-    matches = re.findall(
-        pattern,
-        normalized_text,
-        flags=re.IGNORECASE
-    )
-
-    return len(matches)
+    return len(find_term_occurrences(text, term))
 
 
 # ============================================================
@@ -328,14 +294,9 @@ def build_entity_terms(entity):
 
     for term in terms:
 
-        normalized_term = normalize(
-            term
-        )
+        normalized_term = normalize(term)
 
-        if normalized_term in IGNORED_ENTITY_TERMS:
-            continue
-
-        if not normalized_term:
+        if not normalized_term or normalized_term in IGNORED_ENTITY_TERMS:
             continue
 
         if normalized_term in seen:
@@ -349,7 +310,10 @@ def build_entity_terms(entity):
             term
         )
 
-    return unique_terms
+    return sorted(
+        unique_terms,
+        key=lambda term: (-len(normalize(term)), normalize(term))
+    )
 
 
 # ============================================================
@@ -365,9 +329,8 @@ def find_predefined_matches(
 
     for entity in predefined_entities:
 
-        # Do not detect a database row whose canonical name is "my".
-        canonical_name = normalize(entity.get("entity_name", ""))
-        if canonical_name in IGNORED_ENTITY_TERMS:
+        canonical_name = str(entity.get("entity_name") or "").strip()
+        if normalize(canonical_name) in IGNORED_ENTITY_TERMS:
             continue
 
         entity_terms = build_entity_terms(
@@ -379,6 +342,7 @@ def find_predefined_matches(
 
         best_term = ""
         best_frequency = 0
+        best_term_length = 0
 
         # ----------------------------------------------------
         # Check canonical name and aliases
@@ -386,16 +350,21 @@ def find_predefined_matches(
 
         for term in entity_terms:
 
-            frequency = count_term(
-                text,
-                term
-            )
+            occurrences = find_term_occurrences(text, term)
+            frequency = len(occurrences)
+            term_length = len(normalize(term))
 
-            if frequency > best_frequency:
-
+            # Prefer the longer verified term when frequencies tie.
+            if (
+                frequency > best_frequency
+                or (
+                    frequency == best_frequency
+                    and term_length > best_term_length
+                )
+            ):
                 best_frequency = frequency
-
                 best_term = term
+                best_term_length = term_length
 
         # ----------------------------------------------------
         # Only return entities actually found
@@ -498,51 +467,61 @@ def find_predefined_matches(
     return matches
 
 
-def remove_overlapping_matches(text, matches):
+def resolve_entity_overlaps(text, matches):
     """
-    Remove shorter entity matches whose text span is already covered by
-    a longer entity match. For example, keep "Windows 11" and suppress
-    the "Windows" match when both refer to the same occurrence.
+    Keep only verified, non-overlapping occurrences across all predefined
+    entities. Longer terms win, so Windows 11 is preferred over Windows
+    for the same occurrence, while a separate standalone Windows remains.
     """
-    normalized_text = prepare_search_text(text)
     candidates = []
-
-    for index, match in enumerate(matches):
-        normalized_term = normalize(match.get("matched_term", ""))
-        if not normalized_term:
+    for entity_index, match in enumerate(matches):
+        term = normalize(match.get("matched_term", ""))
+        if not term or term in IGNORED_ENTITY_TERMS:
             continue
 
-        pattern = r"(?<!\w)" + re.escape(normalized_term) + r"(?!\w)"
-        for occurrence in re.finditer(pattern, normalized_text, flags=re.IGNORECASE):
+        for occurrence in find_term_occurrences(text, term):
             candidates.append({
-                "index": index,
+                "entity_index": entity_index,
                 "start": occurrence.start(),
                 "end": occurrence.end(),
                 "length": occurrence.end() - occurrence.start()
             })
 
-    # Longest spans win. For equal lengths, retain the earlier occurrence.
-    candidates.sort(key=lambda item: (-item["length"], item["start"], item["index"]))
+    candidates.sort(
+        key=lambda item: (
+            -item["length"],
+            item["start"],
+            item["entity_index"]
+        )
+    )
 
-    accepted_spans = []
-    retained_indexes = set()
+    accepted = []
+    frequencies = {}
 
     for candidate in candidates:
         overlaps = any(
-            candidate["start"] < accepted["end"]
-            and candidate["end"] > accepted["start"]
-            for accepted in accepted_spans
+            candidate["start"] < span["end"]
+            and candidate["end"] > span["start"]
+            for span in accepted
         )
+        if overlaps:
+            continue
 
-        if not overlaps:
-            accepted_spans.append(candidate)
-            retained_indexes.add(candidate["index"])
+        accepted.append(candidate)
+        index = candidate["entity_index"]
+        frequencies[index] = frequencies.get(index, 0) + 1
 
-    return [
-        match
-        for index, match in enumerate(matches)
-        if index in retained_indexes
-    ]
+    verified = []
+    for index, match in enumerate(matches):
+        frequency = frequencies.get(index, 0)
+        if frequency == 0:
+            continue
+
+        verified_match = dict(match)
+        verified_match["frequency"] = frequency
+        verified.append(verified_match)
+
+    return verified
 
 
 # ============================================================
@@ -926,9 +905,7 @@ def main():
             )
         )
 
-        # Prevent shorter terms such as "Windows" from being returned
-        # for the same occurrence as a longer term such as "Windows 11".
-        matched_entities = remove_overlapping_matches(
+        matched_entities = resolve_entity_overlaps(
             text,
             matched_entities
         )
