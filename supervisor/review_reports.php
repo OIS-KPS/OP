@@ -113,9 +113,7 @@ function resolveReportPdfPath($filePath)
         );
 
         // ----------------------------------------------------
-        // Example:
-        //
-        // uploads/reports/example.pdf
+        // Example: uploads/reports/example.pdf
         // ----------------------------------------------------
 
         $candidate =
@@ -129,9 +127,7 @@ function resolveReportPdfPath($filePath)
         }
 
         // ----------------------------------------------------
-        // Example:
-        //
-        // ICS-PORTAL/uploads/reports/example.pdf
+        // Example: ICS-PORTAL/uploads/reports/example.pdf
         // ----------------------------------------------------
 
         $normalized = str_replace(
@@ -162,8 +158,7 @@ function resolveReportPdfPath($filePath)
     }
 
     // --------------------------------------------------------
-    // CASE 3:
-    // Relative to supervisor directory
+    // CASE 3: Relative to supervisor directory
     // --------------------------------------------------------
 
     $candidate =
