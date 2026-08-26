@@ -172,9 +172,12 @@ function persistExtractedEntities(PDO $pdo, int $reportId, array $entities): int
         $source = trim((string) ($entity['source'] ?? 'predefined'));
         $source = in_array($source, $allowedSources, true) ? $source : 'predefined';
 
-        $confidence = $entity['confidence_score'] ?? 100.00;
-        $confidence = is_numeric($confidence) ? (float) $confidence : 100.00;
-        $confidence = max(0.00, min(100.00, $confidence));
+        // Preserve a real extractor confidence only when it was supplied.
+        // Do not invent a 100% confidence value.
+        $confidence = null;
+        if (isset($entity['confidence_score']) && is_numeric($entity['confidence_score'])) {
+            $confidence = max(0.00, min(100.00, (float) $entity['confidence_score']));
+        }
 
         $key = strtolower($canonicalName . '|' . $activityType);
         if (isset($seen[$key])) {
@@ -189,7 +192,7 @@ function persistExtractedEntities(PDO $pdo, int $reportId, array $entities): int
             $activityType,
             $itRelated,
             $source,
-            number_format($confidence, 2, '.', '')
+                $confidence
         ];
     }
 
@@ -242,9 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_e
         ? $classification
         : 'Other';
     $itRelated = $activityType === 'Clerical' ? 'no' : 'yes';
-    $confidenceScore = isset($_POST['confidence_score']) && is_numeric($_POST['confidence_score'])
-        ? max(0.00, min(100.00, (float) $_POST['confidence_score']))
-        : 100.00;
+    
 
     if ($entityName !== '') {
         try {
@@ -262,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_e
                 $activityType,
                 $itRelated,
                 'spacy_predefined',
-                number_format($confidenceScore, 2, '.', '')
+                null
             ]);
             $_SESSION['flash_success'] = 'Entity added successfully.';
         } catch (Throwable $exception) {
@@ -303,7 +304,7 @@ try {
     $stmt = $pdo->prepare(
         'SELECT
             r.id, r.student_id, r.week_number, r.file_path,
-            r.ocr_activities, r.status, r.submitted_at,
+            r.status, r.submitted_at,
             s.student_number, s.program,
             u.name AS student_name, u.email AS student_email,
             c.name AS company_name, c.department AS company_dept,
@@ -362,7 +363,7 @@ try {
         'SELECT
             id, entity_name, canonical_name, category,
             activity_type, activity_type AS classification,
-            it_related, source, confidence_score, created_at
+            it_related, source, created_at
          FROM report_entities
          WHERE report_id = ?
          ORDER BY id DESC'
@@ -370,14 +371,27 @@ try {
     $stmtEnt->execute([$reportId]);
     $extractedEntities = $stmtEnt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    foreach ($extractedEntities as $entity) {
+    foreach ($extractedEntities as &$entity) {
         $activityType = strtolower(trim((string) ($entity['activity_type'] ?? '')));
+        $itRelated = strtolower(trim((string) ($entity['it_related'] ?? 'unknown')));
+
+        // These labels are derived from the database, not guessed in the view.
+        $entity['classification_label'] = $activityType === 'clerical'
+            ? 'Clerical'
+            : ($activityType !== '' ? 'Technical' : 'Unclassified');
+        $entity['it_related_label'] = match ($itRelated) {
+            'yes' => 'IT Related',
+            'no' => 'Non-IT',
+            default => 'Unknown'
+        };
+
         if ($activityType === 'clerical') {
             $clericalCount++;
-        } else {
+        } elseif ($activityType !== '') {
             $technicalCount++;
         }
     }
+    unset($entity);
 
     $totalEntities = $technicalCount + $clericalCount;
     if ($totalEntities > 0) {
