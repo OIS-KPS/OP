@@ -7,6 +7,55 @@
     <title>Report Inspection - Week <?= htmlspecialchars($report['week_number']); ?> - OJT Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <style>
+        #pdf-viewer {
+            width: 100%;
+            min-width: 0;
+            height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
+            background: #e2e8f0;
+        }
+        .pdf-page {
+            position: relative;
+            margin: 0 auto 14px;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, .16);
+        }
+        .pdf-page canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        .pdf-text-layer {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            user-select: text;
+        }
+        .pdf-text-layer span {
+            position: absolute;
+            color: transparent;
+            white-space: pre;
+            transform-origin: 0 0;
+        }
+        .pdf-text-layer span.entity-highlight {
+            color: #713f12;
+            background: #fde68a;
+            border-radius: 2px;
+            box-shadow: 0 0 0 1px rgba(245, 158, 11, .35);
+        }
+        .entity-card {
+            cursor: pointer;
+            transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+        }
+        .entity-card:hover,
+        .entity-card.entity-selected {
+            border-color: #f59e0b;
+            background: #fffbeb;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, .12);
+        }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased font-sans">
 
@@ -68,11 +117,14 @@
 
                         <div class="flex-1 bg-slate-100 relative">
                             <?php if (!empty($report['file_path'])): ?>
-                                <iframe 
-                                    src="/ICS-PORTAL/<?= htmlspecialchars(ltrim($report['file_path'], '/')); ?>#toolbar=0" 
-                                    class="w-full h-full border-none"
-                                    title="Report PDF">
-                                </iframe>
+                                <div
+                                    id="pdf-viewer"
+                                    class="w-full h-full"
+                                    data-pdf-url="/ICS-PORTAL/<?= htmlspecialchars(ltrim($report['file_path'], '/'), ENT_QUOTES, 'UTF-8'); ?>"
+                                    aria-label="Report PDF"
+                                >
+                                    <div class="flex h-full items-center justify-center p-4 text-xs text-slate-400">Loading PDF…</div>
+                                </div>
                             <?php else: ?>
                                 <div class="flex flex-col items-center justify-center h-full text-slate-400 text-xs p-6 text-center">
                                     <span class="text-3xl mb-2">📁</span>
@@ -83,7 +135,7 @@
                         </div>
                     </div>
 
-                    <!-- Right: Extracted Entities, Task Percentages & Excerpt (5 of 12 columns) -->
+                    <!-- Right: Extracted Entities & Task Percentages (5 of 12 columns) -->
                     <div class="lg:col-span-5 space-y-5">
 
                         <!-- Report Task Ratio Card -->
@@ -112,7 +164,7 @@
                                     </div>
                                 </div>
                             <?php else: ?>
-                                <p class="text-xs text-slate-400 italic">Add or extract entities to compute task ratios.</p>
+                                <p class="text-xs text-slate-400 italic">No verified entities are available for this report.</p>
                             <?php endif; ?>
                         </div>
 
@@ -122,12 +174,10 @@
                             <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
                                 <div>
                                     <h2 class="font-bold text-xs text-slate-900">Extracted Entities</h2>
-                                    <p class="text-[11px] text-slate-400">Named entities & confidence levels</p>
+                                    <p class="text-[11px] text-slate-400">Verified entities from the predefined catalog</p>
                                 </div>
 
-                                <button type="button" onclick="openAddEntityModal()" class="px-3 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold text-xs rounded-xl transition-all shadow-2xs flex items-center gap-1 cursor-pointer">
-                                    <span>+</span> Add Entity
-                                </button>
+
                             </div>
 
                             <!-- Extracted Entity List -->
@@ -137,40 +187,55 @@
                                         <div class="text-2xl mb-1">🔍</div>
                                         <p class="font-semibold text-slate-600 text-xs">No extraction yet</p>
                                         <p class="text-[11px] text-slate-400 mt-0.5 max-w-xs mx-auto">
-                                            spaCy NLP pipeline is pending. You can click <strong>+ Add Entity</strong> above to manually tag activities.
+                                            The spaCy pipeline did not return any verified predefined entities for this report.
                                         </p>
                                     </div>
                                 <?php else: ?>
-                                    <?php foreach ($extractedEntities as $entity): 
-                                        $conf = floatval($entity['confidence_score'] ?? 100);
+                                    <?php foreach ($extractedEntities as $entity):
+                                        $entityName = trim((string) ($entity['entity_name'] ?? ''));
+                                        $category = trim((string) ($entity['category'] ?? 'Other')) ?: 'Other';
+                                        $activityType = trim((string) ($entity['activity_type'] ?? ''));
+                                        $classification = trim((string) ($entity['classification_label'] ?? ''));
+                                        if ($classification === '') {
+                                            $classification = strtolower($activityType) === 'clerical' ? 'Clerical' : 'Technical';
+                                        }
+                                        $itRelated = strtolower(trim((string) ($entity['it_related'] ?? 'unknown')));
+                                        $itLabel = trim((string) ($entity['it_related_label'] ?? ''));
+                                        if ($itLabel === '') {
+                                            $itLabel = $itRelated === 'yes' ? 'IT Related' : ($itRelated === 'no' ? 'Non-IT' : 'Unknown');
+                                        }
+                                        $isClerical = strcasecmp($classification, 'Clerical') === 0;
+                                        $isItRelated = strcasecmp($itLabel, 'IT Related') === 0;
                                     ?>
-                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center justify-between gap-2">
+                                        <div
+                                            class="entity-card p-3 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center justify-between gap-2"
+                                            role="button"
+                                            tabindex="0"
+                                            aria-pressed="false"
+                                            data-entity-term="<?= htmlspecialchars($entityName, ENT_QUOTES, 'UTF-8'); ?>"
+                                            title="Click to highlight this entity in the PDF"
+                                        >
                                             <div class="min-w-0">
                                                 <p class="font-bold text-slate-900 text-xs truncate">
-                                                    <?= htmlspecialchars($entity['entity_name']); ?>
+                                                    <?= htmlspecialchars($entityName, ENT_QUOTES, 'UTF-8'); ?>
                                                 </p>
-                                                
+
                                                 <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                                                     <span class="px-2 py-0.5 bg-slate-200/70 text-slate-700 rounded text-[10px] font-semibold">
-                                                        <?= htmlspecialchars($entity['category']); ?>
+                                                        <?= htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?>
                                                     </span>
 
-                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border <?= $entity['classification'] === 'Technical' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'; ?>">
-                                                        <?= htmlspecialchars($entity['classification']); ?>
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border <?= $isClerical ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'; ?>">
+                                                        <?= htmlspecialchars($classification, ENT_QUOTES, 'UTF-8'); ?>
                                                     </span>
 
-                                                    <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-md text-[10px] font-mono font-bold" title="spaCy NER Confidence Level">
-                                                        <?= number_format($conf, 0); ?>% confidence
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border <?= $isItRelated ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'; ?>">
+                                                        <?= htmlspecialchars($itLabel, ENT_QUOTES, 'UTF-8'); ?>
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            <!-- Delete Button -->
-                                            <form method="POST" action="view_report.php?id=<?= $report['id']; ?>" onsubmit="return confirm('Remove this entity?');">
-                                                <input type="hidden" name="action" value="delete_entity">
-                                                <input type="hidden" name="entity_id" value="<?= $entity['id']; ?>">
-                                                <button type="submit" class="text-slate-400 hover:text-rose-600 p-1 text-xs font-bold" title="Delete">✕</button>
-                                            </form>
+
                                         </div>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -178,13 +243,6 @@
 
                         </div>
 
-                        <!-- Activity Excerpt (OCR / Log) -->
-                        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-2">
-                            <h3 class="font-bold text-xs text-slate-900">Activity Excerpt (OCR / Log)</h3>
-                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/60 text-xs text-slate-700 max-h-40 overflow-y-auto leading-relaxed">
-                                <?= !empty($report['ocr_activities']) ? nl2br(htmlspecialchars($report['ocr_activities'])) : '<span class="text-slate-400 italic">No text excerpt provided.</span>'; ?>
-                            </div>
-                        </div>
 
                     </div>
 
@@ -194,80 +252,127 @@
         </div>
     </div>
 
-    <!-- Add Entity Modal -->
-    <div id="addEntityModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden">
-            
-            <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <h3 class="text-xs font-bold text-slate-900">Add Extracted Entity / Task</h3>
-                <button type="button" onclick="closeAddEntityModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
-            </div>
-
-            <form method="POST" action="view_report.php?id=<?= $report['id']; ?>" class="p-5 space-y-4 text-xs">
-                <input type="hidden" name="action" value="add_entity">
-
-                <!-- Entity Name -->
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Entity / Skill Name:</label>
-                    <input type="text" name="entity_name" required placeholder="e.g. PHP REST API, Database Query, Network Setup" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                </div>
-
-                <!-- Curriculum Category -->
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Category:</label>
-                    <select name="category" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                        <option value="Software Dev">Software Dev</option>
-                        <option value="Database">Database</option>
-                        <option value="Networking">Networking</option>
-                        <option value="Hardware">Hardware</option>
-                        <option value="Administrative">Administrative</option>
-                    </select>
-                </div>
-
-                <!-- Classification -->
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Classification:</label>
-                    <div class="grid grid-cols-2 gap-3 pt-0.5">
-                        <label class="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 font-medium">
-                            <input type="radio" name="classification" value="Technical" checked class="text-[#0F2854]">
-                            <span>Technical (IT)</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 font-medium">
-                            <input type="radio" name="classification" value="Clerical" class="text-[#0F2854]">
-                            <span>Clerical (Non-IT)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Confidence Level Input -->
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Confidence Level (%):</label>
-                    <input type="number" name="confidence_score" min="1" max="100" value="100" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                    <p class="text-[10px] text-slate-400 mt-1">Defaults to 100% for manual coordinator entries.</p>
-                </div>
-
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button type="button" onclick="closeAddEntityModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs shadow-2xs">
-                        Save Entity
-                    </button>
-                </div>
-            </form>
-
-        </div>
-    </div>
-
-    <!-- Modal Toggle Scripts -->
+    <!-- Click an extracted entity card to toggle its PDF highlight. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
-        function openAddEntityModal() {
-            document.getElementById('addEntityModal').classList.remove('hidden');
-        }
-        function closeAddEntityModal() {
-            document.getElementById('addEntityModal').classList.add('hidden');
-        }
+        (() => {
+            const viewer = document.getElementById('pdf-viewer');
+            if (!viewer || !window.pdfjsLib) return;
+
+            const cards = [...document.querySelectorAll('[data-entity-term]')];
+            const activeTerms = new Set();
+            pdfjsLib.GlobalWorkerOptions.workerSrc =
+                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+            const normalize = value => String(value || '')
+                .toLowerCase()
+                .replace(/[\u2010-\u2015]/g, '-')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            const matchesEntityText = (sourceText, term) => {
+                const source = normalize(sourceText);
+                const target = normalize(term);
+                if (!source || !target) return false;
+                return new RegExp(`(^|\\s)${escapeRegExp(target)}(?=\\s|$)`, 'iu').test(source);
+            };
+
+            const setCardState = (term, active) => {
+                cards.filter(card => normalize(card.dataset.entityTerm) === term)
+                    .forEach(card => {
+                        card.classList.toggle('entity-selected', active);
+                        card.setAttribute('aria-pressed', active ? 'true' : 'false');
+                    });
+            };
+
+            const applyHighlights = () => {
+                document.querySelectorAll('.pdf-text-layer span').forEach(span => {
+                    const active = [...activeTerms].some(term =>
+                        matchesEntityText(span.textContent, term)
+                    );
+                    span.classList.toggle('entity-highlight', active);
+                });
+            };
+
+            const toggleEntity = card => {
+                const term = normalize(card.dataset.entityTerm);
+                if (!term) return;
+                const active = !activeTerms.has(term);
+                active ? activeTerms.add(term) : activeTerms.delete(term);
+                setCardState(term, active);
+                applyHighlights();
+            };
+
+            cards.forEach(card => {
+                card.addEventListener('click', () => toggleEntity(card));
+                card.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleEntity(card);
+                    }
+                });
+            });
+
+            async function renderPdf() {
+                try {
+                    const pdf = await pdfjsLib.getDocument(viewer.dataset.pdfUrl).promise;
+                    viewer.replaceChildren();
+
+                    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+                        const page = await pdf.getPage(pageNumber);
+                        const baseViewport = page.getViewport({ scale: 1 });
+                        const availableWidth = Math.max(viewer.clientWidth - 16, 240);
+                        const scale = Math.min(1.25, availableWidth / baseViewport.width);
+                        const viewport = page.getViewport({ scale });
+
+                        const pageContainer = document.createElement('div');
+                        pageContainer.className = 'pdf-page';
+                        pageContainer.style.width = `${viewport.width}px`;
+                        pageContainer.style.height = `${viewport.height}px`;
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.ceil(viewport.width);
+                        canvas.height = Math.ceil(viewport.height);
+                        pageContainer.appendChild(canvas);
+                        viewer.appendChild(pageContainer);
+
+                        await page.render({
+                            canvasContext: canvas.getContext('2d'),
+                            viewport
+                        }).promise;
+
+                        const textLayer = document.createElement('div');
+                        textLayer.className = 'pdf-text-layer';
+                        pageContainer.appendChild(textLayer);
+                        const textContent = await page.getTextContent();
+
+                        textContent.items.forEach(item => {
+                            if (!item.str) return;
+                            const span = document.createElement('span');
+                            span.textContent = item.str;
+                            const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                            const fontHeight = Math.max(Math.hypot(tx[2], tx[3]), 1);
+                            span.style.left = `${tx[4]}px`;
+                            span.style.top = `${tx[5] - fontHeight}px`;
+                            span.style.fontSize = `${fontHeight}px`;
+                            textLayer.appendChild(span);
+                        });
+                    }
+
+                    applyHighlights();
+                } catch (error) {
+                    viewer.innerHTML = '<div class="flex h-full items-center justify-center p-4 text-center text-xs text-rose-500">Unable to render this PDF. Use “Open Full PDF” to view it.</div>';
+                    console.error('PDF viewer error:', error);
+                }
+            }
+
+            renderPdf();
+        })();
     </script>
+
+
 
 </body>
 </html>
