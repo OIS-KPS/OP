@@ -1,108 +1,30 @@
+<!-- src/pages/supervisor/reviewReportsPage.php -->
 <?php
-/*
- * ============================================================
- * src/pages/supervisor/reviewReportsPage.php
- * ============================================================
- * Supervisor Review Reports View
- * Loaded by: supervisor/review_reports.php
- */
-
 $filter_status = $filter_status ?? 'All';
 $message = $message ?? '';
 $reports = $reports ?? [];
 $activeReport = $activeReport ?? null;
 
 if (!function_exists('e')) {
-    function e($value)
-    {
+    function e($value) {
         return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
     }
 }
 
-if (!function_exists('statusUrl')) {
-    function statusUrl($status = null, $reviewId = null)
-    {
-        $params = [];
-        if ($reviewId !== null) {
-            $params['review_id'] = (int)$reviewId;
-        }
-        if ($status !== null && $status !== 'All') {
-            $params['status'] = $status;
-        }
-        if (empty($params)) {
-            return 'review_reports.php';
-        }
-        return 'review_reports.php?' . http_build_query($params);
-    }
-}
-
-if (!function_exists('normalizeReportStatus')) {
-    function normalizeReportStatus($status)
-    {
-        $status = trim((string)$status);
-        if ($status === '') {
-            return 'pending';
-        }
-        $lower = strtolower($status);
-        if ($lower === 'approved') {
-            return 'approved';
-        }
-        if ($lower === 'pending') {
-            return 'pending';
-        }
-        if (in_array($lower, ['needs revision', 'needs_revision', 'revision', 'rejected'], true)) {
-            return 'needs revision';
-        }
-        return $lower;
-    }
-}
-
-if (!function_exists('isITRelated')) {
-    function isITRelated($value)
-    {
-        $value = strtolower(trim((string)$value));
-        return in_array($value, ['yes', 'true', '1', 'it', 'it related', 'it-related'], true);
-    }
-}
-
-$allowedFilters = ['All', 'Pending', 'Approved', 'Needs Revision'];
-if (!in_array($filter_status, $allowedFilters, true)) {
-    $filter_status = 'All';
-}
-
 $hasActiveReport = !empty($activeReport) && is_array($activeReport);
-$activeStatus = 'pending';
-$isApproved = false;
-$isRevision = false;
-$activeFilePath = '';
-$activeSubmittedAt = null;
-$extractedEntities = [];
-$pdfText = '';
+$activeStatus = strtolower($activeReport['status'] ?? 'pending');
+$isApproved = ($activeStatus === 'approved');
+$isRevision = ($activeStatus === 'rejected');
 
-if ($hasActiveReport) {
-    $activeStatus = normalizeReportStatus($activeReport['status'] ?? 'pending');
-    $isApproved = ($activeStatus === 'approved');
-    $isRevision = ($activeStatus === 'needs revision');
-    $activeFilePath = $activeReport['file_path'] ?? $activeReport['attachment_path'] ?? '';
-    $activeSubmittedAt = $activeReport['submitted_at'] ?? $activeReport['created_at'] ?? null;
-    $extractedEntities = $activeReport['extracted_entities'] ?? [];
-    if (!is_array($extractedEntities)) {
-        $extractedEntities = [];
-    }
-    $pdfText = $activeReport['pdf_text'] ?? $activeReport['extracted_text'] ?? $activeReport['report_text'] ?? $activeReport['text'] ?? '';
-}
+$activeFilePath = $activeReport['file_path'] ?? '';
+$activeSubmittedAt = $activeReport['submitted_at'] ?? null;
+$extractedEntities = $activeReport['extracted_entities'] ?? [];
 
 $pdfUrl = '';
 if (!empty($activeFilePath)) {
     $cleanPath = ltrim(str_replace('\\', '/', $activeFilePath), '/');
-    if (stripos($cleanPath, 'ICS-PORTAL/') === 0) {
-        $pdfUrl = '/' . $cleanPath;
-    } else {
-        $pdfUrl = '/ICS-PORTAL/' . $cleanPath;
-    }
+    $pdfUrl = (stripos($cleanPath, 'ICS-PORTAL/') === 0) ? '/' . $cleanPath : '/ICS-PORTAL/' . $cleanPath;
 }
-
-$closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -126,13 +48,12 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
         .pdf-text-layer span.entity-highlight { color: #713f12; background: #fde68a; border-radius: 2px; box-shadow: 0 0 0 1px rgba(245, 158, 11, .35); }
         .entity-card { cursor: pointer; transition: all .15s ease; }
         .entity-card:hover, .entity-card.entity-selected { border-color: #f59e0b; background: #fffbeb; box-shadow: 0 0 0 2px rgba(245, 158, 11, .15); }
-        .review-modal { max-height: 92vh; height: auto; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
 <div class="flex min-h-screen">
-
+    
     <!-- Sidebar Component -->
     <?php include __DIR__ . '/../../components/supervisor_sidebar.php'; ?>
 
@@ -152,14 +73,14 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
 
                 <!-- Status Filter Tabs -->
                 <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200/70 text-xs font-semibold">
-                    <a href="<?= e(statusUrl()); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'All' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">All</a>
-                    <a href="<?= e(statusUrl('Pending')); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Pending</a>
-                    <a href="<?= e(statusUrl('Approved')); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Approved</a>
-                    <a href="<?= e(statusUrl('Needs Revision')); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Needs Revision' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Needs Changes</a>
+                    <a href="review_reports.php?status=All" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'All' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">All</a>
+                    <a href="review_reports.php?status=Pending" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Pending</a>
+                    <a href="review_reports.php?status=Approved" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Approved</a>
+                    <a href="review_reports.php?status=Rejected" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Rejected' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Needs Changes</a>
                 </div>
             </div>
 
-            <!-- Flash Alert -->
+            <!-- Flash Alert Message -->
             <?php if (!empty($message)): ?>
                 <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl text-xs font-semibold shadow-2xs flex items-center gap-2">
                     <span class="font-bold text-sm">✓</span>
@@ -193,39 +114,32 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-slate-700">
                                 <?php foreach ($reports as $item): 
-                                    $status = normalizeReportStatus($item['status'] ?? 'pending');
-                                    $submittedAt = $item['submitted_at'] ?? $item['created_at'] ?? null;
-                                    $studentName = $item['student_name'] ?? 'Unknown Student';
-                                    $studentNumber = $item['student_number'] ?? 'N/A';
-                                    $avatar = $item['student_avatar'] ?? '';
-                                    $weekNumber = $item['week_number'] ?? 'N/A';
-                                    $reportId = (int)($item['id'] ?? 0);
-                                    $reviewUrl = statusUrl($filter_status !== 'All' ? $filter_status : null, $reportId);
+                                    $status = strtolower($item['status'] ?? 'pending');
                                     $isPending = ($status === 'pending');
                                 ?>
                                     <tr class="hover:bg-slate-50/70 transition-colors <?= $isPending ? 'bg-amber-50/15' : ''; ?>">
                                         <td class="py-4 px-6">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/80">
-                                                    <?php if (!empty($avatar)): ?>
-                                                        <img src="<?= e($avatar); ?>" class="w-full h-full object-cover" alt="Avatar">
+                                                    <?php if (!empty($item['avatar_url'])): ?>
+                                                        <img src="<?= e($item['avatar_url']); ?>" class="w-full h-full object-cover" alt="Avatar">
                                                     <?php else: ?>
-                                                        <?= e(strtoupper(substr($studentName, 0, 1))); ?>
+                                                        <?= e(strtoupper(substr($item['student_name'] ?? 'S', 0, 1))); ?>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="font-bold text-slate-900 text-sm"><?= e($studentName); ?></p>
-                                                    <p class="text-[11px] text-slate-400 font-medium">ID: <?= e($studentNumber); ?></p>
+                                                    <p class="font-bold text-slate-900 text-sm"><?= e($item['student_name']); ?></p>
+                                                    <p class="text-[11px] text-slate-400 font-medium">ID: <?= e($item['student_number'] ?? 'N/A'); ?></p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
-                                                Week <?= e($weekNumber); ?>
+                                                Week <?= e($item['week_number']); ?>
                                             </span>
                                         </td>
                                         <td class="py-4 px-6 text-slate-600 font-medium whitespace-nowrap">
-                                            <?= !empty($submittedAt) ? e(date("M d, Y \a\\t g:i A", strtotime($submittedAt))) : '—'; ?>
+                                            <?= !empty($item['submitted_at']) ? e(date("M d, Y \a\\t g:i A", strtotime($item['submitted_at']))) : '—'; ?>
                                         </td>
                                         <td class="py-4 px-6 whitespace-nowrap">
                                             <?php if ($status === 'approved'): ?>
@@ -246,7 +160,7 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                                             <?php endif; ?>
                                         </td>
                                         <td class="py-4 px-6 text-right whitespace-nowrap">
-                                            <a href="<?= e($reviewUrl); ?>" 
+                                            <a href="review_reports.php?review_id=<?= (int)$item['id']; ?>&status=<?= e($filter_status); ?>" 
                                                class="px-4 py-2 <?= $isPending ? 'bg-[#0F2854] text-white hover:bg-blue-900 shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'; ?> text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5">
                                                 <span><?= $isPending ? 'Review' : 'View Details'; ?></span>
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
@@ -277,9 +191,9 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
      ============================================================ -->
 <?php if ($hasActiveReport): ?>
 <div id="reviewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto">
-    <div class="review-modal bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-6xl w-full overflow-hidden relative my-auto flex flex-col p-6 sm:p-7 space-y-5">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-6xl w-full overflow-hidden relative my-auto flex flex-col p-6 sm:p-7 space-y-5 max-h-[92vh]">
         
-        <!-- Header -->
+        <!-- Modal Header -->
         <div class="border-b border-slate-100 pb-4 flex justify-between items-center pr-8 shrink-0">
             <div>
                 <div class="flex items-center gap-2.5">
@@ -299,7 +213,7 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                 </p>
             </div>
 
-            <a href="<?= e($closeUrl); ?>" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-bold transition-all" aria-label="Close">
+            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-bold transition-all" aria-label="Close">
                 ✕
             </a>
         </div>
@@ -343,7 +257,7 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
             <!-- Right: Detected Skills & Actions -->
             <div class="lg:col-span-2 flex flex-col h-[60vh] min-h-[420px] space-y-4">
                 
-                <!-- Skills/Entities Found Box -->
+                <!-- Skills/Entities Box -->
                 <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col min-h-0 flex-1 shadow-2xs">
                     <div class="flex items-center justify-between mb-1 shrink-0">
                         <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Skills & Keywords Found</span>
@@ -356,18 +270,16 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                     <?php if (!empty($extractedEntities)): ?>
                         <div class="space-y-2 overflow-y-auto pr-1 min-h-0 flex-1">
                             <?php foreach ($extractedEntities as $entity): 
-                                if (!is_array($entity)) continue;
-                                $entityName = $entity['entity_name'] ?? $entity['entity'] ?? $entity['canonical_name'] ?? $entity['matched_term'] ?? '';
+                                $entityName = $entity['entity_name'] ?? '';
                                 $category = $entity['category'] ?? 'General';
-                                $itRelated = isITRelated($entity['it_related'] ?? '');
-                                $matchedTerm = $entity['matched_term'] ?? $entityName;
+                                $isTechnical = (($entity['classification'] ?? 'Technical') === 'Technical');
                                 if (trim((string)$entityName) === '') continue;
                             ?>
-                                <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-200/80 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($matchedTerm); ?>">
+                                <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-200/80 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($entityName); ?>">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-xs font-bold text-slate-900"><?= e($entityName); ?></span>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $itRelated ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200/60 text-slate-600'; ?>">
-                                            <?= $itRelated ? 'IT Task' : 'General Task'; ?>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $isTechnical ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200/60 text-slate-600'; ?>">
+                                            <?= $isTechnical ? 'Technical' : 'Clerical'; ?>
                                         </span>
                                     </div>
                                     <span class="block text-[10px] font-semibold text-slate-400 mt-1">Category: <strong class="text-slate-600"><?= e($category); ?></strong></span>
@@ -385,27 +297,32 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                 <!-- Action Controls Form -->
                 <?php if ($isApproved): ?>
                     <div class="flex items-center justify-end shrink-0 pt-2">
-                        <a href="<?= e($closeUrl); ?>" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all">
+                        <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all">
                             Close Review
                         </a>
                     </div>
                 <?php else: ?>
-                    <form method="POST" action="review_reports.php" class="flex items-center justify-end gap-2.5 shrink-0 pt-2 border-t border-slate-100">
-                        <input type="hidden" name="action_report_id" value="<?= (int)($activeReport['id'] ?? 0); ?>">
-                        <input type="hidden" name="student_name" value="<?= e($activeReport['student_name'] ?? ''); ?>">
-
-                        <a href="<?= e($closeUrl); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
+                    <div class="flex items-center justify-end gap-2.5 shrink-0 pt-2 border-t border-slate-100">
+                        <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
                             Cancel
                         </a>
 
-                        <button type="submit" name="status" value="Needs Revision" class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all cursor-pointer">
-                            Request Changes
-                        </button>
+                        <!-- Reject / Request Revision Form -->
+                        <form method="POST" action="review_reports.php" class="inline">
+                            <input type="hidden" name="action_report_id" value="<?= (int)($activeReport['id'] ?? 0); ?>">
+                            <input type="hidden" name="status" value="rejected">
+                            <button type="submit" class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all cursor-pointer">
+                                Request Changes
+                            </button>
+                        </form>
 
-                        <button type="submit" name="status" value="Approved" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
+                        <!-- Approve with OTP Trigger Button -->
+                        <button type="button" 
+                                onclick="openOtpModal(<?= (int)($activeReport['id'] ?? 0); ?>, '<?= e(addslashes($activeReport['student_name'] ?? 'Student')); ?>')" 
+                                class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
                             Approve Report
                         </button>
-                    </form>
+                    </div>
                 <?php endif; ?>
 
             </div>
@@ -416,105 +333,193 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
 </div>
 <?php endif; ?>
 
+<!-- ============================================================
+     OTP VERIFICATION MODAL (Exact match to Wireframe)
+     ============================================================ -->
+<div id="otpModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-7 relative space-y-5 animate-in fade-in zoom-in duration-200">
+        
+        <!-- Header with Close button -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <h3 class="text-sm font-bold text-slate-900">OTP verification</h3>
+            <button onclick="closeOtpModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1">
+                ✕
+            </button>
+        </div>
+
+        <!-- Check your Gmail Hero Graphic -->
+        <div class="text-center space-y-1">
+            <div class="w-14 h-14 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center mx-auto text-slate-600 shadow-inner">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+                </svg>
+            </div>
+            <h4 class="text-sm font-bold text-slate-900 pt-2">Check your Gmail</h4>
+            <p class="text-xs text-slate-500">
+                Enter the 6-digit OTP sent to <strong id="otpEmailTarget" class="text-slate-800 font-semibold">your email</strong>
+            </p>
+        </div>
+
+        <!-- 6-Box Input -->
+        <form onsubmit="handleOtpVerify(event)" class="space-y-4">
+            <div class="flex justify-center gap-2" id="otpBoxContainer">
+                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+            </div>
+
+            <!-- Error message container -->
+            <p id="otpErrorMsg" class="text-rose-600 text-xs font-semibold text-center hidden"></p>
+
+            <!-- Countdown Timer & Resend Button -->
+            <div class="text-center text-xs">
+                <span id="resendTimerText" class="text-slate-400">Resend OTP in <strong id="timerCountdown" class="text-slate-600">0:45</strong></span>
+                <button type="button" id="resendOtpBtn" onclick="requestOtpCode()" class="text-[#0F2854] font-bold hover:underline hidden">
+                    Resend Code
+                </button>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeOtpModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+                    Cancel
+                </button>
+                <button type="submit" id="verifyBtn" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all">
+                    Verify
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="/ICS-PORTAL/public/js/pdf-highlighter.js"></script>
 <script>
-    (() => {
-        const viewer = document.getElementById('pdf-viewer');
-        if (!viewer) return;
-        const entityCards = [...document.querySelectorAll('[data-entity-term]')];
-        const activeTerms = new Set();
+let currentOtpReportId = 0;
+let currentOtpStudentName = '';
+let countdownTimer = null;
 
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function openOtpModal(reportId, studentName) {
+    currentOtpReportId = reportId;
+    currentOtpStudentName = studentName;
+    document.getElementById('otpModal').classList.remove('hidden');
+    clearOtpInputs();
+    requestOtpCode();
+}
 
-        const normalize = value => String(value || '')
-            .toLowerCase()
-            .replace(/[\u2010-\u2015]/g, '-')
-            .replace(/\s+/g, ' ')
-            .trim();
+function closeOtpModal() {
+    document.getElementById('otpModal').classList.add('hidden');
+    if (countdownTimer) clearInterval(countdownTimer);
+}
 
-        function updateCardState(term, active) {
-            entityCards
-                .filter(card => normalize(card.dataset.entityTerm) === term)
-                .forEach(card => {
-                    card.classList.toggle('entity-selected', active);
-                    card.setAttribute('aria-pressed', active ? 'true' : 'false');
-                });
-        }
+function clearOtpInputs() {
+    document.querySelectorAll('.otp-box').forEach(input => input.value = '');
+    document.getElementById('otpErrorMsg').classList.add('hidden');
+}
 
-        function toggleEntity(card) {
-            const term = normalize(card.dataset.entityTerm);
-            if (!term) return;
-            const active = !activeTerms.has(term);
-            active ? activeTerms.add(term) : activeTerms.delete(term);
-            updateCardState(term, active);
-            document.querySelectorAll('.pdf-text-layer span').forEach(span => {
-                const text = normalize(span.textContent);
-                if (text && (text === term || text.includes(term) || term.includes(text))) {
-                    span.classList.toggle('entity-highlight', active);
-                }
-            });
-        }
+async function requestOtpCode() {
+    document.getElementById('otpErrorMsg').classList.add('hidden');
+    document.getElementById('resendOtpBtn').classList.add('hidden');
+    document.getElementById('resendTimerText').classList.remove('hidden');
 
-        entityCards.forEach(card => {
-            card.addEventListener('click', () => toggleEntity(card));
-            card.addEventListener('keydown', event => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    toggleEntity(card);
-                }
-            });
+    try {
+        const res = await fetch('/ICS-PORTAL/supervisor/api/approval_otp.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'request_otp', report_id: currentOtpReportId, student_name: currentOtpStudentName })
         });
-
-        async function renderPdf() {
-            try {
-                const pdf = await pdfjsLib.getDocument(viewer.dataset.pdfUrl).promise;
-                viewer.replaceChildren();
-                for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-                    const page = await pdf.getPage(pageNumber);
-                    const baseViewport = page.getViewport({ scale: 1 });
-                    const availableWidth = Math.max(viewer.clientWidth - 16, 240);
-                    const scale = Math.min(1.25, availableWidth / baseViewport.width);
-                    const viewport = page.getViewport({ scale });
-                    
-                    const pageContainer = document.createElement('div');
-                    pageContainer.className = 'pdf-page';
-                    pageContainer.style.width = `${viewport.width}px`;
-                    pageContainer.style.height = `${viewport.height}px`;
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    pageContainer.appendChild(canvas);
-                    viewer.appendChild(pageContainer);
-                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-                    const textLayer = document.createElement('div');
-                    textLayer.className = 'pdf-text-layer';
-                    pageContainer.appendChild(textLayer);
-                    const textContent = await page.getTextContent();
-                    textContent.items.forEach(item => {
-                        const span = document.createElement('span');
-                        span.textContent = item.str;
-                        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                        const fontHeight = Math.hypot(tx[2], tx[3]);
-                        span.style.left = `${tx[4]}px`;
-                        span.style.top = `${tx[5] - fontHeight}px`;
-                        span.style.fontSize = `${fontHeight}px`;
-                        textLayer.appendChild(span);
-                        const text = normalize(item.str);
-                        if ([...activeTerms].some(term => text && (text === term || text.includes(term) || term.includes(text)))) {
-                            span.classList.add('entity-highlight');
-                        }
-                    });
-                }
-            } catch (error) {
-                viewer.innerHTML = '<div class="h-full flex items-center justify-center text-xs text-rose-500 p-4 text-center">Unable to render PDF. Use “Open Fullscreen” above.</div>';
-                console.error('PDF viewer error:', error);
-            }
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('otpEmailTarget').innerText = data.email;
+            startCountdown(45);
+            document.querySelector('.otp-box').focus();
+        } else {
+            showOtpError(data.error || 'Failed to send OTP email.');
         }
+    } catch (err) {
+        showOtpError('Connection error. Please try again.');
+    }
+}
 
-        renderPdf();
-    })();
+function startCountdown(seconds) {
+    if (countdownTimer) clearInterval(countdownTimer);
+    let remaining = seconds;
+    const timerEl = document.getElementById('timerCountdown');
+    const textEl = document.getElementById('resendTimerText');
+    const resendBtn = document.getElementById('resendOtpBtn');
+
+    countdownTimer = setInterval(() => {
+        remaining--;
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        timerEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        if (remaining <= 0) {
+            clearInterval(countdownTimer);
+            textEl.classList.add('hidden');
+            resendBtn.classList.remove('hidden');
+        }
+    }, 1000);
+}
+
+function showOtpError(msg) {
+    const err = document.getElementById('otpErrorMsg');
+    err.innerText = msg;
+    err.classList.remove('hidden');
+}
+
+async function handleOtpVerify(e) {
+    e.preventDefault();
+    const boxes = document.querySelectorAll('.otp-box');
+    let code = '';
+    boxes.forEach(b => code += b.value.trim());
+
+    if (code.length !== 6) {
+        showOtpError('Please enter all 6 digits.');
+        return;
+    }
+
+    const verifyBtn = document.getElementById('verifyBtn');
+    verifyBtn.innerText = 'Verifying...';
+    verifyBtn.disabled = true;
+
+    try {
+        const res = await fetch('/ICS-PORTAL/supervisor/api/approval_otp.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'verify_otp', report_id: currentOtpReportId, otp: code })
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.href = 'review_reports.php?status=Approved';
+        } else {
+            showOtpError(data.error || 'Verification failed.');
+            verifyBtn.innerText = 'Verify';
+            verifyBtn.disabled = false;
+        }
+    } catch (err) {
+        showOtpError('Connection error during verification.');
+        verifyBtn.innerText = 'Verify';
+        verifyBtn.disabled = false;
+    }
+}
+
+// Auto-advance cursor between 6 input boxes
+document.querySelectorAll('.otp-box').forEach((box, idx, arr) => {
+    box.addEventListener('input', (e) => {
+        if (e.target.value.length === 1 && idx < arr.length - 1) {
+            arr[idx + 1].focus();
+        }
+    });
+    box.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+            arr[idx - 1].focus();
+        }
+    });
+});
 </script>
 </body>
 </html>
