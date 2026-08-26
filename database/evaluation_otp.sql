@@ -9,3 +9,6 @@ CREATE TABLE IF NOT EXISTS `evaluation_otps` (
   CONSTRAINT `fk_eval_otp_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_eval_otp_supervisor` FOREIGN KEY (`supervisor_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `students` 
+ADD COLUMN `completion_requested` TINYINT(1) DEFAULT 0 AFTER `supervisor_id`;
