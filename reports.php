@@ -10,19 +10,44 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
     exit();
 }
 
-$sessionUserId = $_SESSION['user_id'];
+$sessionUserId = (int)$_SESSION['user_id'];
 $reports = [];
+$student = null;
 
 try {
-    // 1. Get the student_id from students table using the logged in user_id
-    $stmtStudent = $pdo->prepare("SELECT id FROM students WHERE user_id = ? LIMIT 1");
+    // 1. Get student profile & evaluation state
+    $stmtStudent = $pdo->prepare("
+        SELECT 
+            s.id, 
+            s.student_number, 
+            s.program, 
+            s.completion_requested,
+            e.id AS evaluation_id,
+            e.final_score
+        FROM students s
+        LEFT JOIN evaluations e ON e.student_id = s.id
+        WHERE s.user_id = ?
+        LIMIT 1
+    ");
     $stmtStudent->execute([$sessionUserId]);
-    $studentId = $stmtStudent->fetchColumn();
+    $student = $stmtStudent->fetch(PDO::FETCH_ASSOC);
 
-    // 2. Fetch all reports matching the database schema
-    if ($studentId) {
+    if ($student) {
+        $studentId = (int)$student['id'];
         $_SESSION['student_id'] = $studentId;
 
+        // 2. Handle Final Evaluation Request Form
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_evaluation'])) {
+            if (empty($student['evaluation_id']) && empty($student['completion_requested'])) {
+                $stmtReq = $pdo->prepare("UPDATE students SET completion_requested = 1 WHERE id = ?");
+                $stmtReq->execute([$studentId]);
+                $_SESSION['flash_message'] = "Your final evaluation request has been submitted to your supervisor.";
+            }
+            header("Location: reports.php");
+            exit();
+        }
+
+        // 3. Fetch all reports
         $stmtReports = $pdo->prepare("
             SELECT 
                 id, 
@@ -43,7 +68,7 @@ try {
     $reports = [];
 }
 
-// 3. Impartial Summary Stats
+// 4. Calculate Summary Statistics
 $totalReportsCount = count($reports);
 $totalApproved = 0;
 $totalPending = 0;
@@ -60,5 +85,5 @@ foreach ($reports as $r) {
     }
 }
 
-// 4. Load View Template
+// Load View Template
 require_once __DIR__ . '/src/pages/student/myReportsPage.php';
