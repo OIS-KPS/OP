@@ -4,33 +4,57 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 
-$supervisor_id = $_SESSION['supervisor_id'] ?? 1;
+// Auth Guard
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
 $evaluation_id = isset($_GET['id']) ? intval($_GET['id']) : null;
 $student_id    = isset($_GET['student_id']) ? intval($_GET['student_id']) : null;
 
 $evaluation = null;
 
 try {
-    // Query evaluation with student details
+    // Exact schema query for evaluations, students, users, supervisors, and companies
     $sql = "
         SELECT 
             e.id AS evaluation_id,
+            e.student_id,
+            e.supervisor_id,
+            e.technical_score,
+            e.work_ethics_score,
+            e.communication_score,
+            e.punctuality_score,
             e.final_score,
-            e.remarks,
-            e.status,
+            e.grade_equivalent,
+            e.feedback AS remarks,
+            e.otp_verified,
+            e.otp_signed_at,
+            e.otp_ip_address,
             e.created_at AS evaluated_at,
-            s.id AS student_id,
-            s.name AS student_name,
+            
+            -- Student Information
+            u_std.name AS student_name,
+            u_std.email AS student_email,
+            u_std.avatar_url AS student_avatar,
             s.student_number,
             s.program,
-            s.email AS student_email,
-            sup.name AS supervisor_name,
-            c.name AS company_name
+            
+            -- Supervisor & Company Information
+            u_sup.name AS supervisor_name,
+            u_sup.email AS supervisor_email,
+            c.name AS company_name,
+            c.department AS company_department
+
         FROM evaluations e
         JOIN students s ON e.student_id = s.id
-        LEFT JOIN supervisors sup ON e.supervisor_id = sup.id
+        JOIN users u_std ON s.user_id = u_std.id
+        JOIN supervisors sup ON e.supervisor_id = sup.id
+        JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN companies c ON sup.company_id = c.id
         WHERE " . ($evaluation_id ? "e.id = ?" : "e.student_id = ?") . "
+        LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
@@ -38,43 +62,13 @@ try {
     $evaluation = $stmt->fetch(PDO::FETCH_ASSOC);
 
 } catch (Exception $e) {
-    // Database fallback
+    error_log("Database Error in evaluate_view.php: " . $e->getMessage());
 }
 
-// Fallback sample data for development display
 if (!$evaluation) {
-    $evaluation = [
-        'evaluation_id'   => $evaluation_id ?: 501,
-        'student_id'      => 3,
-        'student_name'    => 'Sander Perejan',
-        'student_number'  => '20231055',
-        'program'         => 'BSIT',
-        'student_email'   => 'sander.perejan@nbsc.edu.ph',
-        'supervisor_name' => 'Supervisor Portal User',
-        'company_name'    => 'ICS Host Company',
-        'final_score'     => 95.5,
-        'status'          => 'Verified',
-        'evaluated_at'    => '2026-07-28 14:30:00',
-        'remarks'         => 'Sander has shown exceptional performance throughout his 486-hour internship. His work in network setup, system administration, and software installation was consistent and reliable.',
-        // Score breakdown mock details (Out of 5 points each)
-        'scores' => [
-            'tech_skills'     => 5,
-            'quality_of_work' => 5,
-            'work_ethic'      => 5,
-            'communication'   => 4,
-            'initiative'      => 5
-        ]
-    ];
-} else {
-    // Estimated criteria score calculation from total final_score
-    $avgRating = round($evaluation['final_score'] / 20, 1);
-    $evaluation['scores'] = [
-        'tech_skills'     => min(5, ceil($avgRating)),
-        'quality_of_work' => min(5, floor($avgRating)),
-        'work_ethic'      => 5,
-        'communication'   => min(5, floor($avgRating)),
-        'initiative'      => 5
-    ];
+    $_SESSION['review_message'] = "Evaluation report not found.";
+    header("Location: evaluate_interns.php");
+    exit();
 }
 
 require_once __DIR__ . '/../src/pages/supervisor/evaluateViewPage.php';

@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') 
     exit();
 }
 
-$userId = $_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
 
 $supervisor = [
     'name' => $_SESSION['user_name'] ?? 'Supervisor',
@@ -33,6 +33,7 @@ try {
         JOIN users u ON s.user_id = u.id
         LEFT JOIN companies c ON s.company_id = c.id
         WHERE s.user_id = ?
+        LIMIT 1
     ");
     $stmtSup->execute([$userId]);
     $supData = $stmtSup->fetch(PDO::FETCH_ASSOC);
@@ -41,7 +42,7 @@ try {
         die("Supervisor profile record not found. Please contact administrator.");
     }
 
-    $supervisorId = $supData['supervisor_id'];
+    $supervisorId = (int)$supData['supervisor_id'];
     $_SESSION['supervisor_id'] = $supervisorId;
 
     $supervisor['name'] = $supData['supervisor_name'];
@@ -50,7 +51,7 @@ try {
     }
 
     // -------------------------------------------------------------
-    // 3. Fetch Students & WAR Progress (3NF Relational Query)
+    // 3. Fetch Students & Report Progress (Aligned with Database Schema)
     // -------------------------------------------------------------
     $studentsSql = "
         SELECT 
@@ -64,11 +65,17 @@ try {
             SUM(CASE WHEN LOWER(r.status) = 'approved' THEN 1 ELSE 0 END) AS approved_wars,
             e.id AS evaluation_id,
             e.final_score,
-            e.status AS evaluation_status
+            e.grade_equivalent,
+            e.otp_verified,
+            e.otp_signed_at,
+            CASE 
+                WHEN e.id IS NOT NULL AND e.otp_verified = 1 THEN 'completed'
+                ELSE 'pending'
+            END AS evaluation_status
         FROM students s
         JOIN users u ON s.user_id = u.id
         LEFT JOIN reports r ON s.id = r.student_id
-        LEFT JOIN evaluations e ON s.id = e.student_id
+        LEFT JOIN evaluations e ON s.id = e.student_id AND e.supervisor_id = s.supervisor_id
         WHERE s.supervisor_id = ?
         GROUP BY 
             s.id, 
@@ -78,8 +85,10 @@ try {
             u.email, 
             u.avatar_url, 
             e.id, 
-            e.final_score, 
-            e.status
+            e.final_score,
+            e.grade_equivalent,
+            e.otp_verified,
+            e.otp_signed_at
         ORDER BY u.name ASC
     ";
 
