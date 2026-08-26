@@ -1,4 +1,132 @@
 <!-- src/pages/coordinator/dashboardPage.php -->
+<?php
+// View-model preparation. The coordinator controller supplies the live arrays;
+// these fallbacks keep the view compatible with older controller versions.
+$entityAnalysisRows = is_array($entityFrequencyAnalysis ?? null) ? $entityFrequencyAnalysis : [];
+if (!$entityAnalysisRows && is_array($entitiesData ?? null)) {
+    $frequencyRows = [];
+    foreach ($entitiesData as $entity) {
+        $entityName = trim((string) ($entity['entity'] ?? ''));
+        if ($entityName === '') {
+            continue;
+        }
+        $category = trim((string) ($entity['category'] ?? 'Other')) ?: 'Other';
+        $classification = trim((string) ($entity['classification'] ?? 'Technical')) ?: 'Technical';
+        $key = strtolower($entityName) . '|' . strtolower($category) . '|' . strtolower($classification);
+        if (!isset($frequencyRows[$key])) {
+            $frequencyRows[$key] = [
+                'entity' => $entityName,
+                'category' => $category,
+                'classification' => $classification,
+                'frequency' => 0,
+                'company_count' => 0,
+                '_companies' => []
+            ];
+        }
+        $frequencyRows[$key]['frequency'] += max(0, (int) ($entity['frequency'] ?? 0));
+        $frequencyRows[$key]['_companies'][(string) ($entity['company'] ?? 'Unassigned')] = true;
+    }
+    foreach ($frequencyRows as $row) {
+        $row['company_count'] = count($row['_companies']);
+        unset($row['_companies']);
+        $entityAnalysisRows[] = $row;
+    }
+}
+usort($entityAnalysisRows, static function (array $left, array $right): int {
+    return ((int) ($right['frequency'] ?? 0)) <=> ((int) ($left['frequency'] ?? 0));
+});
+
+$totalEntityOccurrencesView = 0;
+$technicalEntityOccurrencesView = 0;
+$clericalEntityOccurrencesView = 0;
+foreach ($entityAnalysisRows as $row) {
+    $frequency = max(0, (int) ($row['frequency'] ?? 0));
+    $totalEntityOccurrencesView += $frequency;
+    if (strcasecmp((string) ($row['classification'] ?? ''), 'Clerical') === 0) {
+        $clericalEntityOccurrencesView += $frequency;
+    } else {
+        $technicalEntityOccurrencesView += $frequency;
+    }
+}
+$technicalActivityPct = $totalEntityOccurrencesView > 0
+    ? round(($technicalEntityOccurrencesView / $totalEntityOccurrencesView) * 100, 1)
+    : 0.0;
+$clericalActivityPct = $totalEntityOccurrencesView > 0
+    ? round(($clericalEntityOccurrencesView / $totalEntityOccurrencesView) * 100, 1)
+    : 0.0;
+
+$dashboardCompanies = is_array($companyPerformance ?? null) ? $companyPerformance : [];
+$lowCompaniesView = array_values(array_filter($dashboardCompanies, static function (array $company): bool {
+    return (float) ($company['percentage'] ?? 0) > 0 && (float) ($company['percentage'] ?? 0) < 60;
+}));
+$noEvaluationCompaniesView = array_values(array_filter($dashboardCompanies, static function (array $company): bool {
+    return (int) ($company['verified_evaluations'] ?? 0) === 0;
+}));
+$evaluationCoverageView = (float) ($evaluationCoveragePct ?? 0);
+if (!isset($evaluationCoveragePct)) {
+    $evaluationCoverageView = (int) ($totalStudents ?? 0) > 0
+        ? (((int) ($evaluatedStudents ?? 0) / (int) $totalStudents) * 100)
+        : 0.0;
+}
+$evaluationCoverageView = round($evaluationCoverageView, 1);
+$totalReportsView = (int) ($totalReports ?? 0);
+$reportsWithEntitiesView = (int) ($totalReportsWithEntities ?? 0);
+$confidenceView = (float) ($spacyConfidence ?? 0);
+$topCategoryView = (string) ($topCategoryName ?? 'No data');
+$topCategoryOccurrencesView = (int) ($topCategoryOccurrences ?? 0);
+$highestItCompanyView = is_array($highestItCompany ?? null) ? $highestItCompany : null;
+$lowestItCompanyView = is_array($lowestItCompany ?? null) ? $lowestItCompany : null;
+$entityPriorityRowsView = is_array($entityPrioritySummary ?? null) ? $entityPrioritySummary : [];
+
+$cqiSummaryView = is_array($cqiSummary ?? null) ? $cqiSummary : [];
+$cqiStrengthsView = is_array($cqiSummaryView['strengths'] ?? null) ? $cqiSummaryView['strengths'] : [];
+$cqiGapsView = is_array($cqiSummaryView['gaps'] ?? null) ? $cqiSummaryView['gaps'] : [];
+$cqiOverallRecommendationView = trim((string) ($cqiOverallRecommendation ?? ''));
+$recommendationPriorityView = (string) ($recommendationPriority ?? 'Continuous');
+$recommendationPriorityClassView = $recommendationPriorityView === 'High'
+    ? 'bg-rose-50 text-rose-700 border-rose-200'
+    : ($recommendationPriorityView === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200');
+
+if (!$cqiStrengthsView) {
+    if ($evaluationCoverageView >= 90 && (int) ($totalStudents ?? 0) > 0) {
+        $cqiStrengthsView[] = sprintf('Evaluation coverage is %.1f%%, meeting the 90%% monitoring threshold.', $evaluationCoverageView);
+    }
+    if ($confidenceView >= 90) {
+        $cqiStrengthsView[] = sprintf('Average verified extraction confidence is %.2f%%.', $confidenceView);
+    }
+    if ($reportsWithEntitiesView > 0) {
+        $cqiStrengthsView[] = sprintf('%d report(s) contain persisted extracted-entity evidence.', $reportsWithEntitiesView);
+    }
+}
+
+if (!$cqiGapsView) {
+    if ($evaluationCoverageView < 100 && (int) ($totalStudents ?? 0) > 0) {
+        $cqiGapsView[] = sprintf('Evaluation coverage is %.1f%%, below the 100%% completion target.', $evaluationCoverageView);
+    }
+    if ($totalReportsView > $reportsWithEntitiesView) {
+        $cqiGapsView[] = sprintf('%d submitted report(s) do not yet have persisted entity records.', $totalReportsView - $reportsWithEntitiesView);
+    }
+    if ($totalEntityOccurrencesView > 0 && $confidenceView < 90) {
+        $cqiGapsView[] = sprintf('Average extraction confidence is %.2f%%, below the 90%% review threshold.', $confidenceView);
+    }
+    foreach ($lowCompaniesView as $company) {
+        $cqiGapsView[] = sprintf('%s has an average verified score of %.1f%%.', $company['name'], $company['percentage']);
+    }
+    if ($noEvaluationCompaniesView) {
+        $names = array_map(static fn (array $company): string => (string) $company['name'], $noEvaluationCompaniesView);
+        $cqiGapsView[] = 'No verified evaluation is recorded for: ' . implode(', ', $names) . '.';
+    }
+}
+
+$cqiStatusView = (string) ($cqiSummaryView['status'] ?? 'Insufficient data');
+$cqiStatusClassView = match ($cqiStatusView) {
+    'On track' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    'Needs attention' => 'border-amber-200 bg-amber-50 text-amber-700',
+    'Data error' => 'border-rose-200 bg-rose-50 text-rose-700',
+    default => 'border-slate-200 bg-slate-100 text-slate-600'
+};
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,51 +167,8 @@
                     </div>
                 </div>
 
-                <!-- 1. Metric Cards Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-                    
-                    <!-- Card 1: Total Students -->
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Students</p>
-                        <div class="my-1.5">
-                            <span class="text-2xl font-extrabold text-slate-900"><?= $totalStudents; ?></span>
-                        </div>
-                        <p class="text-[11px] text-slate-400">Enrolled interns</p>
-                    </div>
+                                <!-- The former top KPI card grid was removed. Its values remain available to the live charts and CQI calculations. -->
 
-                    <!-- Card 2: Evaluated Students -->
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Evaluated Students</p>
-                        <div class="my-1.5">
-                            <span class="text-2xl font-extrabold text-emerald-600"><?= $evaluatedStudents; ?></span>
-                        </div>
-                        <p class="text-[11px] text-slate-400">Completed evaluations</p>
-                    </div>
-
-                    <!-- Card 3: Overall IT Percentage -->
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall IT Percentage</p>
-                        <div class="my-1.5">
-                            <span class="text-2xl font-extrabold text-[#0F2854]"><?= $overallTechPct; ?>%</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400">Technical task ratio</p>
-                    </div>
-
-                    <!-- Card 4: Top Category (Clean Baseline Alignment) -->
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Top Category</p>
-                        <div class="my-1.5 flex items-baseline justify-between gap-2">
-                            <span class="text-lg font-extrabold text-indigo-700 truncate" title="<?= htmlspecialchars($topCategoryName); ?>">
-                                <?= htmlspecialchars($topCategoryName); ?>
-                            </span>
-                            <span class="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/70 rounded-lg text-xs font-mono font-bold shrink-0">
-                                <?= $topCategoryOccurrences; ?>x
-                            </span>
-                        </div>
-                        <p class="text-[11px] text-slate-400">Most frequent skill</p>
-                    </div>
-
-                </div>
 
                 <!-- 2. Charts Section -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -118,11 +203,11 @@
                         <div class="space-y-1.5 text-xs border-t border-slate-100 pt-3">
                             <div class="flex items-center justify-between font-semibold text-slate-700 text-[11px]">
                                 <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#0F2854]"></span> Technical / IT-Related</span>
-                                <span class="font-bold text-slate-700">89.7%</span>
+                                <span class="font-bold text-slate-700"><?= number_format($technicalActivityPct, 1); ?>%</span>
                             </div>
                             <div class="flex items-center justify-between font-semibold text-slate-700 text-[11px]">
                                 <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Clerical / Non-IT</span>
-                                <span class="font-bold text-slate-700">10.3%</span>
+                                <span class="font-bold text-slate-700"><?= number_format($clericalActivityPct, 1); ?>%</span>
                             </div>
                         </div>
                     </div>
@@ -130,8 +215,8 @@
                 </div>
 
                 <!-- 3. Entity Frequency Horizontal Bar Chart Section -->
-                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs bg-white">
+                <div class="w-full min-w-0 max-w-full min-h-[360px] max-h-[70vh] overflow-y-auto overflow-x-hidden bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+                    <div class="sticky top-0 z-20 px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs bg-white">
                         <div>
                             <h2 class="text-xs font-bold text-slate-900 tracking-tight">Entity Frequency Analysis</h2>
                             <p class="text-[11px] text-slate-400 mt-0.5">Frequency breakdown grouped by category</p>
@@ -179,8 +264,8 @@
                     </div>
 
                     <!-- Single Unified Chart Container -->
-                    <div id="entityChartWrapper" class="p-6">
-                        <div id="chartContainer" class="relative w-full" style="min-height: 280px;">
+                    <div id="entityChartWrapper" class="w-full min-w-0 overflow-hidden p-6">
+                        <div id="chartContainer" class="relative w-full min-w-0 overflow-hidden" style="min-height: 280px;">
                             <canvas id="entityFrequencyChart"></canvas>
                         </div>
                     </div>
@@ -193,24 +278,119 @@
                     </div>
                 </div>
 
-                <!-- 4. CQI Summary & Action Plan (Accent Highlight Card) -->
-                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 border-l-4 border-l-[#0F2854] shadow-xs space-y-3 text-xs">
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📋</span>
-                        <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wider">CQI Summary & Action Plan</h2>
+                <!-- 4. Evidence-Based CQI Summary & Recommendations -->
+                <section class="cqi-summary-card w-full max-w-none min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 border-l-[#0F2854] bg-white p-5 shadow-xs space-y-5 text-xs" aria-labelledby="cqi-heading">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">Continuous Quality Improvement</p>
+                            <h2 id="cqi-heading" class="mt-1 text-base font-bold text-slate-900">CQI Summary &amp; Recommendations</h2>
+                            <p class="mt-1 text-[11px] text-slate-500"><?= htmlspecialchars((string) ($cqiSummaryView['period'] ?? 'Current database records'), ENT_QUOTES, 'UTF-8'); ?></p>
+                        </div>
+                        <span class="w-fit rounded-full border px-3 py-1 text-[10px] font-bold <?= htmlspecialchars($cqiStatusClassView, ENT_QUOTES, 'UTF-8'); ?>">
+                            <?= htmlspecialchars($cqiStatusView, ENT_QUOTES, 'UTF-8'); ?>
+                        </span>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1 text-slate-700">
-                        <div class="space-y-2">
-                            <p class="leading-relaxed">• <strong>ICS IT Dept</strong> has the highest IT task ratio at <strong class="text-emerald-700 font-bold">93.0%</strong>.</p>
-                            <p class="leading-relaxed">• <strong>LGU Manolo Fortich</strong> recorded the lowest IT task ratio at <strong class="text-amber-700 font-bold">65.0%</strong>.</p>
+                    <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                        <h3 class="font-bold text-blue-950">Current academic interpretation</h3>
+                        <p class="mt-2 break-words leading-6 text-slate-700">
+                            <?= htmlspecialchars((string) ($cqiSummaryView['narrative'] ?? 'No CQI summary is available.'), ENT_QUOTES, 'UTF-8'); ?>
+                        </p>
+                    </div>
+
+                    <div class="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div class="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <h3 class="font-bold text-slate-900">Company IT-task comparison</h3>
+                            <?php if ($highestItCompanyView && $lowestItCompanyView): ?>
+                                <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div class="min-w-0 rounded-lg border border-emerald-200 bg-white p-3">
+                                        <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Highest IT-related ratio</p>
+                                        <p class="mt-1 break-words font-bold text-slate-900"><?= htmlspecialchars((string) $highestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="mt-1 text-lg font-extrabold text-emerald-700"><?= number_format((float) $highestItCompanyView['it_task_ratio'], 1); ?>%</p>
+                                        <p class="text-[10px] text-slate-500"><?= (int) $highestItCompanyView['it_related_occurrences']; ?> of <?= (int) $highestItCompanyView['entity_occurrences']; ?> entity occurrences</p>
+                                    </div>
+                                    <div class="min-w-0 rounded-lg border border-amber-200 bg-white p-3">
+                                        <p class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Lowest IT-related ratio</p>
+                                        <p class="mt-1 break-words font-bold text-slate-900"><?= htmlspecialchars((string) $lowestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="mt-1 text-lg font-extrabold text-amber-700"><?= number_format((float) $lowestItCompanyView['it_task_ratio'], 1); ?>%</p>
+                                        <p class="text-[10px] text-slate-500"><?= (int) $lowestItCompanyView['it_related_occurrences']; ?> of <?= (int) $lowestItCompanyView['entity_occurrences']; ?> entity occurrences</p>
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <p class="mt-3 rounded-lg border border-dashed border-slate-200 bg-white p-3 text-slate-500">A company comparison will appear after at least one company has extracted-entity evidence.</p>
+                            <?php endif; ?>
                         </div>
-                        <div class="space-y-2">
-                            <p class="leading-relaxed">• <strong>"<?= htmlspecialchars($topCategoryName); ?>"</strong> is the most frequent category with <strong class="text-[#0F2854]"><?= $topCategoryOccurrences; ?> occurrences</strong>.</p>
-                            <p class="leading-relaxed">• <strong class="text-rose-600">Action Plan:</strong> Coordinate with LGU Manolo Fortich to increase student tasks in IT infrastructure and software development.</p>
+
+                        <div class="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <h3 class="font-bold text-slate-900">Entity priorities</h3>
+                            <p class="mt-1 text-[11px] text-slate-500">Priority is based on each entity’s share of verified extracted occurrences.</p>
+                            <div class="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
+                                <?php if ($entityPriorityRowsView): ?>
+                                    <?php foreach (array_slice($entityPriorityRowsView, 0, 10) as $entityPriority): ?>
+                                        <?php
+                                        $entityPriorityName = (string) ($entityPriority['priority'] ?? 'Low');
+                                        $entityPriorityClass = $entityPriorityName === 'High'
+                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                            : ($entityPriorityName === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200');
+                                        ?>
+                                        <div class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-2.5">
+                                            <div class="min-w-0">
+                                                <p class="truncate font-semibold text-slate-800" title="<?= htmlspecialchars((string) $entityPriority['entity'], ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars((string) $entityPriority['entity'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="text-[10px] text-slate-500"><?= htmlspecialchars((string) $entityPriority['classification'], ENT_QUOTES, 'UTF-8'); ?> · <?= number_format((float) $entityPriority['share_pct'], 1); ?>% of occurrences</p>
+                                            </div>
+                                            <span class="shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold <?= $entityPriorityClass; ?>"><?= htmlspecialchars($entityPriorityName, ENT_QUOTES, 'UTF-8'); ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <p class="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-slate-500">No verified entities are available for prioritization.</p>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    <!-- KPI values are shown once in the upper dashboard; this section contains interpretation and actions only. -->
+                    <div class="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                            <h3 class="font-bold text-emerald-950">Strengths</h3>
+                            <div class="mt-3 space-y-2">
+                                <?php if ($cqiStrengthsView): ?>
+                                    <?php foreach ($cqiStrengthsView as $strength): ?>
+                                        <p class="rounded-lg border border-emerald-200 bg-white/80 p-2.5 leading-5 text-emerald-900"><span class="mr-1 font-bold">✓</span><?= htmlspecialchars((string) $strength, ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <p class="rounded-lg border border-dashed border-emerald-200 bg-white/70 p-3 text-emerald-800">No strength threshold has been met yet.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+                            <h3 class="font-bold text-amber-950">Priority gaps</h3>
+                            <div class="mt-3 space-y-2">
+                                <?php if ($cqiGapsView): ?>
+                                    <?php foreach ($cqiGapsView as $gap): ?>
+                                        <p class="rounded-lg border border-amber-200 bg-white/80 p-2.5 leading-5 text-amber-950"><span class="mr-1 font-bold">!</span><?= htmlspecialchars((string) $gap, ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <p class="rounded-lg border border-dashed border-amber-200 bg-white/70 p-3 text-amber-800">No priority gaps were identified from the current thresholds.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full min-w-0 rounded-xl border border-blue-200 bg-blue-50/40 p-4">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0">
+                                <h3 class="text-sm font-bold text-blue-950">Overall academic recommendation</h3>
+                                <p class="mt-1 text-[11px] text-blue-800">This recommendation consolidates the live CQI evidence into one improvement direction.</p>
+                            </div>
+                            <span class="shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold <?= htmlspecialchars($recommendationPriorityClassView, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?= htmlspecialchars($recommendationPriorityView, ENT_QUOTES, 'UTF-8'); ?> priority
+                            </span>
+                        </div>
+                        <p class="mt-3 break-words leading-7 text-slate-700">
+                            <?= htmlspecialchars($cqiOverallRecommendationView !== '' ? $cqiOverallRecommendationView : 'Continue reviewing evaluation completion, company IT-task exposure, extracted-entity coverage, and entity classification during each academic CQI cycle.', ENT_QUOTES, 'UTF-8'); ?>
+                        </p>
+                    </div>
+                </section>
 
             </main>
         </div>
@@ -227,9 +407,9 @@
                 labels: companies.map(c => c.name),
                 datasets: [{
                     label: 'IT Task %',
-                    data: companies.map(c => Number(c.percentage)),
-                    backgroundColor: companies.map(c => c.percentage >= 80 ? '#059669' : (c.percentage >= 60 ? '#D97706' : '#991B1B')),
-                    hoverBackgroundColor: companies.map(c => c.percentage >= 80 ? '#047857' : (c.percentage >= 60 ? '#B45309' : '#7F1D1D')),
+                    data: companies.map(c => c.it_task_ratio === null || c.it_task_ratio === undefined ? 0 : Number(c.it_task_ratio)),
+                    backgroundColor: companies.map(c => c.it_task_ratio === null || c.it_task_ratio === undefined ? '#CBD5E1' : (c.it_task_ratio >= 80 ? '#059669' : (c.it_task_ratio >= 60 ? '#D97706' : '#991B1B'))),
+                    hoverBackgroundColor: companies.map(c => c.it_task_ratio === null || c.it_task_ratio === undefined ? '#94A3B8' : (c.it_task_ratio >= 80 ? '#047857' : (c.it_task_ratio >= 60 ? '#B45309' : '#7F1D1D'))),
                     borderRadius: 6,
                     barThickness: 28
                 }]
@@ -278,16 +458,15 @@
                         bodyFont: { family: 'Inter', size: 11 },
                         callbacks: {
                             label: function(context) {
-                                const label = context.dataset.label || '';
-                                const value = context.parsed.y !== null ? context.parsed.y : context.raw;
                                 const company = companies[context.dataIndex];
-                                if (company && company.level) {
-                                    return [
-                                        ` ${label}: ${value}%`,
-                                        ` Level: ${company.level}`
-                                    ];
+                                if (!company || company.it_task_ratio === null || company.it_task_ratio === undefined) {
+                                    return ' IT-related task ratio: No entity data';
                                 }
-                                return ` ${label}: ${value}%`;
+                                return [
+                                    ` IT-related task ratio: ${Number(company.it_task_ratio).toFixed(1)}%`,
+                                    ` Level: ${company.it_task_level || 'Unclassified'}`,
+                                    ` Evidence: ${company.it_related_occurrences || 0} of ${company.entity_occurrences || 0} occurrences`
+                                ];
                             }
                         }
                     }
@@ -319,7 +498,10 @@
             data: {
                 labels: ['Technical', 'Clerical'],
                 datasets: [{
-                    data: [89.7, 10.3],
+                    data: [
+                        Number(<?= json_encode($technicalActivityPct); ?>),
+                        Number(<?= json_encode($clericalActivityPct); ?>)
+                    ],
                     backgroundColor: ['#0F2854', '#F43F5E'],
                     borderWidth: 2,
                     borderColor: '#ffffff'
