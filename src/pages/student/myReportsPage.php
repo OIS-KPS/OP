@@ -1,4 +1,12 @@
 <!-- src/pages/student/myReportsPage.php -->
+<?php
+date_default_timezone_set('Asia/Manila');
+$flashMessage = $_SESSION['flash_message'] ?? '';
+unset($_SESSION['flash_message']);
+
+$isEvaluated = !empty($student['evaluation_id']);
+$isRequested = !empty($student['completion_requested']) && !$isEvaluated;
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,8 +38,18 @@
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
                 <!-- Alert Messages -->
+                <?php if (!empty($flashMessage)): ?>
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-emerald-600 font-bold text-sm">✓</span>
+                            <p class="font-medium text-xs"><?= htmlspecialchars($flashMessage); ?></p>
+                        </div>
+                        <a href="reports.php" class="text-xs font-semibold text-emerald-700 hover:underline">Dismiss</a>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (isset($_GET['submitted']) && $_GET['submitted'] === 'success'): ?>
-                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
                         <div class="flex items-center gap-2.5">
                             <span class="text-emerald-600 font-bold text-sm">✓</span>
                             <div>
@@ -44,7 +62,7 @@
                 <?php endif; ?>
 
                 <?php if (!empty($_SESSION['error_message'])): ?>
-                    <div class="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div class="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
                         <div class="flex items-center gap-2.5">
                             <span class="text-rose-600 font-bold text-sm">✕</span>
                             <p class="font-semibold text-xs"><?= htmlspecialchars($_SESSION['error_message']); ?></p>
@@ -53,41 +71,89 @@
                     </div>
                 <?php endif; ?>
 
-                <!-- Header Actions Card -->
+                <!-- 1. OJT Completion Card -->
+                <div class="bg-white rounded-2xl p-7 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">486-Hour Internship Completion</span>
+                            <?php if ($isEvaluated): ?>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Evaluation Forwarded to Coordinator</span>
+                            <?php elseif ($isRequested): ?>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Evaluation Requested</span>
+                            <?php else: ?>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">In Progress</span>
+                            <?php endif; ?>
+                        </div>
+                        <p class="text-xs font-medium text-slate-500">
+                            <?php if ($isEvaluated): ?>
+                                Your supervisor has completed and submitted your performance appraisal directly to the OJT Coordinator.
+                            <?php elseif ($isRequested): ?>
+                                You have submitted your completion request. Your supervisor has been notified to evaluate your performance.
+                            <?php else: ?>
+                                Finished rendering your required 486 hours? Submit a request so your supervisor can evaluate your performance.
+                            <?php endif; ?>
+                        </p>
+                    </div>
+
+                    <div class="shrink-0">
+                        <?php if ($isEvaluated): ?>
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Completed & Submitted
+                            </span>
+                        <?php elseif ($isRequested): ?>
+                            <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold shadow-2xs">
+                                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                Waiting for Supervisor
+                            </span>
+                        <?php else: ?>
+                            <form method="POST" action="reports.php" onsubmit="return confirm('Confirm that you have completed rendering all required 486 hours of your internship. Your supervisor will be notified to evaluate you.');">
+                                <button type="submit" name="request_evaluation" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center gap-2">
+                                    <span>Request Final Evaluation</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- 2. Header & Submit Action Card -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
                     <div>
                         <h1 class="text-base font-bold text-slate-900 leading-snug">Weekly Accomplishment Reports</h1>
                         <p class="text-xs font-medium text-slate-500 mt-1">Manage and track your weekly OJT accomplishment logs.</p>
                     </div>
 
-                    <?php $nextWeekToSubmit = count($reports ?? []) + 1; ?>
-                    <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="px-5 py-3 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
-                        <span>+</span> Submit Week <?= $nextWeekToSubmit; ?> Report
-                    </a>
+                    <?php if (!$isEvaluated): ?>
+                        <?php $nextWeekToSubmit = count($reports ?? []) + 1; ?>
+                        <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="px-5 py-3 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
+                            <span>+</span> Submit Week <?= $nextWeekToSubmit; ?> Report
+                        </a>
+                    <?php endif; ?>
                 </div>
 
-                <!-- Status Summary Cards -->
+                <!-- 3. Status Summary Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-1">
                         <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reports Submitted</span>
-                        <p class="text-3xl font-extrabold text-slate-900"><?= $totalReportsCount ?? count($reports ?? []); ?></p>
+                        <p class="text-3xl font-extrabold text-slate-900"><?= $totalReportsCount; ?></p>
                         <p class="text-xs font-medium text-slate-500 pt-0.5">Total accomplishment logs</p>
                     </div>
 
                     <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-1">
                         <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reports Approved</span>
-                        <p class="text-3xl font-extrabold text-emerald-600"><?= $totalApproved ?? 0; ?></p>
+                        <p class="text-3xl font-extrabold text-emerald-600"><?= $totalApproved; ?></p>
                         <p class="text-xs font-medium text-slate-500 pt-0.5">Verified by supervisor</p>
                     </div>
 
                     <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-1">
                         <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Waiting for Review</span>
-                        <p class="text-3xl font-extrabold text-amber-600"><?= $totalPending ?? 0; ?></p>
+                        <p class="text-3xl font-extrabold text-amber-600"><?= $totalPending; ?></p>
                         <p class="text-xs font-medium text-slate-500 pt-0.5">Pending review</p>
                     </div>
                 </div>
 
-                <!-- Reports Table Container -->
+                <!-- 4. Reports Table Container -->
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                     <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
                         <div>
@@ -119,7 +185,6 @@
                                     ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors group">
                                             
-                                            <!-- 1. Week Indicator Chip -->
                                             <td class="py-4 px-6 whitespace-nowrap">
                                                 <div class="flex items-center gap-3">
                                                     <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] font-bold text-xs flex items-center justify-center border border-slate-200/80 group-hover:bg-[#0F2854] group-hover:text-white group-hover:border-[#0F2854] transition-all duration-200">
@@ -132,19 +197,12 @@
                                                 </div>
                                             </td>
 
-                                            <!-- 2. Date & Time Submitted -->
                                             <td class="py-4 px-6 whitespace-nowrap">
-                                                <div class="flex items-center gap-2 text-slate-600">
-                                                    <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-                                                    </svg>
-                                                    <span class="font-medium text-xs">
-                                                        <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
-                                                    </span>
-                                                </div>
+                                                <span class="font-medium text-xs text-slate-600">
+                                                    <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
+                                                </span>
                                             </td>
 
-                                            <!-- 3. Status Badge -->
                                             <td class="py-4 px-6 whitespace-nowrap">
                                                 <?php if ($isApproved): ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
@@ -164,7 +222,6 @@
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- 4. Actions -->
                                             <td class="py-4 px-6 text-right whitespace-nowrap">
                                                 <div class="flex items-center justify-end gap-2">
                                                     <?php if (!empty($filePath)): ?>
@@ -174,7 +231,7 @@
                                                         </a>
                                                     <?php endif; ?>
 
-                                                    <?php if (!$isApproved): ?>
+                                                    <?php if (!$isApproved && !$isEvaluated): ?>
                                                         <a href="submit_report.php?week=<?= $report['week_number']; ?>" class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
                                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                                                             <span><?= !empty($filePath) ? 'Re-upload' : 'Submit'; ?></span>

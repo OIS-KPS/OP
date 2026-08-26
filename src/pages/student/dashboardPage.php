@@ -1,11 +1,15 @@
 <!-- src/pages/student/dashboardPage.php -->
+<?php
+$isEvaluated = !empty($student['evaluation_id']);
+$isRequested = !empty($student['completion_requested']) && !$isEvaluated;
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard - OJT Portal</title>
-    <!-- Same Inter Font as Profile Page -->
+    <!-- Inter Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -33,17 +37,33 @@
                 <div class="bg-[#0F2854] rounded-2xl p-7 text-white shadow-xs space-y-5">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div class="space-y-1">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-white/10 text-blue-100 border border-white/15">
-                                Action Required
-                            </span>
-                            <h1 class="text-base md:text-lg font-bold leading-tight">Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Accomplishment Report Due</h1>
-                            <p class="text-xs text-blue-100/80 mt-1">Submit your weekly tasks and activities for supervisor review and hours verification.</p>
+                            <?php if ($isEvaluated): ?>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                                    OJT Completed
+                                </span>
+                                <h1 class="text-base md:text-lg font-bold leading-tight">Internship Finished & Submitted</h1>
+                                <p class="text-xs text-blue-100/80 mt-1">Your supervisor has signed and forwarded your final evaluation to the OJT Coordinator.</p>
+                            <?php elseif ($isRequested): ?>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-200 border border-amber-400/30">
+                                    Awaiting Evaluation
+                                </span>
+                                <h1 class="text-base md:text-lg font-bold leading-tight">Completion Request Submitted</h1>
+                                <p class="text-xs text-blue-100/80 mt-1">Waiting for your supervisor to evaluate and submit your performance report to the coordinator.</p>
+                            <?php else: ?>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-white/10 text-blue-100 border border-white/15">
+                                    Weekly Task
+                                </span>
+                                <h1 class="text-base md:text-lg font-bold leading-tight">Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Accomplishment Report Due</h1>
+                                <p class="text-xs text-blue-100/80 mt-1">Submit your weekly tasks and activities for supervisor review and verification.</p>
+                            <?php endif; ?>
                         </div>
 
-                        <a href="submit_report.php?week=<?= htmlspecialchars($nextWeek ?? '1'); ?>" class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer">
-                            <span>Submit Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Report</span>
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                        </a>
+                        <?php if (!$isEvaluated && !$isRequested): ?>
+                            <a href="submit_report.php?week=<?= htmlspecialchars($nextWeek ?? '1'); ?>" class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer">
+                                <span>Submit Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Report</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                            </a>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Progress Bar -->
