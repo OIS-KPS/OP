@@ -14,6 +14,7 @@ $pageTitle = 'CQI Analytics Dashboard';
 // Dashboard-compatible defaults. These are empty/zero states, not simulated data.
 $totalStudents = 0;
 $evaluatedStudents = 0;
+$totalReports = 0;
 $overallTechPct = 0.0;
 $spacyConfidence = 0.0;
 $companyPerformance = [];
@@ -32,9 +33,18 @@ $otherEntityOccurrences = 0;
 $totalReportsWithEntities = 0;
 $topEntities = [];
 $lowPerformingCompanies = [];
+$lowItCompanies = [];
 $companiesWithoutEvaluations = [];
+$highestItCompany = null;
+$lowestItCompany = null;
+$topFrequentEntities = [];
+$entityPrioritySummary = [];
 $cqiSummary = [];
-$cqiActionPlan = [];
+$cqiRecommendations = [];
+$cqiOverallRecommendation = '';
+// Backward-compatible alias for controllers or views that still use the old name.
+$cqiActionPlan =& $cqiRecommendations;
+$entityFrequencyAnalysis = [];
 
 function dashboardLevel(float $percentage): string
 {
@@ -58,9 +68,13 @@ try {
          FROM evaluations
          WHERE otp_verified = 1'
     );
-    $evaluatedStudents = (int) ($stmt->fetchColumn() ?: 0);
+        $evaluatedStudents = (int) ($stmt->fetchColumn() ?: 0);
 
-    // 3. Technical share of all persisted extracted/report entities.
+    // 3. Total submitted reports used as the report-coverage denominator.
+    $stmt = $pdo->query('SELECT COUNT(*) FROM reports');
+    $totalReports = (int) ($stmt->fetchColumn() ?: 0);
+
+    // 4. Technical share of all persisted extracted/report entities.
     $stmt = $pdo->query(
         "SELECT COALESCE(
             ROUND(
@@ -82,31 +96,83 @@ try {
     );
     $spacyConfidence = (float) ($stmt->fetchColumn() ?: 0);
 
-    // 5. Company performance from verified evaluation final scores.
+    // 6. Company performance from verified evaluation final scores.
     // Companies with no verified evaluations remain visible with 0.0.
+    // 6. Company evaluation performance and entity activity are aggregated
+    // separately so multiple report entities cannot duplicate evaluation scores.
+    $companyEvaluationRows = [];
     $stmt = $pdo->query(
         "SELECT
-            c.id,
-            c.name,
-            COALESCE(
-                ROUND(AVG(CASE WHEN e.otp_verified = 1 THEN e.final_score END), 1),
-                0
-            ) AS percentage
-         FROM companies c
-         LEFT JOIN students s ON s.company_id = c.id
+            s.company_id,
+            COUNT(DISTINCT s.id) AS student_count,
+            COUNT(DISTINCT CASE WHEN e.otp_verified = 1 THEN e.student_id END) AS verified_evaluations,
+            COUNT(DISTINCT CASE WHEN e.otp_verified = 1 AND e.final_score IS NOT NULL THEN e.student_id END) AS scored_evaluations,
+            COALESCE(ROUND(AVG(CASE WHEN e.otp_verified = 1 THEN e.final_score END), 1), 0) AS percentage
+         FROM students s
          LEFT JOIN evaluations e ON e.student_id = s.id
-         GROUP BY c.id, c.name
-         ORDER BY percentage DESC, c.name ASC"
+         GROUP BY s.company_id"
     );
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $companyEvaluationRows[(string) $row['company_id']] = $row;
+    }
 
+    $companyEntityRows = [];
+    $stmt = $pdo->query(
+        "SELECT
+            s.company_id,
+            COUNT(re.id) AS entity_occurrences,
+            SUM(CASE WHEN re.it_related = 'yes' THEN 1 ELSE 0 END) AS it_related_occurrences
+         FROM students s
+         INNER JOIN reports r ON r.student_id = s.id
+         INNER JOIN report_entities re ON re.report_id = r.id
+         GROUP BY s.company_id"
+    );
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $companyEntityRows[(string) $row['company_id']] = $row;
+    }
+
+    $stmt = $pdo->query('SELECT id, name FROM companies ORDER BY name ASC');
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $company) {
-        $percentage = (float) ($company['percentage'] ?? 0);
+        $companyId = (string) $company['id'];
+        $evaluation = $companyEvaluationRows[$companyId] ?? [];
+        $entity = $companyEntityRows[$companyId] ?? [];
+        $percentage = (float) ($evaluation['percentage'] ?? 0);
+        $entityOccurrences = (int) ($entity['entity_occurrences'] ?? 0);
+        $itOccurrences = (int) ($entity['it_related_occurrences'] ?? 0);
+
         $companyPerformance[] = [
             'name' => (string) $company['name'],
+            'student_count' => (int) ($evaluation['student_count'] ?? 0),
+            'verified_evaluations' => (int) ($evaluation['verified_evaluations'] ?? 0),
+            'scored_evaluations' => (int) ($evaluation['scored_evaluations'] ?? 0),
+            'entity_occurrences' => $entityOccurrences,
+            'it_related_occurrences' => $itOccurrences,
+            'it_task_ratio' => $entityOccurrences > 0
+                ? round(($itOccurrences / $entityOccurrences) * 100, 1)
+                : null,
+            'it_task_level' => $entityOccurrences > 0
+                ? dashboardLevel(round(($itOccurrences / $entityOccurrences) * 100, 1))
+                : 'No data',
             'percentage' => $percentage,
             'level' => dashboardLevel($percentage)
         ];
     }
+
+    // Only companies with entity evidence can be ranked by IT-task ratio.
+    $companiesWithEntityEvidence = array_values(array_filter(
+        $companyPerformance,
+        static fn (array $company): bool => (int) $company['entity_occurrences'] > 0
+    ));
+    usort($companiesWithEntityEvidence, static function (array $left, array $right): int {
+        return ($right['it_task_ratio'] <=> $left['it_task_ratio'])
+            ?: strcasecmp($left['name'], $right['name']);
+    });
+    $highestItCompany = $companiesWithEntityEvidence[0] ?? null;
+    $lowestItCompany = $companiesWithEntityEvidence ? $companiesWithEntityEvidence[array_key_last($companiesWithEntityEvidence)] : null;
+    $lowItCompanies = array_values(array_filter(
+        $companiesWithEntityEvidence,
+        static fn (array $company): bool => (float) ($company['it_task_ratio'] ?? 0) < 60
+    ));
 
     // 6. Entity frequency by predefined/extracted entity, company, and report date.
     // report_entities has one row per report entity, so COUNT(*) is the real
@@ -154,6 +220,38 @@ try {
             ($categoryCounts[$category] ?? 0) + $entity['frequency'];
     }
 
+    // Build one compact row per entity/category/classification for the
+    // scrollable analysis card. Frequencies remain based on COUNT(*) from the
+    // report_entities rows already grouped by company and report date.
+    $frequencyRows = [];
+    foreach ($entitiesData as $entity) {
+        $analysisKey = strtolower(trim($entity['entity'])) . '|' . strtolower(trim($entity['category'])) . '|' . strtolower(trim($entity['classification']));
+        if (!isset($frequencyRows[$analysisKey])) {
+            $frequencyRows[$analysisKey] = [
+                'entity' => $entity['entity'],
+                'category' => $entity['category'],
+                'classification' => $entity['classification'],
+                'frequency' => 0,
+                'companies' => []
+            ];
+        }
+        $frequencyRows[$analysisKey]['frequency'] += max(0, (int) $entity['frequency']);
+        $frequencyRows[$analysisKey]['companies'][$entity['company']] = true;
+    }
+
+    foreach ($frequencyRows as $row) {
+        $row['company_count'] = count($row['companies']);
+        unset($row['companies']);
+        $entityFrequencyAnalysis[] = $row;
+    }
+
+    usort($entityFrequencyAnalysis, static function (array $left, array $right): int {
+        $frequencyOrder = $right['frequency'] <=> $left['frequency'];
+        return $frequencyOrder !== 0
+            ? $frequencyOrder
+            : strcasecmp($left['entity'], $right['entity']);
+    });
+
     arsort($categoryCounts);
     if ($categoryCounts) {
         $topCategoryName = (string) array_key_first($categoryCounts);
@@ -194,6 +292,29 @@ try {
             - $clericalEntityOccurrences
     );
 
+    // Priority is based on each verified entity's share of all occurrences.
+    // This is relative to the current academic dataset and does not invent
+    // frequencies when no entity records exist.
+    foreach ($entityFrequencyAnalysis as $entity) {
+        $frequency = max(0, (int) ($entity['frequency'] ?? 0));
+        $sharePct = $totalEntityOccurrences > 0
+            ? round(($frequency / $totalEntityOccurrences) * 100, 1)
+            : 0.0;
+        $priority = $sharePct >= 20
+            ? 'High'
+            : ($sharePct >= 5 ? 'Medium' : 'Low');
+        $entityPrioritySummary[] = [
+            'entity' => (string) $entity['entity'],
+            'category' => (string) $entity['category'],
+            'classification' => (string) $entity['classification'],
+            'frequency' => $frequency,
+            'share_pct' => $sharePct,
+            'priority' => $priority,
+            'company_count' => (int) ($entity['company_count'] ?? 0)
+        ];
+    }
+    $topFrequentEntities = array_slice($entityPrioritySummary, 0, 10);
+
     usort($topEntities, static function (array $left, array $right): int {
         return $right['frequency'] <=> $left['frequency'];
     });
@@ -203,36 +324,51 @@ try {
     $totalReportsWithEntities = (int) ($stmt->fetchColumn() ?: 0);
 
     foreach ($companyPerformance as $company) {
-        if ($company['percentage'] <= 0) {
+        if ((int) ($company['verified_evaluations'] ?? 0) === 0) {
             $companiesWithoutEvaluations[] = $company['name'];
-        } elseif ($company['percentage'] < 60) {
+        } elseif ((float) ($company['percentage'] ?? 0) < 60) {
             $lowPerformingCompanies[] = $company;
         }
     }
 
     $dataStatus = 'On track';
-    if ($totalStudents === 0 || $totalReportsWithEntities === 0) {
+    if ($totalStudents === 0 || $totalReports === 0 || $totalReportsWithEntities === 0) {
         $dataStatus = 'Insufficient data';
-    } elseif ($evaluationCoveragePct < 90 || $spacyConfidence < 90 || $lowPerformingCompanies) {
+    } elseif ($evaluationCoveragePct < 90 || $spacyConfidence < 90 || $lowPerformingCompanies || $companiesWithoutEvaluations || $totalReportsWithEntities < $totalReports) {
         $dataStatus = 'Needs attention';
+    }
+
+    $companyComparisonText = 'No company has enough extracted-entity evidence for an IT-ratio comparison.';
+    if ($highestItCompany && $lowestItCompany) {
+        $companyComparisonText = sprintf(
+            'The highest IT-related task ratio is recorded by %s at %.1f%%, while the lowest among companies with entity evidence is %s at %.1f%%.',
+            $highestItCompany['name'],
+            $highestItCompany['it_task_ratio'],
+            $lowestItCompany['name'],
+            $lowestItCompany['it_task_ratio']
+        );
     }
 
     $cqiSummary = [
         'status' => $dataStatus,
-        'period' => 'Current records in the database',
+        'period' => 'Current academic records in the database',
         'narrative' => sprintf(
-            'The dashboard currently covers %d students, %d verified evaluations, and %d reports with extracted entities. Entity activity is %s technical and %s clerical by recorded occurrence. The average extraction confidence is %.2f%%.',
+            'The dashboard covers %d students, %d verified evaluations, and %d submitted reports, of which %d have persisted extracted entities. Entity activity is %s technical and %s clerical by recorded occurrence. %s The most frequent category is %s with %d occurrence(s).',
             $totalStudents,
             $evaluatedStudents,
+            $totalReports,
             $totalReportsWithEntities,
             number_format($totalEntityOccurrences > 0 ? ($technicalEntityOccurrences / $totalEntityOccurrences) * 100 : 0, 1) . '%',
             number_format($totalEntityOccurrences > 0 ? ($clericalEntityOccurrences / $totalEntityOccurrences) * 100 : 0, 1) . '%',
-            $spacyConfidence
+            $companyComparisonText,
+            $topCategoryName,
+            $topCategoryOccurrences
         ),
         'evidence' => [
             'evaluation_coverage_pct' => $evaluationCoveragePct,
             'verified_evaluations' => $evaluatedStudents,
             'total_students' => $totalStudents,
+            'total_reports' => $totalReports,
             'technical_entity_occurrences' => $technicalEntityOccurrences,
             'clerical_entity_occurrences' => $clericalEntityOccurrences,
             'other_entity_occurrences' => $otherEntityOccurrences,
@@ -241,10 +377,80 @@ try {
             'top_category' => $topCategoryName,
             'top_category_occurrences' => $topCategoryOccurrences,
             'low_performing_companies' => count($lowPerformingCompanies),
-            'companies_without_evaluations' => count($companiesWithoutEvaluations)
+            'companies_without_evaluations' => count($companiesWithoutEvaluations),
+            'highest_it_company' => $highestItCompany,
+            'lowest_it_company' => $lowestItCompany,
+            'low_it_companies' => $lowItCompanies,
+            'entity_priorities' => $entityPrioritySummary
         ],
         'top_entities' => $topEntities
     ];
+
+    // Strengths and gaps are generated from live thresholds and evidence.
+    $cqiStrengths = [];
+    $cqiGaps = [];
+    if ($totalStudents > 0 && $evaluationCoveragePct >= 90) {
+        $cqiStrengths[] = sprintf('Evaluation coverage is %.1f%%, meeting the 90%% monitoring threshold.', $evaluationCoveragePct);
+    }
+    if ($spacyConfidence >= 90) {
+        $cqiStrengths[] = sprintf('Average verified extraction confidence is %.2f%%.', $spacyConfidence);
+    }
+    if ($totalReportsWithEntities > 0) {
+        $cqiStrengths[] = sprintf('%d report(s) contain persisted extracted-entity evidence.', $totalReportsWithEntities);
+    }
+    if ($evaluationCoveragePct < 100 && $totalStudents > 0) {
+        $cqiGaps[] = sprintf('Evaluation coverage is %.1f%%, below the 100%% completion target.', $evaluationCoveragePct);
+    }
+    if ($totalReports > $totalReportsWithEntities) {
+        $cqiGaps[] = sprintf('%d submitted report(s) do not yet have persisted entity records.', $totalReports - $totalReportsWithEntities);
+    }
+    if ($totalEntityOccurrences > 0 && $spacyConfidence < 90) {
+        $cqiGaps[] = sprintf('Average extraction confidence is %.2f%%, below the 90%% review threshold.', $spacyConfidence);
+    }
+    foreach ($lowPerformingCompanies as $company) {
+        $cqiGaps[] = sprintf('%s has an average verified score of %.1f%%.', $company['name'], $company['percentage']);
+    }
+    if ($companiesWithoutEvaluations) {
+        $cqiGaps[] = 'No verified evaluation is recorded for: ' . implode(', ', $companiesWithoutEvaluations) . '.';
+    }
+    if (!$cqiStrengths && !$cqiGaps) {
+        $cqiGaps[] = 'No CQI evidence is available yet; establish the first reporting baseline.';
+    }
+    $cqiSummary['strengths'] = $cqiStrengths;
+    $cqiSummary['gaps'] = $cqiGaps;
+
+    // One overall academic recommendation replaces multiple repetitive entity actions.
+    $recommendationPriority = 'Continuous';
+    $recommendationParts = [];
+    if ($totalStudents === 0) {
+        $recommendationPriority = 'High';
+        $recommendationParts[] = 'establish a reliable student and evaluation baseline before interpreting academic outcomes';
+    } elseif ($evaluationCoveragePct < 100) {
+        $recommendationPriority = $evaluationCoveragePct < 90 ? 'High' : 'Medium';
+        $recommendationParts[] = sprintf('complete the remaining student evaluations to move coverage from %.1f%% to 100%%', $evaluationCoveragePct);
+    }
+    if ($totalReports === 0 || $totalReportsWithEntities < $totalReports) {
+        $recommendationPriority = 'High';
+        $recommendationParts[] = sprintf('run and verify entity extraction for the %d submitted report(s) without persisted entity records', max(0, $totalReports - $totalReportsWithEntities));
+    }
+    if ($lowestItCompany) {
+        $lowestRatio = (float) $lowestItCompany['it_task_ratio'];
+        if ($lowestRatio < 60) {
+            $recommendationPriority = $lowestRatio < 40 ? 'High' : ($recommendationPriority === 'High' ? 'High' : 'Medium');
+            $recommendationParts[] = sprintf('support %s in increasing its IT-related task exposure from %.1f%% toward at least 60%% using approved activities aligned with academic learning outcomes', $lowestItCompany['name'], $lowestRatio);
+        }
+    }
+    if ($highestItCompany && $lowestItCompany && $highestItCompany['name'] !== $lowestItCompany['name']) {
+        $recommendationParts[] = sprintf('use %s, currently at %.1f%% IT-related task exposure, as a benchmark for improving lower-performing placements', $highestItCompany['name'], $highestItCompany['it_task_ratio']);
+    }
+    if ($totalEntityOccurrences > 0 && $spacyConfidence < 90) {
+        $recommendationPriority = 'High';
+        $recommendationParts[] = 'review predefined aliases and rerun low-confidence matches before using the entity distribution for academic decisions';
+    }
+    if (!$recommendationParts) {
+        $recommendationParts[] = 'continue monthly review of verified evaluations, company IT-task exposure, and predefined entity classifications';
+    }
+    $cqiOverallRecommendation = 'For the next academic CQI cycle, the program should ' . implode('; ', $recommendationParts) . '.';
 
     // 9. Build actions from measured gaps. No action is based on sample data.
     if ($totalStudents === 0) {
@@ -271,18 +477,20 @@ try {
         ];
     }
 
-    if ($totalReportsWithEntities === 0) {
+    if ($totalReports === 0 || $totalReportsWithEntities < $totalReports) {
         $cqiActionPlan[] = [
             'priority' => 'High',
             'area' => 'Entity extraction coverage',
-            'finding' => 'No report entity records are available for analysis.',
+            'finding' => sprintf('%d of %d submitted report(s) have persisted entity records.', $totalReportsWithEntities, $totalReports),
             'action' => 'Run the spaCy extraction for submitted reports and verify that matched entities are persisted to report_entities.',
             'owner' => 'System Administrator',
             'timeframe' => 'Before publishing CQI findings',
             'measure' => 'At least one extracted-entity record for each submitted report',
             'status' => 'Open'
         ];
-    } elseif ($spacyConfidence < 90) {
+    }
+
+    if ($totalEntityOccurrences > 0 && $spacyConfidence < 90) {
         $cqiActionPlan[] = [
             'priority' => 'High',
             'area' => 'Extraction quality',
@@ -298,13 +506,49 @@ try {
     foreach ($lowPerformingCompanies as $company) {
         $cqiActionPlan[] = [
             'priority' => 'High',
-            'area' => 'Company performance',
+            'area' => 'Company evaluation performance',
             'finding' => sprintf('%s has an average verified evaluation score of %.1f%%.', $company['name'], $company['percentage']),
-            'action' => 'Review supervisor feedback and create a targeted support plan for the affected placement site.',
+            'action' => 'Review supervisor feedback and create a targeted academic support plan for the affected placement site.',
             'owner' => 'Coordinator and Company Supervisor',
             'timeframe' => 'Within 30 days',
-            'measure' => 'Increase the company average to at least 60% and recheck next cycle',
+            'measure' => 'Increase the company evaluation average to at least 60% and recheck next cycle',
             'status' => 'Open'
+        ];
+    }
+
+    // Every company below the academic IT-ratio threshold receives a separate
+    // recommendation. Companies without entity evidence are not assigned a
+    // ratio and are handled by the data-completeness action instead.
+    foreach ($lowItCompanies as $company) {
+        $itRatio = (float) ($company['it_task_ratio'] ?? 0);
+        $cqiActionPlan[] = [
+            'priority' => $itRatio < 40 ? 'High' : 'Medium',
+            'area' => 'Company IT-task exposure',
+            'finding' => sprintf('%s has %.1f%% IT-related task occurrences (%d of %d).', $company['name'], $itRatio, $company['it_related_occurrences'], $company['entity_occurrences']),
+            'action' => 'Coordinate with the placement supervisor to assign or document additional approved IT-related activities aligned with the student learning outcomes.',
+            'owner' => 'Coordinator and Company Supervisor',
+            'timeframe' => 'Before the next academic review cycle',
+            'measure' => 'Reach at least 60% IT-related task occurrences with verified report evidence',
+            'status' => 'Open'
+        ];
+    }
+
+    // Promote highly recurring entities for curriculum and catalog review.
+    foreach ($entityPrioritySummary as $entity) {
+        if (!in_array($entity['priority'], ['High', 'Medium'], true)) {
+            continue;
+        }
+        $cqiActionPlan[] = [
+            'priority' => $entity['priority'],
+            'area' => 'Entity priority: ' . $entity['entity'],
+            'finding' => sprintf('%s occurs %d time(s), representing %.1f%% of extracted occurrences.', $entity['entity'], $entity['frequency'], $entity['share_pct']),
+            'action' => $entity['priority'] === 'High'
+                ? 'Review this recurring activity against the academic learning outcomes and standardize its approved aliases and documentation guidance.'
+                : 'Monitor this activity and verify that its classification and aliases remain accurate in predefined_entities.',
+            'owner' => 'Coordinator and Academic Adviser',
+            'timeframe' => $entity['priority'] === 'High' ? 'Within 30 days' : 'During the next monthly review',
+            'measure' => 'Validated entity classification and documented alignment with the academic program outcomes',
+            'status' => 'Planned'
         ];
     }
 
