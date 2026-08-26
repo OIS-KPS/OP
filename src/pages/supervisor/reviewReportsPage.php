@@ -1,5 +1,7 @@
 <!-- src/pages/supervisor/reviewReportsPage.php -->
 <?php
+date_default_timezone_set('Asia/Manila');
+
 $filter_status = $filter_status ?? 'All';
 $message = $message ?? '';
 $reports = $reports ?? [];
@@ -67,8 +69,8 @@ if (!empty($activeFilePath)) {
             <!-- Page Header Card -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
                 <div>
-                    <h1 class="text-base font-bold text-slate-900 leading-snug">Review Weekly Reports</h1>
-                    <p class="text-xs font-medium text-slate-500 mt-1">Check, approve, or ask for changes on student submissions.</p>
+                    <h1 class="text-base font-bold text-slate-900 leading-snug">Review Accomplishment Reports</h1>
+                    <p class="text-xs font-medium text-slate-500 mt-1">Review student task logs, inspect extracted technical activities, and approve reports.</p>
                 </div>
 
                 <!-- Status Filter Tabs -->
@@ -76,7 +78,7 @@ if (!empty($activeFilePath)) {
                     <a href="review_reports.php?status=All" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'All' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">All</a>
                     <a href="review_reports.php?status=Pending" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Pending</a>
                     <a href="review_reports.php?status=Approved" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Approved</a>
-                    <a href="review_reports.php?status=Rejected" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Rejected' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Needs Changes</a>
+                    <a href="review_reports.php?status=Needs+Revision" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Needs Revision' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Needs Changes</a>
                 </div>
             </div>
 
@@ -93,7 +95,7 @@ if (!empty($activeFilePath)) {
                 <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
                     <div>
                         <h3 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Submissions Queue</h3>
-                        <p class="text-[11px] font-medium text-slate-500 mt-0.5">Showing all reports submitted for your review</p>
+                        <p class="text-[11px] font-medium text-slate-500 mt-0.5">Showing student accomplishment logs matching your filter</p>
                     </div>
                     <span class="text-xs font-bold text-slate-700 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
                         <?= count($reports); ?> Total
@@ -106,7 +108,7 @@ if (!empty($activeFilePath)) {
                             <thead>
                                 <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
                                     <th class="py-4 px-6">Student</th>
-                                    <th class="py-4 px-6">Week #</th>
+                                    <th class="py-4 px-6">Report #</th>
                                     <th class="py-4 px-6">Date Submitted</th>
                                     <th class="py-4 px-6">Status</th>
                                     <th class="py-4 px-6 text-right">Action</th>
@@ -121,15 +123,15 @@ if (!empty($activeFilePath)) {
                                         <td class="py-4 px-6">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/80">
-                                                    <?php if (!empty($item['avatar_url'])): ?>
-                                                        <img src="<?= e($item['avatar_url']); ?>" class="w-full h-full object-cover" alt="Avatar">
+                                                    <?php if (!empty($item['student_avatar'])): ?>
+                                                        <img src="<?= e($item['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar">
                                                     <?php else: ?>
                                                         <?= e(strtoupper(substr($item['student_name'] ?? 'S', 0, 1))); ?>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
                                                     <p class="font-bold text-slate-900 text-sm"><?= e($item['student_name']); ?></p>
-                                                    <p class="text-[11px] text-slate-400 font-medium">ID: <?= e($item['student_number'] ?? 'N/A'); ?></p>
+                                                    <p class="text-[11px] text-slate-400 font-medium">ID: <?= e($item['student_number'] ?? 'N/A'); ?> &bull; <?= e($item['program'] ?? 'BSIT'); ?></p>
                                                 </div>
                                             </div>
                                         </td>
@@ -254,7 +256,7 @@ if (!empty($activeFilePath)) {
                 <?php endif; ?>
             </div>
 
-            <!-- Right: Detected Skills & Actions -->
+            <!-- Right: Detected Skills & Direct Actions -->
             <div class="lg:col-span-2 flex flex-col h-[60vh] min-h-[420px] space-y-4">
                 
                 <!-- Skills/Entities Box -->
@@ -272,7 +274,7 @@ if (!empty($activeFilePath)) {
                             <?php foreach ($extractedEntities as $entity): 
                                 $entityName = $entity['entity_name'] ?? '';
                                 $category = $entity['category'] ?? 'General';
-                                $isTechnical = (($entity['classification'] ?? 'Technical') === 'Technical');
+                                $isTechnical = (($entity['classification'] ?? $entity['activity_type'] ?? 'Technical') === 'Technical' || ($entity['activity_type'] ?? '') === 'Software' || ($entity['activity_type'] ?? '') === 'Hardware');
                                 if (trim((string)$entityName) === '') continue;
                             ?>
                                 <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-200/80 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($entityName); ?>">
@@ -302,27 +304,68 @@ if (!empty($activeFilePath)) {
                         </a>
                     </div>
                 <?php else: ?>
-                    <div class="flex items-center justify-end gap-2.5 shrink-0 pt-2 border-t border-slate-100">
-                        <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
-                            Cancel
-                        </a>
+                    <div class="space-y-3 pt-3 border-t border-slate-100 shrink-0">
+                        
+                        <!-- Revision Instructions Box -->
+                        <div id="revisionBox" class="hidden space-y-1.5">
+                            <label class="block text-[11px] font-bold text-slate-700">Revision Instructions for Student:</label>
+                            <textarea id="supervisorRemarksInput" rows="2" placeholder="Explain the corrections or missing items the student needs to address..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#0F2854]"></textarea>
+                        </div>
 
-                        <!-- Reject / Request Revision Form -->
-                        <form method="POST" action="review_reports.php" class="inline">
-                            <input type="hidden" name="action_report_id" value="<?= (int)($activeReport['id'] ?? 0); ?>">
-                            <input type="hidden" name="status" value="rejected">
-                            <button type="submit" class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all cursor-pointer">
-                                Request Changes
-                            </button>
-                        </form>
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
+                                Cancel
+                            </a>
 
-                        <!-- Approve with OTP Trigger Button -->
-                        <button type="button" 
-                                onclick="openOtpModal(<?= (int)($activeReport['id'] ?? 0); ?>, '<?= e(addslashes($activeReport['student_name'] ?? 'Student')); ?>')" 
-                                class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
-                            Approve Report
-                        </button>
+                            <!-- Unified Action Form -->
+                            <form method="POST" action="review_reports.php?status=<?= e($filter_status); ?>" class="flex items-center gap-2">
+                                <input type="hidden" name="action_report_id" value="<?= (int)($activeReport['id'] ?? 0); ?>">
+                                <input type="hidden" name="student_name" value="<?= e($activeReport['student_name'] ?? 'Student'); ?>">
+                                <input type="hidden" name="supervisor_remarks" id="formRemarksField" value="">
+                                <input type="hidden" name="status" id="formStatusField" value="">
+
+                                <!-- Request Changes Button -->
+                                <button type="button" onclick="handleRevisionClick(this.form)" id="btnRequestChanges" class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all cursor-pointer">
+                                    Request Changes
+                                </button>
+
+                                <!-- Direct Approve Button -->
+                                <button type="button" onclick="handleApproveClick(this.form)" id="btnApprove" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
+                                    Approve Report
+                                </button>
+                            </form>
+                        </div>
                     </div>
+
+                    <script>
+                    function handleRevisionClick(form) {
+                        const box = document.getElementById('revisionBox');
+                        const btn = document.getElementById('btnRequestChanges');
+                        const btnApprove = document.getElementById('btnApprove');
+
+                        if (box.classList.contains('hidden')) {
+                            box.classList.remove('hidden');
+                            document.getElementById('supervisorRemarksInput').focus();
+                            btn.innerText = 'Send Change Request';
+                            btn.className = 'px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer';
+                            btnApprove.classList.add('hidden');
+                        } else {
+                            const remarks = document.getElementById('supervisorRemarksInput').value.trim();
+                            if (!remarks) {
+                                alert('Please provide instructions for the student regarding what needs to be changed.');
+                                return;
+                            }
+                            document.getElementById('formRemarksField').value = remarks;
+                            document.getElementById('formStatusField').value = 'rejected';
+                            form.submit();
+                        }
+                    }
+
+                    function handleApproveClick(form) {
+                        document.getElementById('formStatusField').value = 'approved';
+                        form.submit();
+                    }
+                    </script>
                 <?php endif; ?>
 
             </div>
@@ -333,193 +376,8 @@ if (!empty($activeFilePath)) {
 </div>
 <?php endif; ?>
 
-<!-- ============================================================
-     OTP VERIFICATION MODAL (Exact match to Wireframe)
-     ============================================================ -->
-<div id="otpModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-7 relative space-y-5 animate-in fade-in zoom-in duration-200">
-        
-        <!-- Header with Close button -->
-        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-            <h3 class="text-sm font-bold text-slate-900">OTP verification</h3>
-            <button onclick="closeOtpModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1">
-                ✕
-            </button>
-        </div>
-
-        <!-- Check your Gmail Hero Graphic -->
-        <div class="text-center space-y-1">
-            <div class="w-14 h-14 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center mx-auto text-slate-600 shadow-inner">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
-                </svg>
-            </div>
-            <h4 class="text-sm font-bold text-slate-900 pt-2">Check your Gmail</h4>
-            <p class="text-xs text-slate-500">
-                Enter the 6-digit OTP sent to <strong id="otpEmailTarget" class="text-slate-800 font-semibold">your email</strong>
-            </p>
-        </div>
-
-        <!-- 6-Box Input -->
-        <form onsubmit="handleOtpVerify(event)" class="space-y-4">
-            <div class="flex justify-center gap-2" id="otpBoxContainer">
-                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-            </div>
-
-            <!-- Error message container -->
-            <p id="otpErrorMsg" class="text-rose-600 text-xs font-semibold text-center hidden"></p>
-
-            <!-- Countdown Timer & Resend Button -->
-            <div class="text-center text-xs">
-                <span id="resendTimerText" class="text-slate-400">Resend OTP in <strong id="timerCountdown" class="text-slate-600">0:45</strong></span>
-                <button type="button" id="resendOtpBtn" onclick="requestOtpCode()" class="text-[#0F2854] font-bold hover:underline hidden">
-                    Resend Code
-                </button>
-            </div>
-
-            <!-- Modal Action Buttons -->
-            <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button type="button" onclick="closeOtpModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
-                    Cancel
-                </button>
-                <button type="submit" id="verifyBtn" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all">
-                    Verify
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Scripts -->
+<!-- PDF.js & Entity Highlighter Scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="/ICS-PORTAL/public/js/pdf-highlighter.js"></script>
-<script>
-let currentOtpReportId = 0;
-let currentOtpStudentName = '';
-let countdownTimer = null;
-
-function openOtpModal(reportId, studentName) {
-    currentOtpReportId = reportId;
-    currentOtpStudentName = studentName;
-    document.getElementById('otpModal').classList.remove('hidden');
-    clearOtpInputs();
-    requestOtpCode();
-}
-
-function closeOtpModal() {
-    document.getElementById('otpModal').classList.add('hidden');
-    if (countdownTimer) clearInterval(countdownTimer);
-}
-
-function clearOtpInputs() {
-    document.querySelectorAll('.otp-box').forEach(input => input.value = '');
-    document.getElementById('otpErrorMsg').classList.add('hidden');
-}
-
-async function requestOtpCode() {
-    document.getElementById('otpErrorMsg').classList.add('hidden');
-    document.getElementById('resendOtpBtn').classList.add('hidden');
-    document.getElementById('resendTimerText').classList.remove('hidden');
-
-    try {
-        const res = await fetch('/ICS-PORTAL/supervisor/api/approval_otp.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'request_otp', report_id: currentOtpReportId, student_name: currentOtpStudentName })
-        });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('otpEmailTarget').innerText = data.email;
-            startCountdown(45);
-            document.querySelector('.otp-box').focus();
-        } else {
-            showOtpError(data.error || 'Failed to send OTP email.');
-        }
-    } catch (err) {
-        showOtpError('Connection error. Please try again.');
-    }
-}
-
-function startCountdown(seconds) {
-    if (countdownTimer) clearInterval(countdownTimer);
-    let remaining = seconds;
-    const timerEl = document.getElementById('timerCountdown');
-    const textEl = document.getElementById('resendTimerText');
-    const resendBtn = document.getElementById('resendOtpBtn');
-
-    countdownTimer = setInterval(() => {
-        remaining--;
-        const mins = Math.floor(remaining / 60);
-        const secs = remaining % 60;
-        timerEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        if (remaining <= 0) {
-            clearInterval(countdownTimer);
-            textEl.classList.add('hidden');
-            resendBtn.classList.remove('hidden');
-        }
-    }, 1000);
-}
-
-function showOtpError(msg) {
-    const err = document.getElementById('otpErrorMsg');
-    err.innerText = msg;
-    err.classList.remove('hidden');
-}
-
-async function handleOtpVerify(e) {
-    e.preventDefault();
-    const boxes = document.querySelectorAll('.otp-box');
-    let code = '';
-    boxes.forEach(b => code += b.value.trim());
-
-    if (code.length !== 6) {
-        showOtpError('Please enter all 6 digits.');
-        return;
-    }
-
-    const verifyBtn = document.getElementById('verifyBtn');
-    verifyBtn.innerText = 'Verifying...';
-    verifyBtn.disabled = true;
-
-    try {
-        const res = await fetch('/ICS-PORTAL/supervisor/api/approval_otp.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'verify_otp', report_id: currentOtpReportId, otp: code })
-        });
-        const data = await res.json();
-        if (data.success) {
-            window.location.href = 'review_reports.php?status=Approved';
-        } else {
-            showOtpError(data.error || 'Verification failed.');
-            verifyBtn.innerText = 'Verify';
-            verifyBtn.disabled = false;
-        }
-    } catch (err) {
-        showOtpError('Connection error during verification.');
-        verifyBtn.innerText = 'Verify';
-        verifyBtn.disabled = false;
-    }
-}
-
-// Auto-advance cursor between 6 input boxes
-document.querySelectorAll('.otp-box').forEach((box, idx, arr) => {
-    box.addEventListener('input', (e) => {
-        if (e.target.value.length === 1 && idx < arr.length - 1) {
-            arr[idx + 1].focus();
-        }
-    });
-    box.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace' && !e.target.value && idx > 0) {
-            arr[idx - 1].focus();
-        }
-    });
-});
-</script>
 </body>
 </html>
