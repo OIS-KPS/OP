@@ -78,7 +78,7 @@ class MailerService
 
             return $this->mailer->send();
         } catch (Exception $e) {
-            error_log("Mailer Error: " . $this->mailer->ErrorInfo);
+            error_log("Mailer Error (Welcome Email): " . $this->mailer->ErrorInfo);
             return false;
         }
     }
@@ -96,8 +96,6 @@ class MailerService
 
             $this->mailer->Body = "
                 <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1e293b;'>
-                    
-                    <!-- Header Bar -->
                     <div style='background-color: #0F2854; padding: 20px 24px;'>
                         <h2 style='color: #ffffff; margin: 0; font-size: 16px; letter-spacing: 0.5px;'>🔒 Password Change Request</h2>
                     </div>
@@ -106,12 +104,10 @@ class MailerService
                         <p style='margin-top: 0;'>Hello <strong>" . htmlspecialchars($recipientName) . "</strong>,</p>
                         <p>We received a request to change the password for your NBSC OJT Portal account. Click the button below to set a new password:</p>
                         
-                        <!-- CTA Button -->
                         <div style='text-align: center; margin: 28px 0;'>
                             <a href='" . htmlspecialchars($resetLink) . "' style='background-color: #0F2854; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 14px;'>Change My Password</a>
                         </div>
 
-                        <!-- Security Info Box -->
                         <div style='background-color: #FFFBEB; border: 1px solid #FDE68A; padding: 14px 16px; border-radius: 8px; margin: 20px 0;'>
                             <p style='margin: 0 0 6px; font-size: 13px; font-weight: bold; color: #92400E;'>⏱ This link expires in {$expiresMinutes} minutes</p>
                             <p style='margin: 0; font-size: 12px; color: #92400E;'>If you did not request this change, you can safely ignore this email. Your password will remain unchanged.</p>
@@ -129,6 +125,48 @@ class MailerService
             return $this->mailer->send();
         } catch (Exception $e) {
             error_log("Mailer Error (Password Reset): " . $this->mailer->ErrorInfo);
+            return false;
+        }
+    }
+
+    /**
+     * Send OTP for Supervisor Digital Signature on Final Evaluation
+     */
+    public function sendEvaluationOtpEmail(string $recipientEmail, string $supervisorName, string $otpCode, string $studentName): bool
+    {
+        try {
+            $this->mailer->clearAddresses();
+            $this->mailer->addAddress($recipientEmail, $supervisorName);
+
+            $this->mailer->Subject = "Verification Code: Sign Final Intern Evaluation - {$studentName}";
+
+            $this->mailer->Body = "
+                <div style='font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;'>
+                    <div style='text-align: center; margin-bottom: 20px;'>
+                        <h2 style='color: #0F2854; margin: 0; font-size: 20px;'>Final Evaluation Signature</h2>
+                        <p style='color: #64748b; font-size: 13px; margin-top: 4px;'>NBSC &bull; Institute for Computer Studies</p>
+                    </div>
+                    <p style='font-size: 14px; color: #334155; line-height: 1.5;'>  
+                        Hello <strong>" . htmlspecialchars($supervisorName) . "</strong>,
+                    </p>
+                    <p style='font-size: 14px; color: #334155; line-height: 1.5;'>
+                        You are submitting the official final performance appraisal for <strong>" . htmlspecialchars($studentName) . "</strong>. Enter this 6-digit verification code to digitally sign and submit the evaluation:
+                    </p>
+                    <div style='text-align: center; margin: 28px 0;'>
+                        <span style='display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0F2854; background: #f0f4f9; padding: 12px 24px; border-radius: 12px; border: 1px solid #cbd5e1;'>
+                            {$otpCode}
+                        </span>
+                        <p style='color: #94a3b8; font-size: 11px; margin-top: 8px;'>Valid for 45 seconds. Do not share this code.</p>
+                    </div>
+                    <p style='font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-bottom: 0;'>
+                        If you did not initiate this evaluation, please contact the OJT Coordinator immediately.
+                    </p>
+                </div>
+            ";
+
+            return $this->mailer->send();
+        } catch (Exception $e) {
+            error_log("Mailer Error (Evaluation OTP): " . $this->mailer->ErrorInfo);
             return false;
         }
     }
