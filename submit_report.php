@@ -10,19 +10,33 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
     exit();
 }
 
-$sessionUserId = $_SESSION['user_id'];
+$sessionUserId = (int)$_SESSION['user_id'];
 
-// Resolve student_id directly from students table using user_id
-$stmtStudent = $pdo->prepare("SELECT id FROM students WHERE user_id = ? LIMIT 1");
+// Resolve student profile and check evaluation state
+$stmtStudent = $pdo->prepare("
+    SELECT s.id, e.id AS evaluation_id 
+    FROM students s 
+    LEFT JOIN evaluations e ON e.student_id = s.id
+    WHERE s.user_id = ? 
+    LIMIT 1
+");
 $stmtStudent->execute([$sessionUserId]);
-$student_id = $stmtStudent->fetchColumn();
+$studentRow = $stmtStudent->fetch(PDO::FETCH_ASSOC);
 
-if (!$student_id) {
+if (!$studentRow) {
     $_SESSION['error_message'] = "Student profile record not found.";
     header("Location: reports.php");
     exit();
 }
 
+// Lock reports if already evaluated
+if (!empty($studentRow['evaluation_id'])) {
+    $_SESSION['error_message'] = "Your final evaluation has already been completed. No further report modifications are allowed.";
+    header("Location: reports.php");
+    exit();
+}
+
+$student_id = (int)$studentRow['id'];
 $weekNumber = isset($_GET['week']) ? intval($_GET['week']) : 1;
 $errors = [];
 
@@ -99,10 +113,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmtInsert->execute([$student_id, $weekNumber, $filePath]);
             }
 
-            $logAction = $existingId ? 'REPORT_REUPLOAD' : 'REPORT_SUBMISSION';
-            $logDesc   = "Student submitted Week {$weekNumber} accomplishment report.";
-            
-            logActivity($pdo, $sessionUserId, 'student', $logAction, $logDesc);
+            if (function_exists('logActivity')) {
+                $logAction = $existingId ? 'REPORT_REUPLOAD' : 'REPORT_SUBMISSION';
+                $logDesc   = "Student submitted Week {$weekNumber} accomplishment report.";
+                logActivity($pdo, $sessionUserId, 'student', $logAction, $logDesc);
+            }
 
             header("Location: reports.php?submitted=success");
             exit();
