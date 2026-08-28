@@ -77,6 +77,16 @@ $topCategoryOccurrencesView = (int) ($topCategoryOccurrences ?? 0);
 $highestItCompanyView = is_array($highestItCompany ?? null) ? $highestItCompany : null;
 $lowestItCompanyView = is_array($lowestItCompany ?? null) ? $lowestItCompany : null;
 $entityPriorityRowsView = is_array($entityPrioritySummary ?? null) ? $entityPrioritySummary : [];
+$entityPriorityGroupsView = ['High' => [], 'Medium' => [], 'Low' => []];
+foreach ($entityPriorityRowsView as $priorityRow) {
+    $priorityName = (string) ($priorityRow['priority'] ?? 'Low');
+    if (!isset($entityPriorityGroupsView[$priorityName])) {
+        $priorityName = 'Low';
+    }
+    if (count($entityPriorityGroupsView[$priorityName]) < 3) {
+        $entityPriorityGroupsView[$priorityName][] = $priorityRow;
+    }
+}
 
 $cqiSummaryView = is_array($cqiSummary ?? null) ? $cqiSummary : [];
 $cqiStrengthsView = is_array($cqiSummaryView['strengths'] ?? null) ? $cqiSummaryView['strengths'] : [];
@@ -137,7 +147,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased font-sans">
+<body class="bg-slate-50 text-slate-800 antialiased">
 
     <div class="flex min-h-screen">
         
@@ -278,119 +288,98 @@ $cqiStatusClassView = match ($cqiStatusView) {
                     </div>
                 </div>
 
-                <!-- 4. Evidence-Based CQI Summary & Recommendations -->
-                <section class="cqi-summary-card w-full max-w-none min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 border-l-[#0F2854] bg-white p-5 shadow-xs space-y-5 text-xs" aria-labelledby="cqi-heading">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">Continuous Quality Improvement</p>
-                            <h2 id="cqi-heading" class="mt-1 text-base font-bold text-slate-900">CQI Summary &amp; Recommendations</h2>
-                            <p class="mt-1 text-[11px] text-slate-500"><?= htmlspecialchars((string) ($cqiSummaryView['period'] ?? 'Current database records'), ENT_QUOTES, 'UTF-8'); ?></p>
-                        </div>
-                        <span class="w-fit rounded-full border px-3 py-1 text-[10px] font-bold <?= htmlspecialchars($cqiStatusClassView, ENT_QUOTES, 'UTF-8'); ?>">
-                            <?= htmlspecialchars($cqiStatusView, ENT_QUOTES, 'UTF-8'); ?>
-                        </span>
-                    </div>
-
-                    <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-                        <h3 class="font-bold text-blue-950">Current academic interpretation</h3>
-                        <p class="mt-2 break-words leading-6 text-slate-700">
-                            <?= htmlspecialchars((string) ($cqiSummaryView['narrative'] ?? 'No CQI summary is available.'), ENT_QUOTES, 'UTF-8'); ?>
-                        </p>
-                    </div>
-
-                    <div class="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-                        <div class="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <h3 class="font-bold text-slate-900">Company IT-task comparison</h3>
-                            <?php if ($highestItCompanyView && $lowestItCompanyView): ?>
-                                <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div class="min-w-0 rounded-lg border border-emerald-200 bg-white p-3">
-                                        <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Highest IT-related ratio</p>
-                                        <p class="mt-1 break-words font-bold text-slate-900"><?= htmlspecialchars((string) $highestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                        <p class="mt-1 text-lg font-extrabold text-emerald-700"><?= number_format((float) $highestItCompanyView['it_task_ratio'], 1); ?>%</p>
-                                        <p class="text-[10px] text-slate-500"><?= (int) $highestItCompanyView['it_related_occurrences']; ?> of <?= (int) $highestItCompanyView['entity_occurrences']; ?> entity occurrences</p>
-                                    </div>
-                                    <div class="min-w-0 rounded-lg border border-amber-200 bg-white p-3">
-                                        <p class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Lowest IT-related ratio</p>
-                                        <p class="mt-1 break-words font-bold text-slate-900"><?= htmlspecialchars((string) $lowestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                        <p class="mt-1 text-lg font-extrabold text-amber-700"><?= number_format((float) $lowestItCompanyView['it_task_ratio'], 1); ?>%</p>
-                                        <p class="text-[10px] text-slate-500"><?= (int) $lowestItCompanyView['it_related_occurrences']; ?> of <?= (int) $lowestItCompanyView['entity_occurrences']; ?> entity occurrences</p>
-                                    </div>
-                                </div>
-                            <?php else: ?>
-                                <p class="mt-3 rounded-lg border border-dashed border-slate-200 bg-white p-3 text-slate-500">A company comparison will appear after at least one company has extracted-entity evidence.</p>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <h3 class="font-bold text-slate-900">Entity priorities</h3>
-                            <p class="mt-1 text-[11px] text-slate-500">Priority is based on each entity’s share of verified extracted occurrences.</p>
-                            <div class="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
-                                <?php if ($entityPriorityRowsView): ?>
-                                    <?php foreach (array_slice($entityPriorityRowsView, 0, 10) as $entityPriority): ?>
-                                        <?php
-                                        $entityPriorityName = (string) ($entityPriority['priority'] ?? 'Low');
-                                        $entityPriorityClass = $entityPriorityName === 'High'
-                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                            : ($entityPriorityName === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200');
-                                        ?>
-                                        <div class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-2.5">
-                                            <div class="min-w-0">
-                                                <p class="truncate font-semibold text-slate-800" title="<?= htmlspecialchars((string) $entityPriority['entity'], ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars((string) $entityPriority['entity'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                                <p class="text-[10px] text-slate-500"><?= htmlspecialchars((string) $entityPriority['classification'], ENT_QUOTES, 'UTF-8'); ?> · <?= number_format((float) $entityPriority['share_pct'], 1); ?>% of occurrences</p>
-                                            </div>
-                                            <span class="shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold <?= $entityPriorityClass; ?>"><?= htmlspecialchars($entityPriorityName, ENT_QUOTES, 'UTF-8'); ?></span>
-                                        </div>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <p class="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-slate-500">No verified entities are available for prioritization.</p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- KPI values are shown once in the upper dashboard; this section contains interpretation and actions only. -->
-                    <div class="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-                        <div class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
-                            <h3 class="font-bold text-emerald-950">Strengths</h3>
-                            <div class="mt-3 space-y-2">
-                                <?php if ($cqiStrengthsView): ?>
-                                    <?php foreach ($cqiStrengthsView as $strength): ?>
-                                        <p class="rounded-lg border border-emerald-200 bg-white/80 p-2.5 leading-5 text-emerald-900"><span class="mr-1 font-bold">✓</span><?= htmlspecialchars((string) $strength, ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <p class="rounded-lg border border-dashed border-emerald-200 bg-white/70 p-3 text-emerald-800">No strength threshold has been met yet.</p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <div class="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
-                            <h3 class="font-bold text-amber-950">Priority gaps</h3>
-                            <div class="mt-3 space-y-2">
-                                <?php if ($cqiGapsView): ?>
-                                    <?php foreach ($cqiGapsView as $gap): ?>
-                                        <p class="rounded-lg border border-amber-200 bg-white/80 p-2.5 leading-5 text-amber-950"><span class="mr-1 font-bold">!</span><?= htmlspecialchars((string) $gap, ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <p class="rounded-lg border border-dashed border-amber-200 bg-white/70 p-3 text-amber-800">No priority gaps were identified from the current thresholds.</p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="w-full min-w-0 rounded-xl border border-blue-200 bg-blue-50/40 p-4">
-                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div class="min-w-0">
-                                <h3 class="text-sm font-bold text-blue-950">Overall academic recommendation</h3>
-                                <p class="mt-1 text-[11px] text-blue-800">This recommendation consolidates the live CQI evidence into one improvement direction.</p>
-                            </div>
-                            <span class="shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold <?= htmlspecialchars($recommendationPriorityClassView, ENT_QUOTES, 'UTF-8'); ?>">
-                                <?= htmlspecialchars($recommendationPriorityView, ENT_QUOTES, 'UTF-8'); ?> priority
+                    <!-- 4. Detailed Evidence-Based CQI Summary & Action Plan -->
+                    <section class="cqi-summary-card w-full max-w-none min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 border-l-[#0F2854] bg-white p-4 shadow-xs" aria-labelledby="cqi-heading">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <h2 id="cqi-heading" class="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-900">
+                                <span aria-hidden="true">▣</span> CQI Summary &amp; Action Plan
+                            </h2>
+                            <span class="w-fit rounded-full border px-3 py-1 text-[9px] font-bold <?= htmlspecialchars($cqiStatusClassView, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?= htmlspecialchars($cqiStatusView, ENT_QUOTES, 'UTF-8'); ?>
                             </span>
                         </div>
-                        <p class="mt-3 break-words leading-7 text-slate-700">
-                            <?= htmlspecialchars($cqiOverallRecommendationView !== '' ? $cqiOverallRecommendationView : 'Continue reviewing evaluation completion, company IT-task exposure, extracted-entity coverage, and entity classification during each academic CQI cycle.', ENT_QUOTES, 'UTF-8'); ?>
-                        </p>
-                    </div>
-                </section>
+                        <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-[10px] text-slate-500"><?= htmlspecialchars((string) ($cqiSummaryView['period'] ?? 'Current academic records'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <button type="button" id="cqiEvidenceToggle" aria-expanded="false" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[9px] font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50">View evidence details</button>
+                        </div>
+
+                        <div id="cqiEvidenceDetails" class="mt-3 hidden grid min-w-0 grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[9px] sm:grid-cols-4" aria-hidden="true">
+                            <div class="min-w-0 rounded-lg bg-white p-2"><p class="text-slate-500">Verified evaluations</p><p class="mt-1 font-bold text-slate-900"><?= (int) ($evaluatedStudents ?? 0); ?> / <?= (int) ($totalStudents ?? 0); ?></p></div>
+                            <div class="min-w-0 rounded-lg bg-white p-2"><p class="text-slate-500">Reports with entities</p><p class="mt-1 font-bold text-slate-900"><?= (int) $reportsWithEntitiesView; ?> / <?= (int) $totalReportsView; ?></p></div>
+                            <div class="min-w-0 rounded-lg bg-white p-2"><p class="text-slate-500">Technical / Clerical</p><p class="mt-1 font-bold text-slate-900"><?= number_format($technicalActivityPct, 1); ?>% / <?= number_format($clericalActivityPct, 1); ?>%</p></div>
+                            <div class="min-w-0 rounded-lg bg-white p-2"><p class="text-slate-500">Extraction confidence</p><p class="mt-1 font-bold text-slate-900"><?= number_format($confidenceView, 1); ?>%</p></div>
+                        </div>
+
+                        <div class="mt-2 grid min-w-0 grid-cols-1 gap-x-5 gap-y-1 md:grid-cols-2 text-[10px]">
+                            <div class="min-w-0 space-y-1.5">
+                                <?php if ($highestItCompanyView): ?>
+                                    <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                        <span class="mt-1 text-slate-500">•</span>
+                                        <span>The company with the highest IT-related task ratio is <strong><?= htmlspecialchars((string) $highestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></strong> at <strong class="text-emerald-700"><?= number_format((float) $highestItCompanyView['it_task_ratio'], 1); ?>%</strong>, based on <?= (int) $highestItCompanyView['it_related_occurrences']; ?> of <?= (int) $highestItCompanyView['entity_occurrences']; ?> verified entity occurrences.</span>
+                                    </p>
+                                <?php else: ?>
+                                    <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700"><span class="mt-1 text-slate-500">•</span><span>No company currently has enough extracted-entity evidence for an IT-task comparison.</span></p>
+                                <?php endif; ?>
+
+                                <?php if ($lowestItCompanyView): ?>
+                                    <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                        <span class="mt-1 text-slate-500">•</span>
+                                        <span>The company with the lowest IT-related task ratio is <strong><?= htmlspecialchars((string) $lowestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></strong> at <strong class="text-amber-700"><?= number_format((float) $lowestItCompanyView['it_task_ratio'], 1); ?>%</strong>, based on <?= (int) $lowestItCompanyView['it_related_occurrences']; ?> of <?= (int) $lowestItCompanyView['entity_occurrences']; ?> verified entity occurrences.</span>
+                                    </p>
+                                <?php endif; ?>
+
+                                <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                    <span class="mt-1 text-slate-500">•</span>
+                                    <span>Academic evidence coverage is <?= number_format($evaluationCoverageView, 1); ?>% for verified evaluations and <?= $totalReportsView > 0 ? number_format(($reportsWithEntitiesView / $totalReportsView) * 100, 1) : '0.0'; ?>% for reports with persisted extracted entities.</span>
+                                </p>
+
+                                <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                    <span class="mt-1 text-slate-500">•</span>
+                                    <span>Recorded activity is <?= number_format($technicalActivityPct, 1); ?>% technical and <?= number_format($clericalActivityPct, 1); ?>% clerical, which should be reviewed against the academic program’s expected learning outcomes.</span>
+                                </p>
+                            </div>
+
+                            <div class="min-w-0 space-y-1.5">
+                                <?php
+                                $highPriorityNames = array_map(static fn (array $row): string => (string) ($row['entity'] ?? ''), $entityPriorityGroupsView['High']);
+                                $mediumPriorityNames = array_map(static fn (array $row): string => (string) ($row['entity'] ?? ''), $entityPriorityGroupsView['Medium']);
+                                $lowPriorityNames = array_map(static fn (array $row): string => (string) ($row['entity'] ?? ''), $entityPriorityGroupsView['Low']);
+                                $lowPriorityCount = count($entityPriorityGroupsView['Low']);
+                                ?>
+                                <div class="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2" role="tablist" aria-label="Entity priority filter">
+                                    <span class="mr-1 text-[10px] font-bold text-slate-500">View priority:</span>
+                                    <button type="button" data-cqi-priority-tab="all" aria-selected="true" class="cqi-priority-tab rounded-md bg-slate-900 px-2 py-1 text-[10px] font-bold text-white">All</button>
+                                    <button type="button" data-cqi-priority-tab="High" aria-selected="false" class="cqi-priority-tab rounded-md px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-700">High</button>
+                                    <button type="button" data-cqi-priority-tab="Medium" aria-selected="false" class="cqi-priority-tab rounded-md px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-amber-50 hover:text-amber-700">Medium</button>
+                                    <button type="button" data-cqi-priority-tab="Low" aria-selected="false" class="cqi-priority-tab rounded-md px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-700">Low</button>
+                                </div>
+                                <div id="cqiPriorityDetails" class="rounded-lg border border-slate-200 bg-white p-2 text-[10px]" aria-live="polite">
+                                    <p class="font-semibold text-slate-700">All entity priority levels are currently shown in the summary.</p>
+                                </div>
+                                <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                    <span class="mt-1 text-slate-500">•</span>
+                                        <span><strong>Entity priorities:</strong> <?= $highPriorityNames ? 'High-priority entities include ' . htmlspecialchars(implode(', ', $highPriorityNames), ENT_QUOTES, 'UTF-8') . '.' : 'No High-priority entities are currently recorded.'; ?> <?= $mediumPriorityNames ? 'Medium-priority entities include ' . htmlspecialchars(implode(', ', $mediumPriorityNames), ENT_QUOTES, 'UTF-8') . '.' : ''; ?> <?= $lowPriorityCount > 0 ? $lowPriorityCount . ' Low-priority entr' . ($lowPriorityCount === 1 ? 'y is' : 'ies are') . ' being monitored.' : ''; ?></span>
+                                </p>
+
+                                <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                    <span class="mt-1 text-slate-500">•</span>
+                                    <span><strong>Academic interpretation:</strong> <?= htmlspecialchars((string) ($cqiSummaryView['narrative'] ?? 'The current CQI evidence should be reviewed before academic decisions are made.'), ENT_QUOTES, 'UTF-8'); ?></span>
+                                </p>
+
+                                <?php if ($cqiGapsView): ?>
+                                    <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                        <span class="mt-1 text-rose-600">•</span>
+                                        <span><strong>Priority gap:</strong> <?= htmlspecialchars(implode(' ', array_map(static fn ($gap): string => (string) $gap, $cqiGapsView)), ENT_QUOTES, 'UTF-8'); ?></span>
+                                    </p>
+                                <?php endif; ?>
+
+                                <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
+                                    <span class="mt-1 text-rose-600">•</span>
+                                    <span><strong class="text-rose-700">Action Plan:</strong> <?= htmlspecialchars($cqiOverallRecommendationView !== '' ? $cqiOverallRecommendationView : 'Use the next academic CQI cycle to verify evaluation completion, improve report extraction coverage, compare company IT-task exposure, and review entity classifications against the program learning outcomes.', ENT_QUOTES, 'UTF-8'); ?></span>
+                                </p>
+                            </div>
+                        </div>
+                    </section>
 
             </main>
         </div>
@@ -758,7 +747,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                         y: {
                             grid: { display: false },
                             ticks: {
-                                font: { family: 'Inter', size: 11, weight: '600' },
+                                font: { family: 'Inter', size: 11, weight: '400' },
                                 color: '#334155',
                                 autoSkip: false
                             }
@@ -771,6 +760,60 @@ $cqiStatusClassView = match ($cqiStatusView) {
             entityChartInstance.config._entityItems = filtered;
             entityChartInstance.update();
         }
+
+        const cqiPriorityEntities = <?= json_encode([
+            'High' => $highPriorityNames,
+            'Medium' => $mediumPriorityNames,
+            'Low' => $lowPriorityNames
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+
+        function toggleCqiEvidence() {
+            const button = document.getElementById('cqiEvidenceToggle');
+            const panel = document.getElementById('cqiEvidenceDetails');
+            if (!button || !panel) return;
+            const expanded = button.getAttribute('aria-expanded') === 'true';
+            button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+            panel.classList.toggle('hidden', expanded);
+            panel.setAttribute('aria-hidden', expanded ? 'true' : 'false');
+            button.textContent = expanded ? 'View evidence details' : 'Hide evidence details';
+        }
+
+        function renderCqiPriorityDetails(priority) {
+            const details = document.getElementById('cqiPriorityDetails');
+            if (!details) return;
+            details.textContent = '';
+
+            if (priority === 'all') {
+                const summary = document.createElement('p');
+                summary.className = 'font-semibold text-slate-700';
+                summary.textContent = 'All entity priority levels are currently shown in the summary.';
+                details.appendChild(summary);
+                return;
+            }
+
+            const names = cqiPriorityEntities[priority] || [];
+            const sentence = document.createElement('p');
+            sentence.className = 'leading-5 text-slate-700';
+            sentence.textContent = names.length
+                ? `${priority}-priority entities currently include ${names.join(', ')}.`
+                : `No ${priority}-priority entities are currently recorded.`;
+            details.appendChild(sentence);
+        }
+
+        document.getElementById('cqiEvidenceToggle')?.addEventListener('click', toggleCqiEvidence);
+        document.querySelectorAll('[data-cqi-priority-tab]').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const selected = tab.dataset.cqiPriorityTab || 'all';
+                document.querySelectorAll('[data-cqi-priority-tab]').forEach(item => {
+                    const active = item === tab;
+                    item.setAttribute('aria-selected', active ? 'true' : 'false');
+                    item.classList.toggle('bg-slate-900', active);
+                    item.classList.toggle('text-white', active);
+                    item.classList.toggle('text-slate-600', !active);
+                });
+                renderCqiPriorityDetails(selected);
+            });
+        });
 
         // Initial render on page load
         renderEntityChart();
