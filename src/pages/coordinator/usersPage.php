@@ -33,16 +33,22 @@
 
                 <!-- Alert Messages -->
                 <?php if (!empty($success)): ?>
-                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-4 rounded-2xl font-medium flex items-center gap-2 shadow-2xs">
-                        <span class="font-bold">✓</span>
-                        <span><?= htmlspecialchars($success); ?></span>
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-4 rounded-2xl font-medium flex items-center justify-between shadow-2xs">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold">✓</span>
+                            <span><?= htmlspecialchars($success); ?></span>
+                        </div>
+                        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-500 font-bold hover:text-emerald-800 cursor-pointer">✕</button>
                     </div>
                 <?php endif; ?>
 
                 <?php if (!empty($error)): ?>
-                    <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-4 rounded-2xl font-medium flex items-center gap-2 shadow-2xs">
-                        <span class="font-bold">✕</span>
-                        <span><?= htmlspecialchars($error); ?></span>
+                    <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-4 rounded-2xl font-medium flex items-center justify-between shadow-2xs">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold">✕</span>
+                            <span><?= htmlspecialchars($error); ?></span>
+                        </div>
+                        <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 font-bold hover:text-rose-800 cursor-pointer">✕</button>
                     </div>
                 <?php endif; ?>
 
@@ -54,7 +60,7 @@
                         <div>
                             <h1 class="text-base font-bold text-slate-900 leading-snug">User Directory</h1>
                             <p class="text-xs font-medium text-slate-500 mt-0.5">
-                                Manage intern, supervisor, and partner company records.
+                                Manage students, supervisors, and partner companies.
                             </p>
                         </div>
 
@@ -73,13 +79,13 @@
                                 </button>
 
                                 <div id="addMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 text-xs overflow-hidden p-1.5">
-                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addStudentModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-[#0F2854] hover:text-white font-medium transition-all duration-200">
+                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addStudentModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-[#0F2854] hover:text-white font-medium transition-all duration-200 cursor-pointer">
                                         <span>Student Intern</span>
                                     </button>
-                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addSupervisorModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-[#0F2854] hover:text-white font-medium transition-all duration-200">
+                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addSupervisorModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-[#0F2854] hover:text-white font-medium transition-all duration-200 cursor-pointer">
                                         <span>Company Supervisor</span>
                                     </button>
-                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addCompanyModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-[#0F2854] hover:text-white font-medium transition-all duration-200">
+                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addCompanyModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-[#0F2854] hover:text-white font-medium transition-all duration-200 cursor-pointer">
                                         <span>Partner Company</span>
                                     </button>
                                 </div>
@@ -87,7 +93,7 @@
                         </div>
                     </div>
 
-                    <!-- 2. Integrated Tabs & Search Controls -->
+                    <!-- 2. Integrated Tabs, Section Selector & Live Search -->
                     <div class="p-4 border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/40">
                         
                         <!-- Navigation Tabs -->
@@ -113,15 +119,29 @@
                             </a>
                         </div>
 
-                        <!-- Instant Live Search Field -->
-                        <div class="relative w-full md:w-72">
-                            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                            <input 
-                                type="text" 
-                                id="userSearchInput"
-                                placeholder="Search in <?= htmlspecialchars($tab ?? 'students'); ?>..." 
-                                class="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0F2854]"
-                            >
+                        <!-- Search & Section Filter Bar -->
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            <?php if (($tab ?? 'students') === 'students'): ?>
+                                <select onchange="location.href='users.php?tab=students&section=' + this.value" class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                                    <option value="all" <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>>All Sections</option>
+                                    <?php foreach ($activeSections as $sec): ?>
+                                        <option value="<?= htmlspecialchars($sec); ?>" <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>>
+                                            Section <?= htmlspecialchars($sec); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php endif; ?>
+
+                            <!-- Instant Live Search -->
+                            <div class="relative w-full md:w-64">
+                                <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                                <input 
+                                    type="text" 
+                                    id="userSearchInput"
+                                    placeholder="Search <?= htmlspecialchars($tab ?? 'students'); ?>..." 
+                                    class="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0F2854]"
+                                >
+                            </div>
                         </div>
                     </div>
 
@@ -135,7 +155,7 @@
                                     <thead>
                                         <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
                                             <th class="py-4 px-6">Student Intern</th>
-                                            <th class="py-4 px-6">Program</th>
+                                            <th class="py-4 px-6">Section</th>
                                             <th class="py-4 px-6">Company & Supervisor</th>
                                             <th class="py-4 px-6 text-right">Actions</th>
                                         </tr>
@@ -160,7 +180,7 @@
                                                 </td>
                                                 <td class="py-4 px-6 whitespace-nowrap">
                                                     <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 text-[#0F2854] font-bold text-xs border border-blue-100">
-                                                        <?= htmlspecialchars($s['program'] ?? 'BSIT'); ?>
+                                                        Section <?= htmlspecialchars($s['section'] ?? 'A'); ?>
                                                     </span>
                                                 </td>
                                                 <td class="py-4 px-6 whitespace-nowrap">
@@ -187,7 +207,7 @@
                             </div>
                         <?php else: ?>
                             <div class="py-16 text-center text-slate-500 text-xs italic">
-                                No active students registered yet. Click "+ Add New" or "Import CSV" above to begin.
+                                No students registered in this section yet. Click "+ Add New" or "Import CSV" above to begin.
                             </div>
                         <?php endif; ?>
 
@@ -356,17 +376,24 @@
                     <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
                     <input type="text" name="name" required placeholder="e.g., Katelyn Coming" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
                 </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Student ID Number</label>
-                    <input type="text" name="student_number" required placeholder="e.g., 2023-IT01" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Student ID Number</label>
+                        <input type="text" name="student_number" required placeholder="e.g., 2023-IT01" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Section</label>
+                        <select name="section" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold text-slate-800 focus:outline-none focus:border-[#0F2854]">
+                            <option value="A">Section A</option>
+                            <option value="B">Section B</option>
+                            <option value="C">Section C</option>
+                            <option value="D">Section D</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
                     <input type="email" name="email" required placeholder="student@nbsc.edu.ph" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Program</label>
-                    <input type="text" name="program" value="BSIT" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" onclick="toggleModal('addStudentModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold cursor-pointer">Cancel</button>
@@ -429,13 +456,13 @@
         </div>
     </div>
 
-    <!-- MODAL: BULK IMPORT -->
+    <!-- MODAL: BULK IMPORT (Simplified 4 Columns: Name, ID, Email, Section) -->
     <div id="bulkImportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
             <h3 class="text-base font-bold text-slate-900">Bulk Import Students (.csv)</h3>
             <p class="text-xs text-slate-500 leading-relaxed">
-                Upload a CSV file with columns formatted in this order: <br>
-                <span class="font-bold text-slate-700">Full Name, Student ID, Email Address, Program</span>
+                Upload a CSV file formatted with these 4 columns: <br>
+                <span class="font-bold text-slate-700">Full Name, Student ID, Email Address, Section</span>
             </p>
             
             <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
@@ -466,17 +493,24 @@
                     <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
                     <input type="text" name="name" id="edit_student_name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
                 </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Student ID Number</label>
-                    <input type="text" name="student_number" id="edit_student_number" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Student ID Number</label>
+                        <input type="text" name="student_number" id="edit_student_number" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Section</label>
+                        <select name="section" id="edit_student_section" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold text-slate-800 focus:outline-none focus:border-[#0F2854]">
+                            <option value="A">Section A</option>
+                            <option value="B">Section B</option>
+                            <option value="C">Section C</option>
+                            <option value="D">Section D</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
                     <input type="email" name="email" id="edit_student_email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Program</label>
-                    <input type="text" name="program" id="edit_student_program" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" onclick="toggleModal('editStudentModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold cursor-pointer">Cancel</button>
@@ -524,16 +558,12 @@
     <script>
         function toggleModal(id) {
             const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.toggle('hidden');
-            }
+            if (modal) modal.classList.toggle('hidden');
         }
 
         function toggleAddMenu() {
             const menu = document.getElementById('addMenu');
-            if (menu) {
-                menu.classList.toggle('hidden');
-            }
+            if (menu) menu.classList.toggle('hidden');
         }
 
         window.addEventListener('click', function(e) {
@@ -549,7 +579,7 @@
             document.getElementById('edit_student_name').value = student.name;
             document.getElementById('edit_student_number').value = student.student_number;
             document.getElementById('edit_student_email').value = student.email;
-            document.getElementById('edit_student_program').value = student.program;
+            document.getElementById('edit_student_section').value = student.section || 'A';
             toggleModal('editStudentModal');
         }
 
@@ -561,7 +591,7 @@
             toggleModal('editSupervisorModal');
         }
 
-        // Instant Live Search Filter
+        // Live Search Filter
         const searchInput = document.getElementById('userSearchInput');
         if (searchInput) {
             searchInput.addEventListener('input', function() {
