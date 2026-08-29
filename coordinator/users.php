@@ -13,25 +13,25 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
     exit();
 }
 
-$coordinatorId = $_SESSION['user_id'];
-$tab           = $_GET['tab'] ?? 'students';
-$success       = $_SESSION['flash_success'] ?? null;
-$error         = $_SESSION['flash_error'] ?? null;
+$coordinatorId   = $_SESSION['user_id'];
+$tab             = $_GET['tab'] ?? 'students';
+$selectedSection = $_GET['section'] ?? 'all';
+$success         = $_SESSION['flash_success'] ?? null;
+$error           = $_SESSION['flash_error'] ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// Initialize Mailer Service
 $mailer = new MailerService();
 
 // 2. Handle POST Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    // Action A: Create Student Account & Send Invite
+    // Action A: Create Student Account
     if ($action === 'create_student') {
         $name          = trim($_POST['name'] ?? '');
         $studentNumber = trim($_POST['student_number'] ?? '');
         $email         = strtolower(trim($_POST['email'] ?? ''));
-        $program       = trim($_POST['program'] ?? 'BSIT');
+        $section       = strtoupper(trim($_POST['section'] ?? 'A'));
 
         if (!empty($name) && !empty($studentNumber) && !empty($email)) {
             try {
@@ -51,17 +51,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $stmtStudent = $pdo->prepare("
-                    INSERT INTO students (user_id, student_number, program) 
-                    VALUES (?, ?, ?)
-                    ON DUPLICATE KEY UPDATE student_number = VALUES(student_number), program = VALUES(program)
+                    INSERT INTO students (user_id, student_number, program, section) 
+                    VALUES (?, ?, 'BSIT', ?)
+                    ON DUPLICATE KEY UPDATE student_number = VALUES(student_number), program = 'BSIT', section = VALUES(section)
                 ");
-                $stmtStudent->execute([$userId, $studentNumber, $program]);
+                $stmtStudent->execute([$userId, $studentNumber, $section]);
 
-                logActivity($pdo, $coordinatorId, 'coordinator', 'STUDENT_CREATED', "Added student {$name} ({$studentNumber} - {$email}).");
+                logActivity($pdo, $coordinatorId, 'coordinator', 'STUDENT_CREATED', "Added student {$name} ({$studentNumber} - Section {$section}).");
                 $pdo->commit();
 
                 $mailSent = $mailer->sendWelcomeEmail($email, $name, 'student');
-                $_SESSION['flash_success'] = "Student {$name} added successfully!" . ($mailSent ? " Invitation email dispatched." : " (Email notification could not be sent).");
+                $_SESSION['flash_success'] = "Student {$name} (Section {$section}) added successfully!" . ($mailSent ? " Invitation email dispatched." : "");
             } catch (Exception $e) {
                 $pdo->rollBack();
                 $_SESSION['flash_error'] = "Failed to add student: " . $e->getMessage();
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Action B: Create Supervisor Account & Send Invite
+    // Action B: Create Supervisor Account
     if ($action === 'create_supervisor') {
         $name      = trim($_POST['name'] ?? '');
         $email     = strtolower(trim($_POST['email'] ?? ''));
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->commit();
 
                 $mailSent = $mailer->sendWelcomeEmail($email, $name, 'supervisor');
-                $_SESSION['flash_success'] = "Supervisor {$name} added successfully!" . ($mailSent ? " Invitation email dispatched." : " (Email notification could not be sent).");
+                $_SESSION['flash_success'] = "Supervisor {$name} added successfully!" . ($mailSent ? " Invitation email dispatched." : "");
             } catch (Exception $e) {
                 $pdo->rollBack();
                 $_SESSION['flash_error'] = "Failed to add supervisor: " . $e->getMessage();
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Action D: Bulk Import Students
+    // Action D: Bulk Import Students via CSV (4 Columns: Name, ID, Email, Section)
     if ($action === 'bulk_import_students' && isset($_FILES['excel_file'])) {
         $file = $_FILES['excel_file'];
         if ($file['error'] === UPLOAD_ERR_OK) {
@@ -155,6 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
                         $rowNumber++;
+                        // Skip header row
                         if ($rowNumber === 1 && (stripos($data[0], 'name') !== false || stripos($data[1], 'id') !== false)) {
                             continue;
                         }
@@ -162,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stdName   = trim($data[0] ?? '');
                         $stdNumber = trim($data[1] ?? '');
                         $stdEmail  = strtolower(trim($data[2] ?? ''));
-                        $stdProg   = trim($data[3] ?? 'BSIT');
+                        $stdSec    = strtoupper(trim($data[3] ?? 'A')); // Column 4: Section
 
                         if (!empty($stdName) && !empty($stdNumber) && !empty($stdEmail)) {
                             $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
@@ -179,11 +180,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
 
                             $insS = $pdo->prepare("
-                                INSERT INTO students (user_id, student_number, program)
-                                VALUES (?, ?, ?)
-                                ON DUPLICATE KEY UPDATE student_number = VALUES(student_number), program = VALUES(program)
+                                INSERT INTO students (user_id, student_number, program, section)
+                                VALUES (?, ?, 'BSIT', ?)
+                                ON DUPLICATE KEY UPDATE student_number = VALUES(student_number), program = 'BSIT', section = VALUES(section)
                             ");
-                            $insS->execute([$uid, $stdNumber, $stdProg ?: 'BSIT']);
+                            $insS->execute([$uid, $stdNumber, $stdSec ?: 'A']);
                             $importedCount++;
 
                             $studentsToNotify[] = ['email' => $stdEmail, 'name' => $stdName];
@@ -197,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $mailer->sendWelcomeEmail($recipient['email'], $recipient['name'], 'student');
                     }
 
-                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} student records and sent invitations!";
+                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} student records!";
                 } catch (Exception $e) {
                     $pdo->rollBack();
                     $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . $e->getMessage();
@@ -225,8 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($role === 'student') {
                     $stdNumber = trim($_POST['student_number'] ?? '');
-                    $program   = trim($_POST['program'] ?? 'BSIT');
-                    $pdo->prepare("UPDATE students SET student_number = ?, program = ? WHERE user_id = ?")->execute([$stdNumber, $program, $userId]);
+                    $section   = strtoupper(trim($_POST['section'] ?? 'A'));
+                    $pdo->prepare("UPDATE students SET student_number = ?, section = ? WHERE user_id = ?")->execute([$stdNumber, $section, $userId]);
                 } elseif ($role === 'supervisor') {
                     $companyId = !empty($_POST['company_id']) ? intval($_POST['company_id']) : null;
                     $pdo->prepare("UPDATE supervisors SET company_id = ? WHERE user_id = ?")->execute([$companyId, $userId]);
@@ -242,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Action F: Archive User (Soft Delete)
+    // Action F: Archive User
     if ($action === 'archive_user') {
         $userId      = (int)($_POST['user_id'] ?? 0);
         $redirectTab = $_POST['redirect_tab'] ?? 'students';
@@ -253,8 +254,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             logActivity($pdo, $coordinatorId, 'coordinator', 'USER_ARCHIVED', "Archived user account ID {$userId}.");
             $_SESSION['flash_success'] = "Account archived successfully.";
-        } else {
-            $_SESSION['flash_error'] = "Unable to archive this account.";
         }
         header("Location: users.php?tab=" . $redirectTab);
         exit();
@@ -267,65 +266,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("UPDATE users SET status = 'active', archived_at = NULL WHERE id = ?");
             $stmt->execute([$userId]);
 
-            logActivity($pdo, $coordinatorId, 'coordinator', 'USER_RESTORED', "Restored archived user ID {$userId} to active status.");
+            logActivity($pdo, $coordinatorId, 'coordinator', 'USER_RESTORED', "Restored user ID {$userId}.");
             $_SESSION['flash_success'] = "Account restored to active status.";
         }
         header("Location: users.php?tab=archived");
         exit();
     }
 
-    // Action H: Permanently Delete User (Hard Delete)
+    // Action H: Permanently Delete User
     if ($action === 'delete_user_permanently') {
         $userId = (int)($_POST['user_id'] ?? 0);
 
         if ($userId > 0 && $userId !== $coordinatorId) {
             try {
                 $pdo->beginTransaction();
-
-                $stmtCheck = $pdo->prepare("SELECT name, email, role FROM users WHERE id = ?");
-                $stmtCheck->execute([$userId]);
-                $targetUser = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-
-                if ($targetUser) {
-                    $pdo->prepare("UPDATE students SET supervisor_id = NULL WHERE supervisor_id IN (SELECT id FROM supervisors WHERE user_id = ?)")->execute([$userId]);
-                    $pdo->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
-                    $pdo->prepare("DELETE FROM supervisors WHERE user_id = ?")->execute([$userId]);
-                    $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
-
-                    logActivity($pdo, $coordinatorId, 'coordinator', 'USER_DELETED_PERMANENTLY', "Permanently deleted user {$targetUser['name']} ({$targetUser['email']}).");
-
-                    $pdo->commit();
-                    $_SESSION['flash_success'] = "Account permanently deleted from the database.";
-                } else {
-                    $pdo->rollBack();
-                    $_SESSION['flash_error'] = "User record not found.";
-                }
+                $pdo->prepare("UPDATE students SET supervisor_id = NULL WHERE supervisor_id IN (SELECT id FROM supervisors WHERE user_id = ?)")->execute([$userId]);
+                $pdo->prepare("DELETE FROM students WHERE user_id = ?")->execute([$userId]);
+                $pdo->prepare("DELETE FROM supervisors WHERE user_id = ?")->execute([$userId]);
+                $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
+                $pdo->commit();
+                $_SESSION['flash_success'] = "Account permanently deleted.";
             } catch (Exception $e) {
                 $pdo->rollBack();
                 $_SESSION['flash_error'] = "Deletion failed: " . $e->getMessage();
             }
-        } else {
-            $_SESSION['flash_error'] = "Cannot delete the active coordinator account.";
         }
         header("Location: users.php?tab=archived");
         exit();
     }
 }
 
-// 3. Fetch Dynamic Data for View
-$students      = [];
-$supervisors   = [];
-$companies     = [];
-$archivedUsers = [];
+// 3. Fetch Dynamic Data
+$students       = [];
+$supervisors    = [];
+$companies      = [];
+$archivedUsers  = [];
+$activeSections = [];
 
 try {
-    // Active Students
-    $stmtStd = $pdo->query("
+    $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
+    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: ['A', 'B', 'C'];
+
+    $whereStudent = ["u.status = 'active'"];
+    $stdParams = [];
+
+    if ($selectedSection !== 'all') {
+        $whereStudent[] = "s.section = :sec";
+        $stdParams['sec'] = $selectedSection;
+    }
+
+    $whereStudentSql = "WHERE " . implode(' AND ', $whereStudent);
+
+    $stmtStd = $pdo->prepare("
         SELECT 
             u.id AS user_id,
             s.id AS student_id,
             s.student_number,
             s.program,
+            COALESCE(s.section, 'A') AS section,
             u.name,
             u.email,
             u.avatar_url,
@@ -337,12 +335,12 @@ try {
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN companies c ON sup.company_id = c.id
-        WHERE u.status = 'active'
-        ORDER BY u.name ASC
+        {$whereStudentSql}
+        ORDER BY s.section ASC, u.name ASC
     ");
+    $stmtStd->execute($stdParams);
     $students = $stmtStd->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // Active Supervisors
     $stmtSup = $pdo->query("
         SELECT 
             u.id AS user_id,
@@ -364,7 +362,6 @@ try {
     ");
     $supervisors = $stmtSup->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // Companies
     $stmtComp = $pdo->query("
         SELECT 
             c.id,
@@ -379,7 +376,6 @@ try {
     ");
     $companies = $stmtComp->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // Archived Accounts
     $stmtArch = $pdo->query("
         SELECT id, name, email, role, archived_at, avatar_url
         FROM users
