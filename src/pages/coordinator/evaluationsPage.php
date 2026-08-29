@@ -34,23 +34,7 @@ date_default_timezone_set('Asia/Manila');
             <!-- Main Workspace -->
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1 relative">
 
-                <!-- Header Actions Card -->
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
-                    <div>
-                        <h1 class="text-base font-bold text-slate-900 leading-snug">Final Student Evaluations</h1>
-                        <p class="text-xs font-medium text-slate-500 mt-1">
-                            Supervisor evaluation scores and sign-off records.
-                        </p>
-                    </div>
-
-                    <!-- Counter Pill -->
-                    <div class="flex items-center gap-3 shrink-0">
-                        <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold shadow-2xs">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <?= count($filteredEvals ?? []); ?> Total <?= count($filteredEvals ?? []) === 1 ? 'Record' : 'Records'; ?>
-                        </span>
-                    </div>
-                </div>
+                
 
                 <!-- 1. Top Stat Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
