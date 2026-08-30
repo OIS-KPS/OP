@@ -374,12 +374,12 @@
                 <input type="hidden" name="action" value="create_student">
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
-                    <input type="text" name="name" required placeholder="e.g., Katelyn Coming" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
+                    <input type="text" name="name" required placeholder="e.g., Taylor Swift" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Student ID Number</label>
-                        <input type="text" name="student_number" required placeholder="e.g., 2023-IT01" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
+                        <input type="text" name="student_number" required placeholder="20231053" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
                     </div>
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Section</label>
@@ -393,7 +393,7 @@
                 </div>
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
-                    <input type="email" name="email" required placeholder="student@nbsc.edu.ph" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
+                    <input type="email" name="email" required placeholder="studentID@nbsc.edu.ph" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#0F2854]">
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" onclick="toggleModal('addStudentModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold cursor-pointer">Cancel</button>
