@@ -15,28 +15,39 @@ $pageTitle = "Final Evaluations";
 // 2. Filter Inputs
 $selectedCompany = $_GET['company_id'] ?? 'all';
 $selectedStatus  = $_GET['status'] ?? 'all';
-$searchQuery     = isset($_GET['search']) ? trim($_GET['search']) : '';
+$selectedSection = $_GET['section'] ?? 'all';
+$searchQuery     = trim($_GET['search'] ?? '');
 $viewEvalId      = isset($_GET['view_id']) ? intval($_GET['view_id']) : null;
 
 $filteredEvals  = [];
 $companiesList  = [];
+$activeSections = [];
 $activeEval     = null;
 $totalCount     = 0;
 $completedCount = 0;
 $pendingCount   = 0;
 
 try {
-    // 3. Fetch Companies for Filter Dropdown
+    // Distinct Companies
     $stmtCompanies = $pdo->query("SELECT id, name FROM companies WHERE name IS NOT NULL AND name != '' ORDER BY name ASC");
     $companiesList = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 4. Query Students and Evaluations
+    // Distinct Sections
+    $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
+    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: ['A', 'B', 'C'];
+
+    // 3. Build Query Filters
     $whereClauses = ["1=1"];
     $params = [];
 
     if ($selectedCompany !== 'all' && is_numeric($selectedCompany) && intval($selectedCompany) > 0) {
         $whereClauses[] = "c.id = :comp_id";
         $params['comp_id'] = intval($selectedCompany);
+    }
+
+    if ($selectedSection !== 'all') {
+        $whereClauses[] = "s.section = :sec";
+        $params['sec'] = $selectedSection;
     }
 
     if ($selectedStatus === 'Completed') {
@@ -59,12 +70,13 @@ try {
             s.id AS student_id,
             s.student_number,
             s.program,
+            COALESCE(s.section, 'A') AS section,
             u.name AS student_name,
             u.email AS student_email,
             u.avatar_url AS student_avatar,
             c.id AS company_id,
-            COALESCE(c.name, 'Unassigned Office') AS company_name,
-            COALESCE(u_sup.name, 'Assigned Supervisor') AS supervisor_name,
+            COALESCE(c.name, 'Unassigned') AS company_name,
+            COALESCE(u_sup.name, 'Pending Assignment') AS supervisor_name,
             e.id AS eval_id,
             e.technical_score,
             e.work_ethics_score,
@@ -87,14 +99,14 @@ try {
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN evaluations e ON s.id = e.student_id
         {$whereSql}
-        ORDER BY u.name ASC
+        ORDER BY s.section ASC, u.name ASC
     ";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $filteredEvals = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 5. Global Metric Counts
+    // 4. Metric Counts
     $stmtTotals = $pdo->query("
         SELECT 
             COUNT(s.id) AS total_interns,
@@ -109,7 +121,7 @@ try {
     $completedCount = intval($stats['completed_evals'] ?? 0);
     $pendingCount   = intval($stats['pending_evals'] ?? 0);
 
-    // 6. Modal Record Detail Loader
+    // 5. Modal Record Loader
     if ($viewEvalId) {
         foreach ($filteredEvals as $ev) {
             if (intval($ev['eval_id'] ?? 0) === $viewEvalId || intval($ev['student_id']) === $viewEvalId) {
