@@ -7,7 +7,7 @@ date_default_timezone_set('Asia/Manila');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Final Evaluations - Coordinator Portal</title>
+    <title>Final Evaluations - OJT Portal</title>
     <!-- Inter Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,7 +34,7 @@ date_default_timezone_set('Asia/Manila');
             <!-- Main Workspace -->
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1 relative">
 
-                <!-- 1. Top Stat Cards (Clean Vector SVGs) -->
+                <!-- 1. Top Stat Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
                     
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
@@ -81,12 +81,12 @@ date_default_timezone_set('Asia/Manila');
                 <!-- 2. Unified Evaluations Container -->
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                     
-                    <!-- Header Toolbar Banner -->
+                    <!-- Header Banner -->
                     <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                            <h1 class="text-base font-bold text-slate-900 leading-snug">Final Student Evaluations</h1>
+                            <h1 class="text-base font-bold text-slate-900 leading-snug">Final Evaluations</h1>
                             <p class="text-xs font-medium text-slate-500 mt-0.5">
-                                Supervisor evaluation ratings, and OTP verification records.
+                                Supervisor ratings, final grades, and sign-off records.
                             </p>
                         </div>
 
@@ -98,7 +98,7 @@ date_default_timezone_set('Asia/Manila');
                         </div>
                     </div>
 
-                    <!-- Integrated Filter & Live Search Toolbar -->
+                    <!-- Clean Integrated Filter Toolbar -->
                     <div class="p-4 border-b border-slate-100 bg-slate-50/40">
                         <form id="filterForm" method="GET" action="evaluations.php" class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
                             
@@ -110,13 +110,25 @@ date_default_timezone_set('Asia/Manila');
                                     id="searchInput"
                                     name="search" 
                                     value="<?= htmlspecialchars($searchQuery ?? ''); ?>" 
-                                    placeholder="Search by student name or ID number..." 
+                                    placeholder="Search student name or ID..." 
                                     class="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0F2854]"
                                 >
                             </div>
 
+                            <!-- Filter Section -->
+                            <div class="w-full md:w-40">
+                                <select name="section" onchange="this.form.submit()" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                                    <option value="all" <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>>All Sections</option>
+                                    <?php foreach ($activeSections as $sec): ?>
+                                        <option value="<?= htmlspecialchars($sec); ?>" <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>>
+                                            Section <?= htmlspecialchars($sec); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
                             <!-- Filter Company -->
-                            <div class="w-full md:w-56">
+                            <div class="w-full md:w-52">
                                 <select name="company_id" onchange="this.form.submit()" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#0F2854] cursor-pointer">
                                     <option value="all" <?= ($selectedCompany ?? 'all') === 'all' ? 'selected' : ''; ?>>All Companies</option>
                                     <?php foreach ($companiesList as $comp): ?>
@@ -128,7 +140,7 @@ date_default_timezone_set('Asia/Manila');
                             </div>
 
                             <!-- Filter Status -->
-                            <div class="w-full md:w-40">
+                            <div class="w-full md:w-36">
                                 <select name="status" onchange="this.form.submit()" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#0F2854] cursor-pointer">
                                     <option value="all" <?= ($selectedStatus ?? 'all') === 'all' ? 'selected' : ''; ?>>All Statuses</option>
                                     <option value="Completed" <?= ($selectedStatus ?? '') === 'Completed' ? 'selected' : ''; ?>>Completed</option>
@@ -136,7 +148,7 @@ date_default_timezone_set('Asia/Manila');
                                 </select>
                             </div>
 
-                            <?php if (!empty($searchQuery) || ($selectedCompany ?? 'all') !== 'all' || ($selectedStatus ?? 'all') !== 'all'): ?>
+                            <?php if (!empty($searchQuery) || ($selectedSection ?? 'all') !== 'all' || ($selectedCompany ?? 'all') !== 'all' || ($selectedStatus ?? 'all') !== 'all'): ?>
                                 <div class="w-full md:w-auto">
                                     <a href="evaluations.php" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded-xl border border-slate-200 transition-all inline-block text-center whitespace-nowrap">
                                         Reset
@@ -153,6 +165,7 @@ date_default_timezone_set('Asia/Manila');
                                 <thead>
                                     <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
                                         <th class="py-4 px-6">Student Intern</th>
+                                        <th class="py-4 px-6">Section</th>
                                         <th class="py-4 px-6">Host Company & Supervisor</th>
                                         <th class="py-4 px-6">Rating</th>
                                         <th class="py-4 px-6">Status</th>
@@ -180,6 +193,13 @@ date_default_timezone_set('Asia/Manila');
                                                         <p class="text-xs font-medium text-slate-500 mt-0.5 intern-id">ID: <?= htmlspecialchars($eval['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($eval['program'] ?? 'BSIT'); ?></p>
                                                     </div>
                                                 </div>
+                                            </td>
+
+                                            <!-- Section Badge -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
+                                                    Sec <?= htmlspecialchars($eval['section'] ?? 'A'); ?>
+                                                </span>
                                             </td>
 
                                             <!-- Company & Supervisor -->
@@ -280,7 +300,7 @@ date_default_timezone_set('Asia/Manila');
                         <div>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Student Intern</p>
                             <p class="font-bold text-slate-900 text-xs mt-0.5"><?= htmlspecialchars($activeEval['student_name']); ?></p>
-                            <p class="text-xs font-medium text-slate-500 mt-0.5">ID: <?= htmlspecialchars($activeEval['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($activeEval['program'] ?? 'BSIT'); ?></p>
+                            <p class="text-xs font-medium text-slate-500 mt-0.5">ID: <?= htmlspecialchars($activeEval['student_number'] ?? 'N/A'); ?> &bull; Sec <?= htmlspecialchars($activeEval['section'] ?? 'A'); ?></p>
                         </div>
                         <div>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company & Supervisor</p>
