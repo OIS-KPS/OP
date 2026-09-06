@@ -1,11 +1,6 @@
+<!-- src/pages/supervisor/reviewReportsPage.php -->
 <?php
-/*
- * ============================================================
- * src/pages/supervisor/reviewReportsPage.php
- * ============================================================
- * Supervisor Review Reports View
- * Loaded by: supervisor/review_reports.php
- */
+date_default_timezone_set('Asia/Manila');
 
 $filter_status = $filter_status ?? 'All';
 $message = $message ?? '';
@@ -13,96 +8,25 @@ $reports = $reports ?? [];
 $activeReport = $activeReport ?? null;
 
 if (!function_exists('e')) {
-    function e($value)
-    {
+    function e($value) {
         return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
     }
 }
 
-if (!function_exists('statusUrl')) {
-    function statusUrl($status = null, $reviewId = null)
-    {
-        $params = [];
-        if ($reviewId !== null) {
-            $params['review_id'] = (int)$reviewId;
-        }
-        if ($status !== null && $status !== 'All') {
-            $params['status'] = $status;
-        }
-        if (empty($params)) {
-            return 'review_reports.php';
-        }
-        return 'review_reports.php?' . http_build_query($params);
-    }
-}
-
-if (!function_exists('normalizeReportStatus')) {
-    function normalizeReportStatus($status)
-    {
-        $status = trim((string)$status);
-        if ($status === '') {
-            return 'pending';
-        }
-        $lower = strtolower($status);
-        if ($lower === 'approved') {
-            return 'approved';
-        }
-        if ($lower === 'pending') {
-            return 'pending';
-        }
-        if (in_array($lower, ['needs revision', 'needs_revision', 'revision', 'rejected'], true)) {
-            return 'needs revision';
-        }
-        return $lower;
-    }
-}
-
-if (!function_exists('isITRelated')) {
-    function isITRelated($value)
-    {
-        $value = strtolower(trim((string)$value));
-        return in_array($value, ['yes', 'true', '1', 'it', 'it related', 'it-related'], true);
-    }
-}
-
-$allowedFilters = ['All', 'Pending', 'Approved', 'Needs Revision'];
-if (!in_array($filter_status, $allowedFilters, true)) {
-    $filter_status = 'All';
-}
-
 $hasActiveReport = !empty($activeReport) && is_array($activeReport);
-$activeStatus = 'pending';
-$isApproved = false;
-$isRevision = false;
-$activeFilePath = '';
-$activeSubmittedAt = null;
-$extractedEntities = [];
-$pdfText = '';
+$activeStatus = strtolower($activeReport['status'] ?? 'pending');
+$isApproved = ($activeStatus === 'approved');
+$isRevision = ($activeStatus === 'rejected');
 
-if ($hasActiveReport) {
-    $activeStatus = normalizeReportStatus($activeReport['status'] ?? 'pending');
-    $isApproved = ($activeStatus === 'approved');
-    $isRevision = ($activeStatus === 'needs revision');
-    $activeFilePath = $activeReport['file_path'] ?? $activeReport['attachment_path'] ?? '';
-    $activeSubmittedAt = $activeReport['submitted_at'] ?? $activeReport['created_at'] ?? null;
-    $extractedEntities = $activeReport['extracted_entities'] ?? [];
-    if (!is_array($extractedEntities)) {
-        $extractedEntities = [];
-    }
-    $pdfText = $activeReport['pdf_text'] ?? $activeReport['extracted_text'] ?? $activeReport['report_text'] ?? $activeReport['text'] ?? '';
-}
+$activeFilePath = $activeReport['file_path'] ?? '';
+$activeSubmittedAt = $activeReport['submitted_at'] ?? null;
+$extractedEntities = $activeReport['extracted_entities'] ?? [];
 
 $pdfUrl = '';
 if (!empty($activeFilePath)) {
     $cleanPath = ltrim(str_replace('\\', '/', $activeFilePath), '/');
-    if (stripos($cleanPath, 'ICS-PORTAL/') === 0) {
-        $pdfUrl = '/' . $cleanPath;
-    } else {
-        $pdfUrl = '/ICS-PORTAL/' . $cleanPath;
-    }
+    $pdfUrl = (stripos($cleanPath, 'ICS-PORTAL/') === 0) ? '/' . $cleanPath : '/ICS-PORTAL/' . $cleanPath;
 }
-
-$closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -126,13 +50,12 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
         .pdf-text-layer span.entity-highlight { color: #713f12; background: #fde68a; border-radius: 2px; box-shadow: 0 0 0 1px rgba(245, 158, 11, .35); }
         .entity-card { cursor: pointer; transition: all .15s ease; }
         .entity-card:hover, .entity-card.entity-selected { border-color: #f59e0b; background: #fffbeb; box-shadow: 0 0 0 2px rgba(245, 158, 11, .15); }
-        .review-modal { max-height: 92vh; height: auto; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
 <div class="flex min-h-screen">
-
+    
     <!-- Sidebar Component -->
     <?php include __DIR__ . '/../../components/supervisor_sidebar.php'; ?>
 
@@ -146,20 +69,20 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
             <!-- Page Header Card -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
                 <div>
-                    <h1 class="text-base font-bold text-slate-900 leading-snug">Review Weekly Reports</h1>
-                    <p class="text-xs font-medium text-slate-500 mt-1">Check, approve, or ask for changes on student submissions.</p>
+                    <h1 class="text-base font-bold text-slate-900 leading-snug">Review Accomplishment Reports</h1>
+                    <p class="text-xs font-medium text-slate-500 mt-1">Review student task logs, inspect extracted technical activities, and approve reports.</p>
                 </div>
 
                 <!-- Status Filter Tabs -->
                 <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200/70 text-xs font-semibold">
-                    <a href="<?= e(statusUrl()); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'All' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">All</a>
-                    <a href="<?= e(statusUrl('Pending')); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Pending</a>
-                    <a href="<?= e(statusUrl('Approved')); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Approved</a>
-                    <a href="<?= e(statusUrl('Needs Revision')); ?>" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Needs Revision' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Needs Changes</a>
+                    <a href="review_reports.php?status=All" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'All' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">All</a>
+                    <a href="review_reports.php?status=Pending" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Pending</a>
+                    <a href="review_reports.php?status=Approved" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Approved</a>
+                    <a href="review_reports.php?status=Needs+Revision" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Needs Revision' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Needs Changes</a>
                 </div>
             </div>
 
-            <!-- Flash Alert -->
+            <!-- Flash Alert Message -->
             <?php if (!empty($message)): ?>
                 <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl text-xs font-semibold shadow-2xs flex items-center gap-2">
                     <span class="font-bold text-sm">✓</span>
@@ -172,7 +95,7 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                 <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
                     <div>
                         <h3 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Submissions Queue</h3>
-                        <p class="text-[11px] font-medium text-slate-500 mt-0.5">Showing all reports submitted for your review</p>
+                        <p class="text-[11px] font-medium text-slate-500 mt-0.5">Showing student accomplishment logs matching your filter</p>
                     </div>
                     <span class="text-xs font-bold text-slate-700 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
                         <?= count($reports); ?> Total
@@ -185,7 +108,7 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                             <thead>
                                 <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
                                     <th class="py-4 px-6">Student</th>
-                                    <th class="py-4 px-6">Week #</th>
+                                    <th class="py-4 px-6">Report #</th>
                                     <th class="py-4 px-6">Date Submitted</th>
                                     <th class="py-4 px-6">Status</th>
                                     <th class="py-4 px-6 text-right">Action</th>
@@ -193,39 +116,32 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-slate-700">
                                 <?php foreach ($reports as $item): 
-                                    $status = normalizeReportStatus($item['status'] ?? 'pending');
-                                    $submittedAt = $item['submitted_at'] ?? $item['created_at'] ?? null;
-                                    $studentName = $item['student_name'] ?? 'Unknown Student';
-                                    $studentNumber = $item['student_number'] ?? 'N/A';
-                                    $avatar = $item['student_avatar'] ?? '';
-                                    $weekNumber = $item['week_number'] ?? 'N/A';
-                                    $reportId = (int)($item['id'] ?? 0);
-                                    $reviewUrl = statusUrl($filter_status !== 'All' ? $filter_status : null, $reportId);
+                                    $status = strtolower($item['status'] ?? 'pending');
                                     $isPending = ($status === 'pending');
                                 ?>
                                     <tr class="hover:bg-slate-50/70 transition-colors <?= $isPending ? 'bg-amber-50/15' : ''; ?>">
                                         <td class="py-4 px-6">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/80">
-                                                    <?php if (!empty($avatar)): ?>
-                                                        <img src="<?= e($avatar); ?>" class="w-full h-full object-cover" alt="Avatar">
+                                                    <?php if (!empty($item['student_avatar'])): ?>
+                                                        <img src="<?= e($item['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar">
                                                     <?php else: ?>
-                                                        <?= e(strtoupper(substr($studentName, 0, 1))); ?>
+                                                        <?= e(strtoupper(substr($item['student_name'] ?? 'S', 0, 1))); ?>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="font-bold text-slate-900 text-sm"><?= e($studentName); ?></p>
-                                                    <p class="text-[11px] text-slate-400 font-medium">ID: <?= e($studentNumber); ?></p>
+                                                    <p class="font-bold text-slate-900 text-sm"><?= e($item['student_name']); ?></p>
+                                                    <p class="text-[11px] text-slate-400 font-medium">ID: <?= e($item['student_number'] ?? 'N/A'); ?> &bull; <?= e($item['program'] ?? 'BSIT'); ?></p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
-                                                Week <?= e($weekNumber); ?>
+                                                Week <?= e($item['week_number']); ?>
                                             </span>
                                         </td>
                                         <td class="py-4 px-6 text-slate-600 font-medium whitespace-nowrap">
-                                            <?= !empty($submittedAt) ? e(date("M d, Y \a\\t g:i A", strtotime($submittedAt))) : '—'; ?>
+                                            <?= !empty($item['submitted_at']) ? e(date("M d, Y \a\\t g:i A", strtotime($item['submitted_at']))) : '—'; ?>
                                         </td>
                                         <td class="py-4 px-6 whitespace-nowrap">
                                             <?php if ($status === 'approved'): ?>
@@ -246,7 +162,7 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                                             <?php endif; ?>
                                         </td>
                                         <td class="py-4 px-6 text-right whitespace-nowrap">
-                                            <a href="<?= e($reviewUrl); ?>" 
+                                            <a href="review_reports.php?review_id=<?= (int)$item['id']; ?>&status=<?= e($filter_status); ?>" 
                                                class="px-4 py-2 <?= $isPending ? 'bg-[#0F2854] text-white hover:bg-blue-900 shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'; ?> text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5">
                                                 <span><?= $isPending ? 'Review' : 'View Details'; ?></span>
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
@@ -277,9 +193,9 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
      ============================================================ -->
 <?php if ($hasActiveReport): ?>
 <div id="reviewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto">
-    <div class="review-modal bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-6xl w-full overflow-hidden relative my-auto flex flex-col p-6 sm:p-7 space-y-5">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-6xl w-full overflow-hidden relative my-auto flex flex-col p-6 sm:p-7 space-y-5 max-h-[92vh]">
         
-        <!-- Header -->
+        <!-- Modal Header -->
         <div class="border-b border-slate-100 pb-4 flex justify-between items-center pr-8 shrink-0">
             <div>
                 <div class="flex items-center gap-2.5">
@@ -299,7 +215,7 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                 </p>
             </div>
 
-            <a href="<?= e($closeUrl); ?>" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-bold transition-all" aria-label="Close">
+            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-bold transition-all" aria-label="Close">
                 ✕
             </a>
         </div>
@@ -340,10 +256,10 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                 <?php endif; ?>
             </div>
 
-            <!-- Right: Detected Skills & Actions -->
+            <!-- Right: Detected Skills & Direct Actions -->
             <div class="lg:col-span-2 flex flex-col h-[60vh] min-h-[420px] space-y-4">
                 
-                <!-- Skills/Entities Found Box -->
+                <!-- Skills/Entities Box -->
                 <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col min-h-0 flex-1 shadow-2xs">
                     <div class="flex items-center justify-between mb-1 shrink-0">
                         <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Skills & Keywords Found</span>
@@ -356,18 +272,16 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                     <?php if (!empty($extractedEntities)): ?>
                         <div class="space-y-2 overflow-y-auto pr-1 min-h-0 flex-1">
                             <?php foreach ($extractedEntities as $entity): 
-                                if (!is_array($entity)) continue;
-                                $entityName = $entity['entity_name'] ?? $entity['entity'] ?? $entity['canonical_name'] ?? $entity['matched_term'] ?? '';
+                                $entityName = $entity['entity_name'] ?? '';
                                 $category = $entity['category'] ?? 'General';
-                                $itRelated = isITRelated($entity['it_related'] ?? '');
-                                $matchedTerm = $entity['matched_term'] ?? $entityName;
+                                $isTechnical = (($entity['classification'] ?? $entity['activity_type'] ?? 'Technical') === 'Technical' || ($entity['activity_type'] ?? '') === 'Software' || ($entity['activity_type'] ?? '') === 'Hardware');
                                 if (trim((string)$entityName) === '') continue;
                             ?>
-                                <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-200/80 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($matchedTerm); ?>">
+                                <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-200/80 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($entityName); ?>">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-xs font-bold text-slate-900"><?= e($entityName); ?></span>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $itRelated ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200/60 text-slate-600'; ?>">
-                                            <?= $itRelated ? 'IT Task' : 'General Task'; ?>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $isTechnical ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200/60 text-slate-600'; ?>">
+                                            <?= $isTechnical ? 'Technical' : 'Clerical'; ?>
                                         </span>
                                     </div>
                                     <span class="block text-[10px] font-semibold text-slate-400 mt-1">Category: <strong class="text-slate-600"><?= e($category); ?></strong></span>
@@ -385,27 +299,73 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
                 <!-- Action Controls Form -->
                 <?php if ($isApproved): ?>
                     <div class="flex items-center justify-end shrink-0 pt-2">
-                        <a href="<?= e($closeUrl); ?>" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all">
+                        <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all">
                             Close Review
                         </a>
                     </div>
                 <?php else: ?>
-                    <form method="POST" action="review_reports.php" class="flex items-center justify-end gap-2.5 shrink-0 pt-2 border-t border-slate-100">
-                        <input type="hidden" name="action_report_id" value="<?= (int)($activeReport['id'] ?? 0); ?>">
-                        <input type="hidden" name="student_name" value="<?= e($activeReport['student_name'] ?? ''); ?>">
+                    <div class="space-y-3 pt-3 border-t border-slate-100 shrink-0">
+                        
+                        <!-- Revision Instructions Box -->
+                        <div id="revisionBox" class="hidden space-y-1.5">
+                            <label class="block text-[11px] font-bold text-slate-700">Revision Instructions for Student:</label>
+                            <textarea id="supervisorRemarksInput" rows="2" placeholder="Explain the corrections or missing items the student needs to address..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#0F2854]"></textarea>
+                        </div>
 
-                        <a href="<?= e($closeUrl); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
-                            Cancel
-                        </a>
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
+                                Cancel
+                            </a>
 
-                        <button type="submit" name="status" value="Needs Revision" class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all cursor-pointer">
-                            Request Changes
-                        </button>
+                            <!-- Unified Action Form -->
+                            <form method="POST" action="review_reports.php?status=<?= e($filter_status); ?>" class="flex items-center gap-2">
+                                <input type="hidden" name="action_report_id" value="<?= (int)($activeReport['id'] ?? 0); ?>">
+                                <input type="hidden" name="student_name" value="<?= e($activeReport['student_name'] ?? 'Student'); ?>">
+                                <input type="hidden" name="supervisor_remarks" id="formRemarksField" value="">
+                                <input type="hidden" name="status" id="formStatusField" value="">
 
-                        <button type="submit" name="status" value="Approved" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
-                            Approve Report
-                        </button>
-                    </form>
+                                <!-- Request Changes Button -->
+                                <button type="button" onclick="handleRevisionClick(this.form)" id="btnRequestChanges" class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all cursor-pointer">
+                                    Request Changes
+                                </button>
+
+                                <!-- Direct Approve Button -->
+                                <button type="button" onclick="handleApproveClick(this.form)" id="btnApprove" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
+                                    Approve Report
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <script>
+                    function handleRevisionClick(form) {
+                        const box = document.getElementById('revisionBox');
+                        const btn = document.getElementById('btnRequestChanges');
+                        const btnApprove = document.getElementById('btnApprove');
+
+                        if (box.classList.contains('hidden')) {
+                            box.classList.remove('hidden');
+                            document.getElementById('supervisorRemarksInput').focus();
+                            btn.innerText = 'Send Change Request';
+                            btn.className = 'px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer';
+                            btnApprove.classList.add('hidden');
+                        } else {
+                            const remarks = document.getElementById('supervisorRemarksInput').value.trim();
+                            if (!remarks) {
+                                alert('Please provide instructions for the student regarding what needs to be changed.');
+                                return;
+                            }
+                            document.getElementById('formRemarksField').value = remarks;
+                            document.getElementById('formStatusField').value = 'rejected';
+                            form.submit();
+                        }
+                    }
+
+                    function handleApproveClick(form) {
+                        document.getElementById('formStatusField').value = 'approved';
+                        form.submit();
+                    }
+                    </script>
                 <?php endif; ?>
 
             </div>
@@ -416,105 +376,8 @@ $closeUrl = statusUrl($filter_status !== 'All' ? $filter_status : null);
 </div>
 <?php endif; ?>
 
+<!-- PDF.js & Entity Highlighter Scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-    (() => {
-        const viewer = document.getElementById('pdf-viewer');
-        if (!viewer) return;
-        const entityCards = [...document.querySelectorAll('[data-entity-term]')];
-        const activeTerms = new Set();
-
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-        const normalize = value => String(value || '')
-            .toLowerCase()
-            .replace(/[\u2010-\u2015]/g, '-')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        function updateCardState(term, active) {
-            entityCards
-                .filter(card => normalize(card.dataset.entityTerm) === term)
-                .forEach(card => {
-                    card.classList.toggle('entity-selected', active);
-                    card.setAttribute('aria-pressed', active ? 'true' : 'false');
-                });
-        }
-
-        function toggleEntity(card) {
-            const term = normalize(card.dataset.entityTerm);
-            if (!term) return;
-            const active = !activeTerms.has(term);
-            active ? activeTerms.add(term) : activeTerms.delete(term);
-            updateCardState(term, active);
-            document.querySelectorAll('.pdf-text-layer span').forEach(span => {
-                const text = normalize(span.textContent);
-                if (text && (text === term || text.includes(term) || term.includes(text))) {
-                    span.classList.toggle('entity-highlight', active);
-                }
-            });
-        }
-
-        entityCards.forEach(card => {
-            card.addEventListener('click', () => toggleEntity(card));
-            card.addEventListener('keydown', event => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    toggleEntity(card);
-                }
-            });
-        });
-
-        async function renderPdf() {
-            try {
-                const pdf = await pdfjsLib.getDocument(viewer.dataset.pdfUrl).promise;
-                viewer.replaceChildren();
-                for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-                    const page = await pdf.getPage(pageNumber);
-                    const baseViewport = page.getViewport({ scale: 1 });
-                    const availableWidth = Math.max(viewer.clientWidth - 16, 240);
-                    const scale = Math.min(1.25, availableWidth / baseViewport.width);
-                    const viewport = page.getViewport({ scale });
-                    
-                    const pageContainer = document.createElement('div');
-                    pageContainer.className = 'pdf-page';
-                    pageContainer.style.width = `${viewport.width}px`;
-                    pageContainer.style.height = `${viewport.height}px`;
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    pageContainer.appendChild(canvas);
-                    viewer.appendChild(pageContainer);
-                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-                    const textLayer = document.createElement('div');
-                    textLayer.className = 'pdf-text-layer';
-                    pageContainer.appendChild(textLayer);
-                    const textContent = await page.getTextContent();
-                    textContent.items.forEach(item => {
-                        const span = document.createElement('span');
-                        span.textContent = item.str;
-                        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                        const fontHeight = Math.hypot(tx[2], tx[3]);
-                        span.style.left = `${tx[4]}px`;
-                        span.style.top = `${tx[5] - fontHeight}px`;
-                        span.style.fontSize = `${fontHeight}px`;
-                        textLayer.appendChild(span);
-                        const text = normalize(item.str);
-                        if ([...activeTerms].some(term => text && (text === term || text.includes(term) || term.includes(text)))) {
-                            span.classList.add('entity-highlight');
-                        }
-                    });
-                }
-            } catch (error) {
-                viewer.innerHTML = '<div class="h-full flex items-center justify-center text-xs text-rose-500 p-4 text-center">Unable to render PDF. Use “Open Fullscreen” above.</div>';
-                console.error('PDF viewer error:', error);
-            }
-        }
-
-        renderPdf();
-    })();
-</script>
+<script src="/ICS-PORTAL/public/js/pdf-highlighter.js"></script>
 </body>
 </html>

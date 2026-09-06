@@ -4,6 +4,7 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 
+// 1. Authorization Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
     header("Location: ../auth/login.php");
     exit();
@@ -11,35 +12,71 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
 
 $pageTitle = "Final Evaluations";
 
-// Filter Inputs
+// 2. Filter Inputs
 $selectedCompany = $_GET['company_id'] ?? 'all';
 $selectedStatus  = $_GET['status'] ?? 'all';
+$selectedSection = $_GET['section'] ?? 'all';
 $searchQuery     = trim($_GET['search'] ?? '');
 $viewEvalId      = isset($_GET['view_id']) ? intval($_GET['view_id']) : null;
 
 $filteredEvals  = [];
 $companiesList  = [];
+$activeSections = [];
 $activeEval     = null;
 $totalCount     = 0;
 $completedCount = 0;
 $pendingCount   = 0;
 
 try {
-    // 1. Fetch Companies for Dropdown
-    $stmtCompanies = $pdo->query("SELECT id, name FROM companies ORDER BY name ASC");
+    // Distinct Companies
+    $stmtCompanies = $pdo->query("SELECT id, name FROM companies WHERE name IS NOT NULL AND name != '' ORDER BY name ASC");
     $companiesList = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 2. Fetch Students and Evaluations
+    // Distinct Sections
+    $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
+    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: ['A', 'B', 'C'];
+
+    // 3. Build Query Filters
+    $whereClauses = ["1=1"];
+    $params = [];
+
+    if ($selectedCompany !== 'all' && is_numeric($selectedCompany) && intval($selectedCompany) > 0) {
+        $whereClauses[] = "c.id = :comp_id";
+        $params['comp_id'] = intval($selectedCompany);
+    }
+
+    if ($selectedSection !== 'all') {
+        $whereClauses[] = "s.section = :sec";
+        $params['sec'] = $selectedSection;
+    }
+
+    if ($selectedStatus === 'Completed') {
+        $whereClauses[] = "e.id IS NOT NULL AND e.otp_verified = 1";
+    } elseif ($selectedStatus === 'Pending') {
+        $whereClauses[] = "(e.id IS NULL OR e.otp_verified = 0)";
+    }
+
+    if ($searchQuery !== '') {
+        $whereClauses[] = "(LOWER(u.name) LIKE :search_name OR LOWER(s.student_number) LIKE :search_num)";
+        $searchParam = '%' . strtolower($searchQuery) . '%';
+        $params['search_name'] = $searchParam;
+        $params['search_num']  = $searchParam;
+    }
+
+    $whereSql = "WHERE " . implode(' AND ', $whereClauses);
+
     $sql = "
         SELECT 
             s.id AS student_id,
             s.student_number,
             s.program,
+            COALESCE(s.section, 'A') AS section,
             u.name AS student_name,
             u.email AS student_email,
+            u.avatar_url AS student_avatar,
             c.id AS company_id,
-            c.name AS company_name,
-            u_sup.name AS supervisor_name,
+            COALESCE(c.name, 'Unassigned') AS company_name,
+            COALESCE(u_sup.name, 'Pending Assignment') AS supervisor_name,
             e.id AS eval_id,
             e.technical_score,
             e.work_ethics_score,
@@ -61,34 +98,15 @@ try {
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN evaluations e ON s.id = e.student_id
-        WHERE 1=1
+        {$whereSql}
+        ORDER BY s.section ASC, u.name ASC
     ";
-
-    $params = [];
-
-    if ($selectedCompany !== 'all' && is_numeric($selectedCompany)) {
-        $sql .= " AND c.id = :comp_id ";
-        $params['comp_id'] = intval($selectedCompany);
-    }
-
-    if ($selectedStatus === 'Completed') {
-        $sql .= " AND e.id IS NOT NULL AND e.otp_verified = 1 ";
-    } elseif ($selectedStatus === 'Pending') {
-        $sql .= " AND (e.id IS NULL OR e.otp_verified = 0) ";
-    }
-
-    if (!empty($searchQuery)) {
-        $sql .= " AND (u.name LIKE :search OR s.student_number LIKE :search) ";
-        $params['search'] = "%{$searchQuery}%";
-    }
-
-    $sql .= " ORDER BY u.name ASC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $filteredEvals = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 3. Simple Summary Counts
+    // 4. Metric Counts
     $stmtTotals = $pdo->query("
         SELECT 
             COUNT(s.id) AS total_interns,
@@ -103,7 +121,7 @@ try {
     $completedCount = intval($stats['completed_evals'] ?? 0);
     $pendingCount   = intval($stats['pending_evals'] ?? 0);
 
-    // 4. Modal Record Detail Loader
+    // 5. Modal Record Loader
     if ($viewEvalId) {
         foreach ($filteredEvals as $ev) {
             if (intval($ev['eval_id'] ?? 0) === $viewEvalId || intval($ev['student_id']) === $viewEvalId) {

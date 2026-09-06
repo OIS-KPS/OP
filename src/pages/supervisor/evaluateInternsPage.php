@@ -1,4 +1,7 @@
 <!-- src/pages/supervisor/evaluateInternsPage.php -->
+<?php
+date_default_timezone_set('Asia/Manila');
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,6 +33,20 @@
 
             <!-- Main Page Scrollable Body -->
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1 relative">
+
+                <!-- Alert Message -->
+                <?php if (isset($_GET['evaluated']) && $_GET['evaluated'] === 'success'): ?>
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-emerald-600 font-bold text-sm">✓</span>
+                            <div>
+                                <p class="font-bold text-xs">Evaluation Signed & Submitted</p>
+                                <p class="text-[11px] text-emerald-700">The final performance appraisal has been verified and recorded.</p>
+                            </div>
+                        </div>
+                        <a href="evaluate_interns.php" class="text-xs font-semibold text-emerald-700 hover:underline">Dismiss</a>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Header Banner Card -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
@@ -64,7 +81,7 @@
                                         <th class="py-4 px-6">Student</th>
                                         <th class="py-4 px-6">Completed Reports</th>
                                         <th class="py-4 px-6">Evaluation Status</th>
-                                        <th class="py-4 px-6">Final Grade</th>
+                                        <th class="py-4 px-6">Final Rating</th>
                                         <th class="py-4 px-6 text-right">Action</th>
                                     </tr>
                                 </thead>
@@ -133,7 +150,7 @@
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Final Grade -->
+                                            <!-- Final Rating Only (No letter/number grade equivalent) -->
                                             <td class="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">
                                                 <?= !empty($student['final_score']) ? number_format($student['final_score'], 1) . '%' : '—'; ?>
                                             </td>
