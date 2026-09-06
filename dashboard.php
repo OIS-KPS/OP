@@ -10,10 +10,21 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
     exit();
 }
 
-$userId = $_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
 
-// 1. Fetch Student Info & Primary Key
-$stmtStudent = $pdo->prepare("SELECT * FROM students WHERE user_id = ?");
+// 1. Fetch Student Info & Evaluation State
+$stmtStudent = $pdo->prepare("
+    SELECT 
+        s.*, 
+        u.name AS student_name,
+        e.id AS evaluation_id,
+        e.final_score
+    FROM students s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN evaluations e ON e.student_id = s.id
+    WHERE s.user_id = ?
+    LIMIT 1
+");
 $stmtStudent->execute([$userId]);
 $student = $stmtStudent->fetch(PDO::FETCH_ASSOC);
 
@@ -21,23 +32,17 @@ if (!$student) {
     die("Student profile not found. Please log in again.");
 }
 
-$studentId = $student['id'];
-$_SESSION['student_id'] = $studentId; // Ensure session is updated
+$studentId = (int)$student['id'];
+$_SESSION['student_id'] = $studentId;
 
-// Fetch User Name for Display
-$stmtUser = $pdo->prepare("SELECT name FROM users WHERE id = ?");
-$stmtUser->execute([$userId]);
-$user = $stmtUser->fetch(PDO::FETCH_ASSOC);
-$student['name'] = $user['name'] ?? 'Student';
-
-// 2. Fetch All Reports for this Student
+// 2. Fetch All Reports
 $stmtReports = $pdo->prepare("
     SELECT * FROM reports 
     WHERE student_id = ? 
     ORDER BY week_number ASC
 ");
 $stmtReports->execute([$studentId]);
-$reports = $stmtReports->fetchAll(PDO::FETCH_ASSOC);
+$reports = $stmtReports->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // 3. Calculate Summary Statistics
 $totalSubmitted = count($reports);

@@ -34,7 +34,7 @@
                     <div>
                         <h1 class="text-base font-bold text-slate-900 leading-snug">My Interns</h1>
                         <p class="text-xs font-medium text-slate-500 mt-1">
-                            <?= htmlspecialchars($supervisor['company_name'] ?? 'Host Company'); ?> &bull; Track weekly report progress for your students.
+                            <?= htmlspecialchars($supervisor['company_name'] ?? 'Host Company'); ?> &bull; Track student accomplishment reports and review submissions.
                         </p>
                     </div>
 
@@ -48,10 +48,9 @@
                 <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                     <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
                         <div>
-                            <h3 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Student List & Progress</h3>
-                            <p class="text-[11px] font-medium text-slate-500 mt-0.5">Approved weekly reports out of 10 target weeks</p>
+                            <h3 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Assigned Students</h3>
+                            <p class="text-[11px] font-medium text-slate-500 mt-0.5">Overview of submitted weekly reports per intern</p>
                         </div>
-                        <span class="text-xs font-medium text-slate-400">Target: 10 Weeks</span>
                     </div>
 
                     <?php if (!empty($interns) && count($interns) > 0): ?>
@@ -61,7 +60,7 @@
                                     <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
                                         <th class="py-4 px-6">Student</th>
                                         <th class="py-4 px-6">Program</th>
-                                        <th class="py-4 px-6">Completed Weeks</th>
+                                        <th class="py-4 px-6">Reports Submitted</th>
                                         <th class="py-4 px-6">Status</th>
                                         <th class="py-4 px-6 text-right">Action</th>
                                     </tr>
@@ -69,8 +68,6 @@
                                 <tbody class="divide-y divide-slate-100 text-slate-700">
                                     <?php foreach ($interns as $intern): 
                                         $submitted = intval($intern['submitted_reports'] ?? 0);
-                                        $target = 10;
-                                        $progressPercent = min(100, round(($submitted / $target) * 100));
                                     ?>
                                         <tr class="hover:bg-slate-50/70 transition-colors group">
                                             
@@ -98,16 +95,19 @@
                                                 </span>
                                             </td>
 
-                                            <!-- Progress Bar -->
-                                            <td class="py-4 px-6 min-w-[200px]">
-                                                <div class="space-y-1.5 max-w-xs">
-                                                    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                                                        <span><?= $submitted; ?> of <?= $target; ?> Weeks</span>
-                                                        <span class="font-bold text-slate-900"><?= $progressPercent; ?>%</span>
-                                                    </div>
-                                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/70">
-                                                        <div class="h-full bg-[#0F2854] rounded-full transition-all duration-300" style="width: <?= $progressPercent; ?>%"></div>
-                                                    </div>
+                                            <!-- Reports Submitted Count -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-bold text-slate-900 text-xs"><?= $submitted; ?> <?= $submitted === 1 ? 'Report' : 'Reports'; ?></span>
+                                                    <?php if ($submitted > 0): ?>
+                                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-md border border-blue-200">
+                                                            Active Logs
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span class="px-2 py-0.5 bg-slate-100 text-slate-400 text-[10px] font-medium rounded-md">
+                                                            None Yet
+                                                        </span>
+                                                    <?php endif; ?>
                                                 </div>
                                             </td>
 

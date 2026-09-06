@@ -4,9 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluate <?= htmlspecialchars($student['name']); ?> - Supervisor Portal</title>
+    <title>Evaluate <?= htmlspecialchars($student['name'] ?? 'Student'); ?> - Supervisor Portal</title>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
@@ -15,238 +22,273 @@
         <!-- Sidebar Component -->
         <?php include __DIR__ . '/../../components/supervisor_sidebar.php'; ?>
 
-        <!-- Right Side Main Area -->
         <div class="flex-1 flex flex-col min-w-0">
 
-            <!-- Shared Header -->
+            <!-- Top Header Component -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
-            <!-- Main Page Scroll Area -->
-            <main class="p-6 max-w-4xl w-full mx-auto space-y-5 flex-1 relative">
+            <main class="p-8 max-w-4xl w-full mx-auto space-y-6 flex-1 relative">
 
-                <!-- Navigation Back Button -->
+                <!-- Navigation -->
                 <div>
-                    <a href="evaluate_interns.php" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0F2854] hover:underline bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-2xs transition-all hover:bg-slate-50">
-                        <span>← Back to Evaluation Roster</span>
+                    <a href="evaluate_interns.php" class="inline-flex items-center gap-2 text-xs font-bold text-[#0F2854] hover:text-blue-900 bg-white px-4 py-2 rounded-xl border border-slate-200/80 shadow-2xs transition-all hover:bg-slate-50">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+                        <span>Back to Evaluations</span>
                     </a>
                 </div>
 
-                <!-- Intern Summary Header Card -->
-                <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-wrap justify-between items-center gap-4">
+                <!-- Student Info Card -->
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-2xl bg-[#0F2854]/10 text-[#0F2854] flex items-center justify-center font-extrabold text-lg shrink-0 border border-[#0F2854]/20">
-                            <?= strtoupper(substr($student['name'], 0, 1)); ?>
+                        <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#0F2854] flex items-center justify-center font-bold text-base border border-blue-100 shrink-0">
+                            <?= strtoupper(substr($student['name'] ?? 'S', 0, 1)); ?>
                         </div>
                         <div>
-                            <h1 class="text-base font-bold text-slate-900 leading-snug"><?= htmlspecialchars($student['name']); ?></h1>
-                            <p class="text-slate-500 text-xs mt-0.5">
-                                ID: <span class="font-semibold text-slate-700"><?= htmlspecialchars($student['student_number']); ?></span> • 
-                                Program: <span class="font-semibold text-slate-700"><?= htmlspecialchars($student['program']); ?></span>
-                            </p>
+                            <h1 class="text-base font-bold text-slate-900 leading-snug"><?= htmlspecialchars($student['name'] ?? 'Student'); ?></h1>
+                            <p class="text-xs text-slate-500 font-medium">ID: <?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
                         </div>
                     </div>
-
-                    <div class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold">
-                        ✓ 12/12 WARs Fulfilled (~486 Hours)
-                    </div>
+                    <span class="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200">
+                        12 Weeks Verified
+                    </span>
                 </div>
 
-                <!-- Evaluation Form Card -->
-                <form method="POST" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden p-6 space-y-6">
-                    
+                <!-- Evaluation Form -->
+                <form id="evaluationForm" onsubmit="handleEvaluationSubmit(event)" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-7 space-y-6">
+                    <input type="hidden" id="eval_student_id" value="<?= (int)($student['id'] ?? 0); ?>">
+
                     <div class="border-b border-slate-100 pb-3">
-                        <h2 class="text-sm font-bold text-slate-900">Performance Rating Criteria</h2>
-                        <p class="text-slate-400 text-xs mt-0.5">Rate the intern's overall performance across key competencies (1 = Poor, 5 = Excellent).</p>
+                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Performance Criteria Rating (1 - 100)</h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Rate each competency category based on the intern's actual work output.</p>
                     </div>
 
-                    <!-- Rating Grid Questions -->
-                    <div class="space-y-5 divide-y divide-slate-100">
-                        
-                        <!-- Criterion 1 -->
-                        <div class="pt-3 flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                                <h4 class="text-xs font-bold text-slate-800">1. Technical Competence & IT Skills</h4>
-                                <p class="text-[11px] text-slate-400 mt-0.5">Application of IT concepts, problem-solving, and technical proficiency.</p>
-                            </div>
-                            <select name="tech_skills" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                                <option value="5">5 - Excellent (20%)</option>
-                                <option value="4" selected>4 - Very Good (16%)</option>
-                                <option value="3">3 - Satisfactory (12%)</option>
-                                <option value="2">2 - Fair (8%)</option>
-                                <option value="1">1 - Poor (4%)</option>
-                            </select>
+                    <!-- Rating Fields -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1.5">Technical Competence (40%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="tech_score" required placeholder="e.g., 90.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
                         </div>
-
-                        <!-- Criterion 2 -->
-                        <div class="pt-4 flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                                <h4 class="text-xs font-bold text-slate-800">2. Quality of Work & Accuracy</h4>
-                                <p class="text-[11px] text-slate-400 mt-0.5">Thoroughness, attention to detail, and reliability of outputs.</p>
-                            </div>
-                            <select name="quality_of_work" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                                <option value="5" selected>5 - Excellent (20%)</option>
-                                <option value="4">4 - Very Good (16%)</option>
-                                <option value="3">3 - Satisfactory (12%)</option>
-                                <option value="2">2 - Fair (8%)</option>
-                                <option value="1">1 - Poor (4%)</option>
-                            </select>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1.5">Work Ethics & Professionalism (25%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="ethics_score" required placeholder="e.g., 92.5" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
                         </div>
-
-                        <!-- Criterion 3 -->
-                        <div class="pt-4 flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                                <h4 class="text-xs font-bold text-slate-800">3. Work Ethics & Punctuality</h4>
-                                <p class="text-[11px] text-slate-400 mt-0.5">Adherence to company policies, timekeeping, and professionalism.</p>
-                            </div>
-                            <select name="work_ethic" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                                <option value="5" selected>5 - Excellent (20%)</option>
-                                <option value="4">4 - Very Good (16%)</option>
-                                <option value="3">3 - Satisfactory (12%)</option>
-                                <option value="2">2 - Fair (8%)</option>
-                                <option value="1">1 - Poor (4%)</option>
-                            </select>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1.5">Communication Skills (20%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="comm_score" required placeholder="e.g., 88.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
                         </div>
-
-                        <!-- Criterion 4 -->
-                        <div class="pt-4 flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                                <h4 class="text-xs font-bold text-slate-800">4. Communication & Teamwork</h4>
-                                <p class="text-[11px] text-slate-400 mt-0.5">Collaborative skills, clarity in communication, and adaptability.</p>
-                            </div>
-                            <select name="communication" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                                <option value="5">5 - Excellent (20%)</option>
-                                <option value="4" selected>4 - Very Good (16%)</option>
-                                <option value="3">3 - Satisfactory (12%)</option>
-                                <option value="2">2 - Fair (8%)</option>
-                                <option value="1">1 - Poor (4%)</option>
-                            </select>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1.5">Punctuality & Attendance (15%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="punct_score" required placeholder="e.g., 95.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
                         </div>
-
-                        <!-- Criterion 5 -->
-                        <div class="pt-4 flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                                <h4 class="text-xs font-bold text-slate-800">5. Initiative & Resourcefulness</h4>
-                                <p class="text-[11px] text-slate-400 mt-0.5">Self-motivation, willingness to learn, and proactive attitude.</p>
-                            </div>
-                            <select name="initiative" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                                <option value="5" selected>5 - Excellent (20%)</option>
-                                <option value="4">4 - Very Good (16%)</option>
-                                <option value="3">3 - Satisfactory (12%)</option>
-                                <option value="2">2 - Fair (8%)</option>
-                                <option value="1">1 - Poor (4%)</option>
-                            </select>
-                        </div>
-
                     </div>
 
-                    <!-- Supervisor Remarks -->
-                    <div class="pt-2">
-                        <label class="block text-xs font-bold text-slate-800 mb-1">Supervisor Final Remarks / Recommendation</label>
-                        <textarea name="remarks" rows="3" placeholder="Provide general feedback or comments regarding the intern's overall performance..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 focus:outline-none focus:border-[#0F2854] resize-none">Katelyn demonstrated exceptional technical growth throughout her 486 internship hours, consistently delivering quality results in full-stack web development tasks.</textarea>
+                    <!-- Feedback Field -->
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5 text-xs">Supervisor Comments & Recommendation</label>
+                        <textarea id="feedback" rows="4" placeholder="Write qualitative remarks regarding the student's performance and career readiness..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-[#0F2854] font-medium"></textarea>
                     </div>
 
-                    <!-- Form Action Bar -->
-                    <div class="pt-4 border-t border-slate-100 flex items-center justify-end">
-                        <button type="submit" name="submit_form" class="px-6 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs cursor-pointer">
-                            Submit →
+                    <!-- Form Action Button -->
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                        <a href="evaluate.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">Cancel</a>
+                        <button type="submit" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer">
+                            <span>Sign & Submit Evaluation</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
                         </button>
                     </div>
-
                 </form>
 
             </main>
         </div>
     </div>
 
-    <!-- ======================================================= -->
-    <!-- MODAL 1: EMAIL OTP SECURITY VERIFICATION -->
-    <!-- ======================================================= -->
-    <?php if ($currentStep === 'otp'): ?>
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-5 text-center relative my-auto">
-                
-                <!-- Close Button -->
-                <a href="evaluate_form.php?student_id=<?= $student_id; ?>" class="absolute top-4 right-4 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold transition-all">
-                    ✕
-                </a>
-
-                <!-- Security Icon -->
-                <div class="w-14 h-14 bg-blue-50 text-[#0F2854] rounded-2xl flex items-center justify-center text-2xl font-bold mx-auto border border-blue-100 shadow-2xs">
-                    🔒
-                </div>
-
-                <div>
-                    <h3 class="text-base font-bold text-slate-900">Email OTP Verification</h3>
-                    <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                        To sign and confirm this evaluation for <span class="font-bold text-slate-800"><?= htmlspecialchars($student['name']); ?></span>, please enter the 6-digit OTP code sent to your email.
-                    </p>
-                    <p class="text-[10px] font-semibold text-blue-600 mt-1.5 bg-blue-50/80 py-1 rounded-lg border border-blue-100">
-                        [Dev Testing Code: <span class="font-bold">123456</span>]
-                    </p>
-                </div>
-
-                <!-- Error Alert -->
-                <?php if (!empty($error)): ?>
-                    <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-2.5 rounded-xl font-medium">
-                        <?= htmlspecialchars($error); ?>
-                    </div>
-                <?php endif; ?>
-
-                <!-- OTP Form -->
-                <form method="POST" class="space-y-4">
-                    <div>
-                        <input type="text" name="otp_code" maxlength="6" required autofocus placeholder="123456" class="w-48 text-center text-xl font-mono tracking-widest bg-slate-50 border border-slate-300 rounded-xl py-2 text-slate-900 focus:outline-none focus:border-[#0F2854] focus:ring-2 focus:ring-[#0F2854]/20">
-                    </div>
-
-                    <div class="flex items-center justify-center gap-2 pt-2">
-                        <a href="evaluate_form.php?student_id=<?= $student_id; ?>" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl transition-all">
-                            Cancel
-                        </a>
-                        <button type="submit" name="verify_otp" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs cursor-pointer">
-                            Verify & Submit Evaluation
-                        </button>
-                    </div>
-                </form>
-
+    <!-- ============================================================
+         OTP VERIFICATION MODAL (Exact match to Wireframe)
+         ============================================================ -->
+    <div id="otpModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-7 relative space-y-5 animate-in fade-in zoom-in duration-200">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="text-sm font-bold text-slate-900">OTP verification</h3>
+                <button onclick="closeOtpModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1">✕</button>
             </div>
-        </div>
-    <?php endif; ?>
 
-    <!-- ======================================================= -->
-    <!-- MODAL 2: EVALUATION CONFIRMED SUCCESS MODAL -->
-    <!-- ======================================================= -->
-    <?php if ($currentStep === 'success'): ?>
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full overflow-hidden p-6 space-y-4 text-center relative my-auto">
-                
-                <!-- Success Green Checkmark Icon -->
-                <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-3xl font-bold mx-auto border border-emerald-100 shadow-xs">
-                    ✓
+            <!-- Mail Graphic -->
+            <div class="text-center space-y-1">
+                <div class="w-14 h-14 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center mx-auto text-slate-600 shadow-inner">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+                    </svg>
                 </div>
-
-                <div>
-                    <h3 class="text-base font-bold text-slate-900">Evaluation Confirmed!</h3>
-                    <p class="text-xs text-slate-500 mt-1">
-                        The final evaluation for <span class="font-bold text-slate-800"><?= htmlspecialchars($student['name']); ?></span> has been verified and securely saved.
-                    </p>
-                </div>
-
-                <!-- Calculated Final Rating Score Callout -->
-                <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Final Performance Score</p>
-                    <p class="text-xl font-extrabold text-[#0F2854] mt-0.5"><?= $calculatedScore; ?> / 100%</p>
-                </div>
-
-                <!-- Return Button -->
-                <div class="pt-2">
-                    <a href="evaluate_interns.php" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-all shadow-2xs inline-block">
-                        Return to Roster →
-                    </a>
-                </div>
-
+                <h4 class="text-sm font-bold text-slate-900 pt-2">Check your Gmail</h4>
+                <p class="text-xs text-slate-500">
+                    Enter the 6-digit OTP sent to <strong id="otpEmailTarget" class="text-slate-800 font-semibold">your email</strong>
+                </p>
             </div>
-        </div>
-    <?php endif; ?>
 
+            <!-- 6-Box Form -->
+            <form onsubmit="handleOtpVerify(event)" class="space-y-4">
+                <div class="flex justify-center gap-2" id="otpBoxContainer">
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                </div>
+
+                <p id="otpErrorMsg" class="text-rose-600 text-xs font-semibold text-center hidden"></p>
+
+                <div class="text-center text-xs">
+                    <span id="resendTimerText" class="text-slate-400">Resend OTP in <strong id="timerCountdown" class="text-slate-600">0:45</strong></span>
+                    <button type="button" id="resendOtpBtn" onclick="requestOtpCode()" class="text-[#0F2854] font-bold hover:underline hidden">
+                        Resend Code
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeOtpModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" id="verifyBtn" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all">
+                        Verify & Submit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let countdownTimer = null;
+
+        function handleEvaluationSubmit(e) {
+            e.preventDefault();
+            document.getElementById('otpModal').classList.remove('hidden');
+            clearOtpInputs();
+            requestOtpCode();
+        }
+
+        function closeOtpModal() {
+            document.getElementById('otpModal').classList.add('hidden');
+            if (countdownTimer) clearInterval(countdownTimer);
+        }
+
+        function clearOtpInputs() {
+            document.querySelectorAll('.otp-box').forEach(input => input.value = '');
+            document.getElementById('otpErrorMsg').classList.add('hidden');
+        }
+
+        async function requestOtpCode() {
+            const studentId = document.getElementById('eval_student_id').value;
+            document.getElementById('otpErrorMsg').classList.add('hidden');
+            document.getElementById('resendOtpBtn').classList.add('hidden');
+            document.getElementById('resendTimerText').classList.remove('hidden');
+
+            try {
+                const res = await fetch('/ICS-PORTAL/supervisor/api/evaluation_otp.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'request_otp', student_id: studentId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('otpEmailTarget').innerText = data.email;
+                    startCountdown(45);
+                    document.querySelector('.otp-box').focus();
+                } else {
+                    showOtpError(data.error || 'Failed to dispatch verification code.');
+                }
+            } catch (err) {
+                showOtpError('Connection error. Please try again.');
+            }
+        }
+
+        function startCountdown(seconds) {
+            if (countdownTimer) clearInterval(countdownTimer);
+            let remaining = seconds;
+            const timerEl = document.getElementById('timerCountdown');
+            const textEl = document.getElementById('resendTimerText');
+            const resendBtn = document.getElementById('resendOtpBtn');
+
+            countdownTimer = setInterval(() => {
+                remaining--;
+                const mins = Math.floor(remaining / 60);
+                const secs = remaining % 60;
+                timerEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                if (remaining <= 0) {
+                    clearInterval(countdownTimer);
+                    textEl.classList.add('hidden');
+                    resendBtn.classList.remove('hidden');
+                }
+            }, 1000);
+        }
+
+        function showOtpError(msg) {
+            const err = document.getElementById('otpErrorMsg');
+            err.innerText = msg;
+            err.classList.remove('hidden');
+        }
+
+        async function handleOtpVerify(e) {
+            e.preventDefault();
+            const boxes = document.querySelectorAll('.otp-box');
+            let code = '';
+            boxes.forEach(b => code += b.value.trim());
+
+            if (code.length !== 6) {
+                showOtpError('Please enter all 6 digits.');
+                return;
+            }
+
+            const verifyBtn = document.getElementById('verifyBtn');
+            verifyBtn.innerText = 'Verifying...';
+            verifyBtn.disabled = true;
+
+            const payload = {
+                action: 'verify_and_submit_evaluation',
+                student_id: document.getElementById('eval_student_id').value,
+                technical_score: document.getElementById('tech_score').value,
+                work_ethics_score: document.getElementById('ethics_score').value,
+                communication_score: document.getElementById('comm_score').value,
+                punctuality_score: document.getElementById('punct_score').value,
+                feedback: document.getElementById('feedback').value,
+                otp: code
+            };
+
+            try {
+                const res = await fetch('/ICS-PORTAL/supervisor/api/evaluation_otp.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = 'evaluate_interns.php?evaluated=success';
+                } else {
+                    showOtpError(data.error || 'Verification failed.');
+                    verifyBtn.innerText = 'Verify & Submit';
+                    verifyBtn.disabled = false;
+                }
+            } catch (err) {
+                showOtpError('Connection error during verification.');
+                verifyBtn.innerText = 'Verify & Submit';
+                verifyBtn.disabled = false;
+            }
+        }
+
+        document.querySelectorAll('.otp-box').forEach((box, idx, arr) => {
+            box.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && idx < arr.length - 1) {
+                    arr[idx + 1].focus();
+                }
+            });
+            box.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                    arr[idx - 1].focus();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
