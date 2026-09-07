@@ -10,96 +10,108 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
     exit();
 }
 
-$success = $_SESSION['success_msg'] ?? '';
-$error   = $_SESSION['error_msg'] ?? '';
-unset($_SESSION['success_msg'], $_SESSION['error_msg']);
+$coordinatorId   = $_SESSION['user_id'];
+$selectedSection = $_GET['section'] ?? 'all';
+$success         = $_SESSION['flash_success'] ?? null;
+$error           = $_SESSION['flash_error'] ?? null;
+unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// 2. Handle Student Placement Link / Unlink POST
+// 2. Handle POST Actions (Assign / Unlink Placement)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_student'])) {
-    $student_id    = intval($_POST['student_id'] ?? 0);
-    $supervisor_id = !empty($_POST['supervisor_id']) ? intval($_POST['supervisor_id']) : null;
-    $action_type   = $_POST['action_type'] ?? 'assign';
+    $studentId    = intval($_POST['student_id'] ?? 0);
+    $companyId    = !empty($_POST['company_id']) ? intval($_POST['company_id']) : null;
+    $supervisorId = !empty($_POST['supervisor_id']) ? intval($_POST['supervisor_id']) : null;
+    $actionType   = $_POST['action_type'] ?? 'assign';
 
-    if ($student_id > 0) {
+    if ($studentId > 0) {
         try {
-            if ($action_type === 'unassign') {
-                $stmt = $pdo->prepare("UPDATE students SET supervisor_id = NULL WHERE id = ?");
-                $stmt->execute([$student_id]);
-                $_SESSION['success_msg'] = "Student placement unlinked successfully.";
+            if ($actionType === 'unassign') {
+                $stmt = $pdo->prepare("UPDATE students SET company_id = NULL, supervisor_id = NULL WHERE id = ?");
+                $stmt->execute([$studentId]);
+                logActivity($pdo, $coordinatorId, 'coordinator', 'PLACEMENT_UNLINKED', "Removed placement link for student ID {$studentId}.");
+                $_SESSION['flash_success'] = "Student placement unlinked successfully.";
             } else {
-                if ($supervisor_id) {
-                    $stmt = $pdo->prepare("UPDATE students SET supervisor_id = ? WHERE id = ?");
-                    $stmt->execute([$supervisor_id, $student_id]);
-                    $_SESSION['success_msg'] = "Student placement successfully assigned!";
+                if ($supervisorId && $companyId) {
+                    $stmt = $pdo->prepare("UPDATE students SET company_id = ?, supervisor_id = ? WHERE id = ?");
+                    $stmt->execute([$companyId, $supervisorId, $studentId]);
+                    logActivity($pdo, $coordinatorId, 'coordinator', 'STUDENT_ASSIGNED', "Assigned student ID {$studentId} to company ID {$companyId} and supervisor ID {$supervisorId}.");
+                    $_SESSION['flash_success'] = "Student placement updated successfully.";
                 } else {
-                    $_SESSION['error_msg'] = "Please select an Industry Supervisor for placement.";
+                    $_SESSION['flash_error'] = "Please select both a company and a supervisor.";
                 }
             }
-        } catch (Exception $e) {
-            error_log("Assignment Error: " . $e->getMessage());
-            $_SESSION['error_msg'] = "Failed to update placement: " . $e->getMessage();
+        } catch (PDOException $e) {
+            $_SESSION['flash_error'] = "Failed to update placement: " . $e->getMessage();
         }
-    } else {
-        $_SESSION['error_msg'] = "Invalid student selected.";
     }
-
-    header("Location: assignments.php");
+    header("Location: assignments.php" . ($selectedSection !== 'all' ? "?section=" . urlencode($selectedSection) : ""));
     exit();
 }
 
-// 3. Fetch Dynamic Data (3NF Relational Structure)
-$students    = [];
-$companies   = [];
-$supervisors = [];
+// 3. Fetch Data
+$students       = [];
+$companies      = [];
+$supervisors    = [];
+$activeSections = [];
 
 try {
-    // 1. All Students with company and supervisor linkages
-    $stmtStudents = $pdo->query("
+    // Distinct Sections
+    $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
+    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: ['A', 'B', 'C'];
+
+    // Query Students
+    $whereStudent = ["u.status = 'active'"];
+    $stdParams = [];
+
+    if ($selectedSection !== 'all') {
+        $whereStudent[] = "s.section = :sec";
+        $stdParams['sec'] = $selectedSection;
+    }
+
+    $whereStudentSql = "WHERE " . implode(' AND ', $whereStudent);
+
+    $sqlStudents = "
         SELECT 
             s.id,
             s.student_number,
             s.program,
+            COALESCE(s.section, 'A') AS section,
+            s.company_id,
             s.supervisor_id,
             u.name,
             u.email,
             u.avatar_url,
-            sup.company_id,
-            u_sup.name AS supervisor_name,
             c.name AS company_name,
-            c.department AS company_dept
+            c.department AS company_dept,
+            u_sup.name AS supervisor_name
         FROM students s
         JOIN users u ON s.user_id = u.id
+        LEFT JOIN companies c ON s.company_id = c.id
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
-        LEFT JOIN companies c ON sup.company_id = c.id
-        ORDER BY u.name ASC
-    ");
-    $students = $stmtStudents->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        {$whereStudentSql}
+        ORDER BY s.section ASC, u.name ASC
+    ";
+    $stmtStd = $pdo->prepare($sqlStudents);
+    $stmtStd->execute($stdParams);
+    $students = $stmtStd->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 2. All Registered Partner Companies
-    $stmtCompanies = $pdo->query("
-        SELECT id, name, department 
-        FROM companies 
-        ORDER BY name ASC
-    ");
-    $companies = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    // Query Companies
+    $stmtComp = $pdo->query("SELECT id, name, department FROM companies ORDER BY name ASC");
+    $companies = $stmtComp->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // 3. Supervisors mapped with user names and company_ids for JS filtering
+    // Query Supervisors
     $stmtSup = $pdo->query("
-        SELECT 
-            sup.id, 
-            u.name, 
-            sup.company_id,
-            c.name AS company_name
+        SELECT sup.id, sup.company_id, u.name, u.email 
         FROM supervisors sup
         JOIN users u ON sup.user_id = u.id
-        LEFT JOIN companies c ON sup.company_id = c.id
+        WHERE u.status = 'active'
         ORDER BY u.name ASC
     ");
     $supervisors = $stmtSup->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-} catch (Exception $e) {
-    error_log("Database Error in coordinator/assignments.php: " . $e->getMessage());
+} catch (PDOException $e) {
+    error_log("Assignments Query Error: " . $e->getMessage());
 }
 
 require_once __DIR__ . '/../src/pages/coordinator/assignmentsPage.php';
