@@ -45,7 +45,7 @@
                 <?php if (!empty($error)): ?>
                     <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-4 rounded-2xl font-medium flex items-center justify-between shadow-2xs">
                         <div class="flex items-center gap-2">
-                            <span class="font-bold">⚠️</span>
+                            <span class="font-bold">✕</span>
                             <span><?= htmlspecialchars($error); ?></span>
                         </div>
                         <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 font-bold hover:text-rose-800 cursor-pointer">✕</button>
@@ -67,15 +67,15 @@
                         <!-- Action Button -->
                         <div class="flex items-center gap-3 shrink-0">
                             <button type="button" onclick="openAssignModal()" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-semibold rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer">
-                                <span>+ Assign Student Placement</span>
+                                <span>+ Assign Student</span>
                             </button>
                         </div>
                     </div>
 
-                    <!-- 2. Integrated Filter Tabs & Live Search -->
+                    <!-- 2. Integrated Filter Tabs & Live Search Toolbar -->
                     <div class="p-4 border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/40">
                         
-                        <!-- Quick Placement Filter Tabs -->
+                        <!-- Status Filter Tabs -->
                         <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
                             <button type="button" onclick="filterByStatus('all', this)" class="filter-tab px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-[#0F2854] text-white shadow-xs cursor-pointer">
                                 <span>All Interns</span>
@@ -89,15 +89,28 @@
                             </button>
                         </div>
 
-                        <!-- Live Search Field -->
-                        <div class="relative w-full md:w-72">
-                            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                            <input 
-                                type="text" 
-                                id="assignmentSearchInput"
-                                placeholder="Search student, company, or ID..." 
-                                class="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0F2854]"
-                            >
+                        <!-- Section Filter & Live Search Input -->
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            <!-- Section Filter -->
+                            <select onchange="location.href='assignments.php?section=' + this.value" class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                                <option value="all" <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>>All Sections</option>
+                                <?php foreach ($activeSections as $sec): ?>
+                                    <option value="<?= htmlspecialchars($sec); ?>" <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>>
+                                        Section <?= htmlspecialchars($sec); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+
+                            <!-- Live Search Input -->
+                            <div class="relative w-full md:w-64">
+                                <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                                <input 
+                                    type="text" 
+                                    id="assignmentSearchInput"
+                                    placeholder="Search student or company..." 
+                                    class="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0F2854]"
+                                >
+                            </div>
                         </div>
                     </div>
 
@@ -108,8 +121,9 @@
                                 <thead>
                                     <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
                                         <th class="py-4 px-6">Student Intern</th>
-                                        <th class="py-4 px-6">Host Company</th>
-                                        <th class="py-4 px-6">Assigned Supervisor</th>
+                                        <th class="py-4 px-6">Section</th>
+                                        <th class="py-4 px-6">Company</th>
+                                        <th class="py-4 px-6">Supervisor</th>
                                         <th class="py-4 px-6 text-right">Action</th>
                                     </tr>
                                 </thead>
@@ -131,9 +145,16 @@
                                                     </div>
                                                     <div>
                                                         <p class="font-bold text-slate-900 text-xs intern-name"><?= htmlspecialchars($s['name']); ?></p>
-                                                        <p class="text-xs font-medium text-slate-500 mt-0.5 intern-id">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($s['program'] ?? 'BSIT'); ?></p>
+                                                        <p class="text-xs font-medium text-slate-500 mt-0.5 intern-id">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($s['email']); ?></p>
                                                     </div>
                                                 </div>
+                                            </td>
+
+                                            <!-- Section Badge -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-blue-50 text-[#0F2854] font-bold text-[11px] border border-blue-100">
+                                                    Section <?= htmlspecialchars($s['section'] ?? 'A'); ?>
+                                                </span>
                                             </td>
 
                                             <!-- Host Company -->
@@ -174,8 +195,16 @@
                             </table>
                         </div>
                     <?php else: ?>
-                        <div class="py-16 text-center text-slate-500 text-xs italic">
-                            No registered student accounts found. Add students in User Management first.
+                        <div class="text-center py-16 px-4 space-y-3">
+                            <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto border border-slate-200">
+                                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">No students found</h4>
+                                <p class="text-xs font-medium text-slate-500 max-w-xs mx-auto mt-0.5">There are no registered students in this section.</p>
+                            </div>
                         </div>
                     <?php endif; ?>
 
@@ -193,7 +222,7 @@
 
             <div>
                 <h3 class="text-base font-bold text-slate-900">Assign Student Placement</h3>
-                <p class="text-slate-500 text-xs mt-0.5">Select a partner company to load its supervisors.</p>
+                <p class="text-xs font-medium text-slate-500 mt-0.5">Select a company first to load its registered supervisors.</p>
             </div>
 
             <form method="POST" action="assignments.php" class="space-y-3.5 text-xs">
@@ -206,7 +235,7 @@
                     <select id="studentSelect" name="student_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 focus:outline-none focus:border-[#0F2854]">
                         <option value="" disabled selected>-- Choose Student --</option>
                         <?php foreach ($students as $s): ?>
-                            <option value="<?= $s['id']; ?>"><?= htmlspecialchars($s['name']); ?> (ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?>)</option>
+                            <option value="<?= $s['id']; ?>"><?= htmlspecialchars($s['name']); ?> (Sec <?= htmlspecialchars($s['section'] ?? 'A'); ?> - ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?>)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -244,7 +273,7 @@
         </div>
     </div>
 
-    <!-- Dynamic JavaScript Filtering & Modals -->
+    <!-- Scripts -->
     <script>
         const allSupervisors = <?= json_encode($supervisors ?? []); ?>;
         let currentStatusFilter = 'all';
@@ -326,7 +355,6 @@
         function filterByStatus(status, btnElement) {
             currentStatusFilter = status;
             
-            // Tab styling toggle
             document.querySelectorAll('.filter-tab').forEach(tab => {
                 tab.className = 'filter-tab px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer';
             });
@@ -335,7 +363,7 @@
             applyCombinedFilter();
         }
 
-        // Live Search Input Listener
+        // Live Search Listener
         const searchInput = document.getElementById('assignmentSearchInput');
         if (searchInput) {
             searchInput.addEventListener('input', applyCombinedFilter);
