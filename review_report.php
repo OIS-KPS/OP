@@ -25,14 +25,43 @@
 
 session_start();
 
-require_once __DIR__ . '/config/db.php';
+/* Load the database connection from the actual project structure. */
+$dbCandidates = [
+    __DIR__ . '/config/db.php',
+    __DIR__ . '/src/config/db.php',
+    __DIR__ . '/src/pages/config/db.php',
+];
+
+$dbLoaded = false;
+foreach ($dbCandidates as $dbFile) {
+    if (is_file($dbFile)) {
+        require_once $dbFile;
+        $dbLoaded = true;
+        break;
+    }
+}
+
+if (!$dbLoaded) {
+    http_response_code(500);
+    exit('Database configuration file was not found. Expected config/db.php or src/config/db.php.');
+}
+
+/* Support projects whose db.php exposes the PDO connection as $conn. */
+if (!isset($pdo) && isset($conn) && $conn instanceof PDO) {
+    $pdo = $conn;
+}
+
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+    http_response_code(500);
+    exit('Database connection is not available. Please check config/db.php.');
+}
 
 /* ============================================================
  * 1. AUTHENTICATION
  * ============================================================ */
 
 if (!isset($_SESSION['user_id'])) {
-    header('Location: auth/login.php');
+    header('Location: /ICS-PORTAL/auth/login.php');
     exit;
 }
 
@@ -133,6 +162,11 @@ function buildPdfUrl(string $filePath): string
         return '/' . ltrim($path, '/');
     }
 
+    // Already an application-rooted browser path.
+    if (str_starts_with($path, '/')) {
+        return $path;
+    }
+
     // Common database value: uploads/reports/file.pdf
     return '/ICS-PORTAL/' . ltrim($path, '/');
 }
@@ -183,7 +217,7 @@ try {
  * 5. HELPERS
  * ============================================================ */
 
-function e($value): string
+function rr_e($value): string
 {
     return htmlspecialchars(
         (string)$value,
@@ -261,7 +295,7 @@ if ($status === 'approved') {
     >
 
     <title>
-        Review Week <?= e($weekNumber); ?> Report - OJT Portal
+        Review Week <?= rr_e($weekNumber); ?> Report - OJT Portal
     </title>
 
     <link
@@ -385,11 +419,11 @@ if ($status === 'approved') {
 
 <div class="flex min-h-screen">
 
-    <?php include __DIR__ . '/components/sidebar.php'; ?>
+    <?php include __DIR__ . '/src/components/sidebar.php'; ?>
 
     <div class="flex-1 flex flex-col min-w-0">
 
-        <?php include __DIR__ . '/components/header.php'; ?>
+        <?php include __DIR__ . '/src/components/header.php'; ?>
 
         <main
             class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 flex-1"
@@ -412,7 +446,7 @@ if ($status === 'approved') {
                     <div class="flex items-start gap-3">
 
                         <a
-                            href="dashboard.php"
+                            href="/ICS-PORTAL/dashboard.php"
                             class="flex h-10 w-10 shrink-0 items-center
                                    justify-center rounded-xl border
                                    border-slate-200 bg-slate-50
@@ -448,7 +482,7 @@ if ($status === 'approved') {
                                 class="mt-1 text-base sm:text-lg font-bold
                                        text-slate-900"
                             >
-                                Week <?= e($weekNumber); ?>
+                                Week <?= rr_e($weekNumber); ?>
                                 Accomplishment Report
                             </h1>
 
@@ -456,7 +490,7 @@ if ($status === 'approved') {
                                 class="mt-1 text-xs font-medium
                                        text-slate-500"
                             >
-                                Submitted: <?= e($formattedDate); ?>
+                                Submitted: <?= rr_e($formattedDate); ?>
                             </p>
                         </div>
 
@@ -466,9 +500,9 @@ if ($status === 'approved') {
 
                         <span
                             class="px-3 py-1.5 rounded-full border
-                                   text-[10px] font-bold <?= e($statusClass); ?>"
+                                   text-[10px] font-bold <?= rr_e($statusClass); ?>"
                         >
-                            <?= e($statusLabel); ?>
+                            <?= rr_e($statusLabel); ?>
                         </span>
 
                     </div>
