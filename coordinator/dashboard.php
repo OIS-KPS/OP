@@ -353,16 +353,14 @@ try {
         'status' => $dataStatus,
         'period' => 'Current academic records in the database',
         'narrative' => sprintf(
-            'The dashboard covers %d students, %d verified evaluations, and %d submitted reports, of which %d have persisted extracted entities. Entity activity is %s technical and %s clerical by recorded occurrence. %s The most frequent category is %s with %d occurrence(s).',
+            'The dashboard covers %d students, %d verified evaluations, and %d submitted reports, of which %d have persisted extracted entities. Entity activity is %s technical and %s clerical by recorded occurrence. %s Entity priorities are determined from verified occurrence share and should be reviewed against the academic learning outcomes.',
             $totalStudents,
             $evaluatedStudents,
             $totalReports,
             $totalReportsWithEntities,
             number_format($totalEntityOccurrences > 0 ? ($technicalEntityOccurrences / $totalEntityOccurrences) * 100 : 0, 1) . '%',
             number_format($totalEntityOccurrences > 0 ? ($clericalEntityOccurrences / $totalEntityOccurrences) * 100 : 0, 1) . '%',
-            $companyComparisonText,
-            $topCategoryName,
-            $topCategoryOccurrences
+            $companyComparisonText
         ),
         'evidence' => [
             'evaluation_coverage_pct' => $evaluationCoveragePct,
