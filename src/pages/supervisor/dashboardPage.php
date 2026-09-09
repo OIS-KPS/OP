@@ -11,14 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
-    <style>
-        body { 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            text-rendering: optimizeLegibility;
-            -webkit-font-smoothing: subpixel-antialiased;
-            -moz-osx-font-smoothing: auto;
-        }
-    </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
