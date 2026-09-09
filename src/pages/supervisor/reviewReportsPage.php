@@ -23,32 +23,32 @@ $activeSubmittedAt = $activeReport['submitted_at'] ?? null;
 $extractedEntities = $activeReport['extracted_entities'] ?? [];
 
 /*
- * IMPORTANT:
- * Do not send the server filesystem path (for example C:\\xampp\\htdocs\\...)
- * directly to PDF.js. The browser needs an HTTP URL.
- *
- * review_reports.php may provide pdf_url after resolving the physical file.
- * The secure report endpoint is the preferred fallback because it resolves
- * the physical PDF on the server and streams it to the browser.
+ * Direct PDF URL Resolver (Matches Intern Portal)
  */
-$pdfUrl = '';
-
-if (!empty($activeReport['pdf_url'])) {
-    $pdfUrl = (string)$activeReport['pdf_url'];
-} elseif (!empty($activeReport['id'])) {
-    $pdfUrl = 'view_report_pdf.php?report_id=' . (int)$activeReport['id'];
-} elseif (!empty($activeFilePath)) {
-    // Last-resort legacy fallback.
-    $cleanPath = str_replace('\\', '/', trim((string)$activeFilePath));
-    $cleanPath = preg_replace('#^[A-Za-z]:/#', '', $cleanPath);
-    $cleanPath = ltrim($cleanPath, '/');
-
-    if (stripos($cleanPath, 'ICS-PORTAL/') === 0) {
-        $pdfUrl = '/' . $cleanPath;
-    } else {
-        $pdfUrl = '/ICS-PORTAL/' . $cleanPath;
+function buildSupervisorPdfUrl(string $filePath): string
+{
+    $path = trim(str_replace('\\', '/', $filePath));
+    if ($path === '') {
+        return '';
     }
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+    $fileName = basename($path);
+    $projectRoot = realpath(__DIR__ . '/../../..');
+    if ($projectRoot && file_exists($projectRoot . '/uploads/reports/' . $fileName)) {
+        return '/ICS-PORTAL/uploads/reports/' . $fileName;
+    }
+    if (preg_match('#^/?ICS-PORTAL/#i', $path)) {
+        return '/' . ltrim($path, '/');
+    }
+    if (str_starts_with($path, '/')) {
+        return $path;
+    }
+    return '/ICS-PORTAL/' . ltrim($path, '/');
 }
+
+$pdfUrl = buildSupervisorPdfUrl($activeFilePath);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -495,10 +495,6 @@ if (!empty($activeReport['pdf_url'])) {
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         try {
-            /*
-             * encodeURI keeps the query string intact while safely encoding
-             * spaces and special characters in legacy PDF URLs.
-             */
             const safeUrl = encodeURI(pdfUrl);
 
             const loadingTask = window.pdfjsLib.getDocument({
@@ -522,9 +518,6 @@ if (!empty($activeReport['pdf_url'])) {
                 const baseViewport = page.getViewport({ scale: 1 });
                 const availableWidth = Math.max(viewer.clientWidth - 16, 280);
 
-                /*
-                 * Render at a readable resolution while fitting the left panel.
-                 */
                 const scale = Math.max(
                     Math.min(availableWidth / baseViewport.width, 2),
                     0.75
@@ -569,10 +562,6 @@ if (!empty($activeReport['pdf_url'])) {
 
                 const textContent = await page.getTextContent();
 
-                /*
-                 * Build a lightweight selectable text layer ourselves.
-                 * This avoids relying on a separate pdf-highlighter.js file.
-                 */
                 textContent.items.forEach(function (item) {
                     if (!item.str) return;
 
@@ -603,9 +592,6 @@ if (!empty($activeReport['pdf_url'])) {
                 });
             }
 
-            /*
-             * Bind entity cards only after the PDF text layers exist.
-             */
             document.querySelectorAll('.entity-card').forEach(function (card) {
                 const handler = function () {
                     highlightEntity(card.getAttribute('data-entity-term') || '');
@@ -632,9 +618,6 @@ if (!empty($activeReport['pdf_url'])) {
         }
     }
 
-    /*
-     * Give the modal layout a frame before calculating PDF width.
-     */
     requestAnimationFrame(function () {
         renderPDF();
     });
@@ -642,9 +625,6 @@ if (!empty($activeReport['pdf_url'])) {
     window.addEventListener('resize', function () {
         if (!window.__reviewPdfLoaded) return;
 
-        /*
-         * Re-render only when the viewer width changes substantially.
-         */
         const currentWidth = viewer.clientWidth;
         if (
             window.__reviewPdfLastWidth &&
