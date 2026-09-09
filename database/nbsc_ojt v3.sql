@@ -27,6 +27,9 @@ SET time_zone = "+00:00";
 -- Table structure for table `audit_logs`
 --
 
+CREATE DATABASE `nbsc_ojt` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `nbsc_ojt`;
+
 CREATE TABLE `audit_logs` (
   `id` int(11) NOT NULL,
   `user_id` int(11) DEFAULT NULL,
