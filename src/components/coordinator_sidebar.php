@@ -5,7 +5,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-20">
     <div>
-        <!-- Portal Brand Header (Exact match to Student Portal) -->
+        <!-- Portal Brand Header -->
         <div class="h-20 px-6 bg-[#0F2854] flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-white/10 border border-white/15 text-white flex items-center justify-center font-bold text-base shrink-0">
                 N
@@ -75,6 +75,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
                         </svg>
                         Student Assignments
+                    </a>
+
+                    <!-- Manage Entities (NEW) -->
+                    <?php $isEntities = in_array($currentPage, ['entities.php', 'manage_entities.php']); ?>
+                    <a href="entities.php" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm <?= $isEntities ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
+                        <svg class="w-5 h-5 <?= $isEntities ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                        </svg>
+                        Manage Entities
                     </a>
 
                     <!-- Audit Logs -->
