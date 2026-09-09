@@ -181,6 +181,7 @@ $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
                                         $status = strtolower($report['status'] ?? 'pending');
                                         $filePath = $report['file_path'] ?? '';
                                         $dateSubmitted = $report['submitted_at'] ?? null;
+                                        $approvedAt = $report['approved_at'] ?? null;
                                         $isApproved = ($status === 'approved');
                                     ?>
                                         <tr class="hover:bg-slate-50/80 transition-colors group">
@@ -205,10 +206,17 @@ $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
 
                                             <td class="py-4 px-6 whitespace-nowrap">
                                                 <?php if ($isApproved): ?>
-                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                        Approved
-                                                    </span>
+                                                    <div class="flex flex-col items-start gap-1">
+                                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                            Approved
+                                                        </span>
+                                                        <?php if (!empty($approvedAt)): ?>
+                                                            <span class="text-[11px] font-medium text-slate-500 pl-0.5">
+                                                                <?= date("M d, Y \a\\t g:i A", strtotime($approvedAt)); ?>
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 <?php elseif ($status === 'rejected'): ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
