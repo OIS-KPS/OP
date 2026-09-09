@@ -26,28 +26,20 @@
 
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
-                <!-- Header Actions Card -->
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/90 shadow-xs">
-                    <div>
-                        <h1 class="text-base font-extrabold text-slate-950 leading-snug tracking-tight">My Interns</h1>
-                        <p class="text-xs font-semibold text-slate-600 mt-1">
-                            <?= htmlspecialchars($supervisor['company_name'] ?? 'Host Company'); ?> &bull; Track student accomplishment reports and review submissions.
-                        </p>
-                    </div>
-
-                    <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
-                        <?= count($interns ?? []); ?> Total <?= count($interns ?? []) === 1 ? 'Student' : 'Students'; ?>
-                    </span>
-                </div>
-
-                <!-- Students Table Container -->
+                <!-- Students Directory Table Card -->
                 <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                    
+                    <!-- Table Header Bar with Integrated Total Count Badge -->
                     <div class="p-6 border-b border-slate-200/70 flex justify-between items-center bg-slate-50/60">
                         <div>
-                            <h3 class="text-xs font-extrabold text-slate-900 tracking-wider uppercase">Assigned Students</h3>
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Overview of submitted weekly reports per intern</p>
+                            <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Assigned Interns</h3>
+                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Track and view submitted weekly accomplishment logs per student</p>
                         </div>
+
+                        <span class="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-lg bg-white border border-slate-300 text-xs font-extrabold text-slate-900 shadow-2xs">
+                            <span class="w-2 h-2 rounded-full bg-[#0F2854]"></span>
+                            <?= count($interns ?? []); ?> Total <?= count($interns ?? []) === 1 ? 'Student' : 'Students'; ?>
+                        </span>
                     </div>
 
                     <?php if (!empty($interns) && count($interns) > 0): ?>
