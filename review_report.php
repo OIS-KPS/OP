@@ -124,14 +124,331 @@ function buildPdfUrl(string $filePath): string
 }
 $pdfUrl = buildPdfUrl($filePath);
 /* ============================================================
- * 4. LOAD EXTRACTED ENTITIES
- * ============================================================
- *
- * This query uses only columns that actually exist in
- * report_entities according to the supplied SQL schema.
+ * 4. RUN PYTHON EXTRACTION AND LOAD ENTITIES
  * ============================================================ */
+
+function rr_local_pdf_path(string $filePath): string
+{
+    $path = trim(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $filePath));
+    if ($path === '') return '';
+
+    $projectRoot = __DIR__;
+    $candidates = [
+        $path,
+        $projectRoot . DIRECTORY_SEPARATOR . ltrim($path, '/\\'),
+    ];
+
+    foreach ($candidates as $candidate) {
+        $realPath = realpath($candidate);
+        if ($realPath && is_file($realPath)) return $realPath;
+    }
+
+    return '';
+}
+
+function rr_run_python_extractor(string $pdfPath): array
+{
+    $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'entity_extractor.py';
+    if (!is_file($scriptPath)) {
+        throw new RuntimeException('Python extractor was not found at /ICS-PORTAL/python/entity_extractor.py.');
+    }
+
+    $localPdf = rr_local_pdf_path($pdfPath);
+    if ($localPdf === '') {
+        throw new RuntimeException('The submitted PDF file could not be found on the server.');
+    }
+
+    $pythonBinary = getenv('PYTHON_BINARY') ?: (PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3');
+    $command = escapeshellarg($pythonBinary) . ' ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($localPdf);
+    $descriptorSpec = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+
+    $process = proc_open($command, $descriptorSpec, $pipes, __DIR__);
+    if (!is_resource($process)) throw new RuntimeException('Unable to start the Python extractor.');
+
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
+
+    $result = json_decode(trim((string)$stdout), true);
+    if (!is_array($result)) {
+        throw new RuntimeException('The Python extractor returned invalid JSON: ' . trim((string)$stderr));
+    }
+    if ($exitCode !== 0 || empty($result['success'])) {
+        throw new RuntimeException((string)($result['error'] ?? trim((string)$stderr) ?: 'Python entity extraction failed.'));
+    }
+
+    return is_array($result['entities'] ?? null) ? $result['entities'] : [];
+}
+
 $entities = [];
+
+/**
+ * Load the entity catalog from the actual predefined_entities table.
+ *
+ * The SQL schema defines:
+ *   entity_name, aliases, category, activity_type, it_related
+ *
+ * The catalog is therefore the single source of truth for classification.
+ */
+function rr_load_predefined_entities(PDO $pdo): array
+{
+    $stmt = $pdo->query("
+        SELECT
+            id,
+            entity_name,
+            aliases,
+            category,
+            activity_type,
+            it_related
+        FROM predefined_entities
+        ORDER BY CHAR_LENGTH(entity_name) DESC, entity_name ASC
+    ");
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function rr_normalize_entity_text(string $text): string
+{
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = str_replace(
+        ["\u{2018}", "\u{2019}", "\u{201C}", "\u{201D}", "\u{2013}", "\u{2014}"],
+        ["'", "'", '"', '"', "-", "-"],
+        $text
+    );
+
+    $text = preg_replace('/\s+/u', ' ', trim($text));
+    return function_exists('mb_strtolower')
+        ? mb_strtolower($text, 'UTF-8')
+        : strtolower($text);
+}
+
+/**
+ * Build a lookup containing both canonical names and aliases.
+ *
+ * Example from the supplied SQL:
+ *   PHP -> aliases: php programming, php development, php system
+ *   Data Entry -> aliases: data encoding, encoding, encode data
+ */
+function rr_build_entity_catalog(array $rows): array
+{
+    $catalog = [];
+
+    foreach ($rows as $row) {
+        $canonical = trim((string)($row['entity_name'] ?? ''));
+        if ($canonical === '') {
+            continue;
+        }
+
+        $values = [$canonical];
+
+        $aliases = trim((string)($row['aliases'] ?? ''));
+        if ($aliases !== '') {
+            foreach (preg_split('/\|/u', $aliases) as $alias) {
+                $alias = trim($alias);
+                if ($alias !== '') {
+                    $values[] = $alias;
+                }
+            }
+        }
+
+        foreach ($values as $term) {
+            $normalized = rr_normalize_entity_text($term);
+            if ($normalized === '') {
+                continue;
+            }
+
+            /*
+             * Keep the longest catalog term when two catalog entries
+             * normalize to the same value.
+             */
+            if (
+                !isset($catalog[$normalized]) ||
+                strlen($term) > strlen((string)($catalog[$normalized]['matched_term'] ?? ''))
+            ) {
+                $catalog[$normalized] = [
+                    'id'            => (int)$row['id'],
+                    'entity_name'   => $canonical,
+                    'matched_term'  => $term,
+                    'category'      => (string)($row['category'] ?? 'Other'),
+                    'activity_type' => in_array(
+                        $row['activity_type'] ?? 'Other',
+                        ['Software', 'Hardware', 'Clerical', 'Other'],
+                        true
+                    ) ? $row['activity_type'] : 'Other',
+                    'it_related'    => in_array(
+                        $row['it_related'] ?? 'unknown',
+                        ['yes', 'no'],
+                        true
+                    ) ? $row['it_related'] : 'unknown',
+                ];
+            }
+        }
+    }
+
+    return $catalog;
+}
+
+/**
+ * Match a spaCy result against the SQL predefined catalog.
+ *
+ * Matching checks:
+ * 1. matched_term
+ * 2. entity_name
+ * 3. entity
+ * 4. label
+ *
+ * This prevents Python output from replacing the category/activity
+ * classification stored in predefined_entities.
+ */
+function rr_match_predefined_entity(array $entity, array $catalog): ?array
+{
+    $candidateKeys = [
+        'matched_term',
+        'entity_name',
+        'entity',
+        'text',
+        'label',
+        'name',
+    ];
+
+    foreach ($candidateKeys as $key) {
+        if (!isset($entity[$key])) {
+            continue;
+        }
+
+        $value = trim((string)$entity[$key]);
+        if ($value === '') {
+            continue;
+        }
+
+        $normalized = rr_normalize_entity_text($value);
+
+        if (isset($catalog[$normalized])) {
+            return $catalog[$normalized];
+        }
+
+        /*
+         * Some extractors return a longer phrase containing the
+         * predefined term. Check catalog terms using Unicode-safe
+         * boundary matching.
+         */
+        foreach ($catalog as $catalogTerm => $definition) {
+            if (mb_strlen($catalogTerm, 'UTF-8') < 3) {
+                continue;
+            }
+
+            $pattern = '/(?<![\p{L}\p{N}])' .
+                preg_quote($catalogTerm, '/') .
+                '(?![\p{L}\p{N}])/iu';
+
+            if (preg_match($pattern, $normalized)) {
+                return $definition;
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Convert Python extraction output to the exact report_entities schema.
+ *
+ * One database row is created per unique entity. The old implementation
+ * inserted the same entity repeatedly according to "frequency", but the
+ * supplied SQL schema has no frequency column. Keeping one row per entity
+ * avoids duplicate cards and duplicate highlights.
+ */
+function rr_prepare_report_entities(
+    array $pythonEntities,
+    array $catalog
+): array {
+    $prepared = [];
+    $seen = [];
+
+    foreach ($pythonEntities as $entity) {
+        if (!is_array($entity)) {
+            continue;
+        }
+
+        $matched = rr_match_predefined_entity($entity, $catalog);
+
+        if ($matched !== null) {
+            $entityName = $matched['matched_term'];
+            $canonical = $matched['entity_name'];
+            $category = $matched['category'];
+            $activityType = $matched['activity_type'];
+            $itRelated = $matched['it_related'];
+            $source = 'spacy_predefined';
+        } else {
+            $entityName = trim((string)(
+                $entity['matched_term']
+                ?? $entity['entity_name']
+                ?? $entity['entity']
+                ?? $entity['text']
+                ?? $entity['label']
+                ?? ''
+            ));
+
+            if ($entityName === '') {
+                continue;
+            }
+
+            $canonical = trim((string)(
+                $entity['canonical_name']
+                ?? $entity['entity_name']
+                ?? $entity['entity']
+                ?? $entityName
+            ));
+
+            $category = trim((string)($entity['category'] ?? 'Other'));
+            $activityType = in_array(
+                $entity['activity_type'] ?? 'Other',
+                ['Software', 'Hardware', 'Clerical', 'Other'],
+                true
+            ) ? $entity['activity_type'] : 'Other';
+
+            $itRelated = in_array(
+                $entity['it_related'] ?? 'unknown',
+                ['yes', 'no', 'unknown'],
+                true
+            ) ? $entity['it_related'] : 'unknown';
+
+            $source = 'spacy';
+        }
+
+        $uniqueKey = rr_normalize_entity_text($canonical);
+
+        if ($uniqueKey === '' || isset($seen[$uniqueKey])) {
+            continue;
+        }
+
+        $seen[$uniqueKey] = true;
+
+        $prepared[] = [
+            'entity_name'     => $entityName,
+            'canonical_name'  => $canonical,
+            'category'        => $category !== '' ? $category : 'Other',
+            'activity_type'   => $activityType,
+            'it_related'      => $itRelated,
+            'source'          => $source,
+        ];
+    }
+
+    return $prepared;
+}
+
 try {
+    /*
+     * Always read existing entities first.
+     * Add ?extract=1 to rebuild them from the current PDF.
+     */
     $entitySql = "
         SELECT
             id,
@@ -142,20 +459,104 @@ try {
             activity_type,
             it_related,
             source,
+            confidence_score,
             created_at
         FROM report_entities
         WHERE report_id = :report_id
         ORDER BY entity_name ASC, id ASC
     ";
+
     $entityStmt = $pdo->prepare($entitySql);
-    $entityStmt->execute([
-        ':report_id' => $reportId
-    ]);
+    $entityStmt->execute([':report_id' => $reportId]);
     $entities = $entityStmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    error_log('review_report entity query: ' . $e->getMessage());
+
+    $forceExtract = isset($_GET['extract']) && $_GET['extract'] === '1';
+
+    if ($forceExtract || !$entities) {
+        /*
+         * IMPORTANT:
+         * The predefined catalog comes directly from the SQL table.
+         * No hard-coded PHP/MySQL/Java/etc. list is used here.
+         */
+        $predefinedRows = rr_load_predefined_entities($pdo);
+        $catalog = rr_build_entity_catalog($predefinedRows);
+
+        if (!$catalog) {
+            throw new RuntimeException(
+                'No predefined entities were found in the predefined_entities table.'
+            );
+        }
+
+        $pythonEntities = rr_run_python_extractor($filePath);
+        $preparedEntities = rr_prepare_report_entities(
+            $pythonEntities,
+            $catalog
+        );
+
+        $pdo->beginTransaction();
+
+        $deleteStmt = $pdo->prepare(
+            'DELETE FROM report_entities WHERE report_id = :report_id'
+        );
+        $deleteStmt->execute([':report_id' => $reportId]);
+
+        $insertStmt = $pdo->prepare("
+            INSERT INTO report_entities
+            (
+                report_id,
+                entity_name,
+                canonical_name,
+                category,
+                activity_type,
+                it_related,
+                source,
+                confidence_score
+            )
+            VALUES
+            (
+                :report_id,
+                :entity_name,
+                :canonical_name,
+                :category,
+                :activity_type,
+                :it_related,
+                :source,
+                :confidence_score
+            )
+        ");
+
+        foreach ($preparedEntities as $entity) {
+            $insertStmt->execute([
+                ':report_id'       => $reportId,
+                ':entity_name'     => $entity['entity_name'],
+                ':canonical_name'  => $entity['canonical_name'],
+                ':category'        => $entity['category'],
+                ':activity_type'   => $entity['activity_type'],
+                ':it_related'      => $entity['it_related'],
+                ':source'          => $entity['source'],
+                ':confidence_score'=> 100.00,
+            ]);
+        }
+
+        $pdo->commit();
+
+        $entityStmt->execute([':report_id' => $reportId]);
+        $entities = $entityStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    error_log(
+        'review_report entity extraction: ' .
+        $e->getMessage()
+    );
+
     $entities = [];
 }
+/* Add ?extract=1 to force a fresh Python extraction after catalog changes. */
+
 /* ============================================================
  * 5. HELPERS
  * ============================================================ */
@@ -625,11 +1026,18 @@ if ($status === 'approved') {
             const category = getValue(
                 entity,
                 [
-                    'activity_type',
                     'category',
                     'type'
                 ],
-                'Unclassified'
+                'Other'
+            );
+
+            const activityType = getValue(
+                entity,
+                [
+                    'activity_type'
+                ],
+                'Other'
             );
             const itRelated = String(
                 getValue(
@@ -680,6 +1088,9 @@ if ($status === 'approved') {
                 >
                     <span>
                         ${escapeHtml(category)}
+                    </span>
+                    <span>
+                        ${escapeHtml(activityType)}
                     </span>
                 </div>
             `;

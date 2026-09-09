@@ -22,10 +22,32 @@ $activeFilePath = $activeReport['file_path'] ?? '';
 $activeSubmittedAt = $activeReport['submitted_at'] ?? null;
 $extractedEntities = $activeReport['extracted_entities'] ?? [];
 
+/*
+ * IMPORTANT:
+ * Do not send the server filesystem path (for example C:\\xampp\\htdocs\\...)
+ * directly to PDF.js. The browser needs an HTTP URL.
+ *
+ * review_reports.php may provide pdf_url after resolving the physical file.
+ * The secure report endpoint is the preferred fallback because it resolves
+ * the physical PDF on the server and streams it to the browser.
+ */
 $pdfUrl = '';
-if (!empty($activeFilePath)) {
-    $cleanPath = ltrim(str_replace('\\', '/', $activeFilePath), '/');
-    $pdfUrl = (stripos($cleanPath, 'ICS-PORTAL/') === 0) ? '/' . $cleanPath : '/ICS-PORTAL/' . $cleanPath;
+
+if (!empty($activeReport['pdf_url'])) {
+    $pdfUrl = (string)$activeReport['pdf_url'];
+} elseif (!empty($activeReport['id'])) {
+    $pdfUrl = 'view_report_pdf.php?report_id=' . (int)$activeReport['id'];
+} elseif (!empty($activeFilePath)) {
+    // Last-resort legacy fallback.
+    $cleanPath = str_replace('\\', '/', trim((string)$activeFilePath));
+    $cleanPath = preg_replace('#^[A-Za-z]:/#', '', $cleanPath);
+    $cleanPath = ltrim($cleanPath, '/');
+
+    if (stripos($cleanPath, 'ICS-PORTAL/') === 0) {
+        $pdfUrl = '/' . $cleanPath;
+    } else {
+        $pdfUrl = '/ICS-PORTAL/' . $cleanPath;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -378,6 +400,263 @@ if (!empty($activeFilePath)) {
 
 <!-- PDF.js & Entity Highlighter Scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="/ICS-PORTAL/public/js/pdf-highlighter.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    const viewer = document.getElementById('pdf-viewer');
+    if (!viewer) return;
+
+    const pdfUrl = viewer.getAttribute('data-pdf-url');
+    if (!pdfUrl) return;
+
+    const loadingHTML =
+        '<div class="h-full flex items-center justify-center text-xs text-slate-400 p-4">Loading Document…</div>';
+
+    function showError(message) {
+        viewer.innerHTML =
+            '<div class="h-full flex flex-col items-center justify-center text-center p-6">' +
+                '<div class="text-rose-500 text-sm font-bold mb-2">Unable to display PDF</div>' +
+                '<div class="text-xs text-slate-500 max-w-md">' + escapeHtml(message) + '</div>' +
+                '<a href="' + escapeHtml(pdfUrl) + '" target="_blank" rel="noopener noreferrer" ' +
+                   'class="mt-3 text-xs font-bold text-[#0F2854] hover:underline">Open PDF directly ↗</a>' +
+            '</div>';
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, function (char) {
+            return ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            })[char];
+        });
+    }
+
+    function normalizeText(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/[\u2010-\u2015]/g, '-')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function clearHighlights() {
+        viewer.querySelectorAll('.pdf-text-layer span.entity-highlight').forEach(function (span) {
+            span.classList.remove('entity-highlight');
+        });
+    }
+
+    function highlightEntity(term) {
+        clearHighlights();
+
+        const wanted = normalizeText(term);
+        if (!wanted) return;
+
+        let found = false;
+
+        viewer.querySelectorAll('.pdf-text-layer span').forEach(function (span) {
+            const text = normalizeText(span.textContent);
+            if (!text) return;
+
+            if (text.includes(wanted) || wanted.includes(text) && text.length > 1) {
+                span.classList.add('entity-highlight');
+                found = true;
+            }
+        });
+
+        const selectedCards = document.querySelectorAll('.entity-card');
+        selectedCards.forEach(function(card) {
+            card.classList.toggle(
+                'entity-selected',
+                normalizeText(card.getAttribute('data-entity-term')) === wanted
+            );
+        });
+
+        if (found) {
+            const first = viewer.querySelector('.pdf-text-layer span.entity-highlight');
+            if (first) {
+                first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }
+
+    async function renderPDF() {
+        viewer.innerHTML = loadingHTML;
+
+        if (!window.pdfjsLib) {
+            showError('PDF.js failed to load. Check your internet connection or the PDF.js library.');
+            return;
+        }
+
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        try {
+            /*
+             * encodeURI keeps the query string intact while safely encoding
+             * spaces and special characters in legacy PDF URLs.
+             */
+            const safeUrl = encodeURI(pdfUrl);
+
+            const loadingTask = window.pdfjsLib.getDocument({
+                url: safeUrl,
+                withCredentials: true,
+                disableAutoFetch: false,
+                disableStream: false
+            });
+
+            const pdf = await loadingTask.promise;
+
+            if (!pdf || !pdf.numPages) {
+                throw new Error('The PDF contains no pages.');
+            }
+
+            viewer.innerHTML = '';
+
+            for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+                const page = await pdf.getPage(pageNumber);
+
+                const baseViewport = page.getViewport({ scale: 1 });
+                const availableWidth = Math.max(viewer.clientWidth - 16, 280);
+
+                /*
+                 * Render at a readable resolution while fitting the left panel.
+                 */
+                const scale = Math.max(
+                    Math.min(availableWidth / baseViewport.width, 2),
+                    0.75
+                );
+
+                const viewport = page.getViewport({ scale: scale });
+
+                const pageContainer = document.createElement('div');
+                pageContainer.className = 'pdf-page';
+                pageContainer.style.width = viewport.width + 'px';
+                pageContainer.style.height = viewport.height + 'px';
+
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d', { alpha: false });
+
+                const outputScale = window.devicePixelRatio || 1;
+
+                canvas.width = Math.ceil(viewport.width * outputScale);
+                canvas.height = Math.ceil(viewport.height * outputScale);
+                canvas.style.width = viewport.width + 'px';
+                canvas.style.height = viewport.height + 'px';
+
+                pageContainer.appendChild(canvas);
+
+                const textLayer = document.createElement('div');
+                textLayer.className = 'pdf-text-layer';
+                textLayer.style.width = viewport.width + 'px';
+                textLayer.style.height = viewport.height + 'px';
+                pageContainer.appendChild(textLayer);
+
+                viewer.appendChild(pageContainer);
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport,
+                    transform: outputScale !== 1
+                        ? [outputScale, 0, 0, outputScale, 0, 0]
+                        : null
+                };
+
+                await page.render(renderContext).promise;
+
+                const textContent = await page.getTextContent();
+
+                /*
+                 * Build a lightweight selectable text layer ourselves.
+                 * This avoids relying on a separate pdf-highlighter.js file.
+                 */
+                textContent.items.forEach(function (item) {
+                    if (!item.str) return;
+
+                    const tx = window.pdfjsLib.Util.transform(
+                        viewport.transform,
+                        item.transform
+                    );
+
+                    const fontHeight = Math.max(
+                        Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3])),
+                        6
+                    );
+
+                    const span = document.createElement('span');
+                    span.textContent = item.str;
+                    span.style.left = tx[4] + 'px';
+                    span.style.top = (tx[5] - fontHeight) + 'px';
+                    span.style.fontSize = fontHeight + 'px';
+                    span.style.fontFamily = 'sans-serif';
+                    span.style.lineHeight = '1';
+
+                    const scaleX = Math.sqrt(
+                        (tx[0] * tx[0]) + (tx[1] * tx[1])
+                    ) || 1;
+
+                    span.style.transform = 'scaleX(' + scaleX + ')';
+                    textLayer.appendChild(span);
+                });
+            }
+
+            /*
+             * Bind entity cards only after the PDF text layers exist.
+             */
+            document.querySelectorAll('.entity-card').forEach(function (card) {
+                const handler = function () {
+                    highlightEntity(card.getAttribute('data-entity-term') || '');
+                };
+
+                card.addEventListener('click', handler);
+                card.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handler();
+                    }
+                });
+            });
+
+            window.__reviewPdfLoaded = true;
+
+        } catch (error) {
+            console.error('PDF viewer error:', error);
+            showError(
+                error && error.message
+                    ? error.message
+                    : 'The PDF could not be loaded.'
+            );
+        }
+    }
+
+    /*
+     * Give the modal layout a frame before calculating PDF width.
+     */
+    requestAnimationFrame(function () {
+        renderPDF();
+    });
+
+    window.addEventListener('resize', function () {
+        if (!window.__reviewPdfLoaded) return;
+
+        /*
+         * Re-render only when the viewer width changes substantially.
+         */
+        const currentWidth = viewer.clientWidth;
+        if (
+            window.__reviewPdfLastWidth &&
+            Math.abs(currentWidth - window.__reviewPdfLastWidth) < 40
+        ) {
+            return;
+        }
+
+        window.__reviewPdfLastWidth = currentWidth;
+        renderPDF();
+    });
+})();
+</script>
 </body>
 </html>
