@@ -30,29 +30,6 @@
             <!-- Main Content Canvas -->
             <main class="p-6 md:p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
-                <!-- 1. Header Hero Card -->
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 sm:p-7 rounded-2xl border border-slate-200/80 shadow-xs">
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-snug">Supervisor Overview</h1>
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-[#0F2854] border border-blue-200/60 text-[11px] font-semibold">
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
-                                Host Supervisor
-                            </span>
-                        </div>
-                        <p class="text-xs font-medium text-slate-500">
-                            <?= htmlspecialchars($supervisor['company_name'] ?? 'Host Agency'); ?> &bull; Review weekly logs and verify intern training hours.
-                        </p>
-                    </div>
-
-                    <?php if (!empty($totalPending) && $totalPending > 0): ?>
-                        <a href="review_reports.php" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all shadow-xs flex items-center gap-2 shrink-0">
-                            <span>Review Queue</span>
-                            <span class="px-1.5 py-0.5 bg-amber-400 text-slate-900 rounded-md text-[10px] font-extrabold"><?= intval($totalPending); ?></span>
-                        </a>
-                    <?php endif; ?>
-                </div>
-
                 <!-- 2. Polished Stat Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     
