@@ -8,14 +8,11 @@
     <!-- Inter Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased">
+<body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
     <div class="flex min-h-screen">
         
@@ -31,69 +28,69 @@
 
                 <!-- Navigation -->
                 <div>
-                    <a href="evaluate_interns.php" class="inline-flex items-center gap-2 text-xs font-bold text-[#0F2854] hover:text-blue-900 bg-white px-4 py-2 rounded-xl border border-slate-200/80 shadow-2xs transition-all hover:bg-slate-50">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+                    <a href="evaluate_interns.php" class="inline-flex items-center gap-2 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 px-4 py-2 rounded-xl border border-slate-300 shadow-2xs transition-all cursor-pointer">
+                        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
                         <span>Back to Evaluations</span>
                     </a>
                 </div>
 
                 <!-- Student Info Card -->
-                <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
+                <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#0F2854] flex items-center justify-center font-bold text-base border border-blue-100 shrink-0">
+                        <div class="w-13 h-13 rounded-2xl bg-blue-50 text-[#0F2854] flex items-center justify-center font-black text-base border border-blue-200 shrink-0">
                             <?= strtoupper(substr($student['name'] ?? 'S', 0, 1)); ?>
                         </div>
                         <div>
-                            <h1 class="text-base font-bold text-slate-900 leading-snug"><?= htmlspecialchars($student['name'] ?? 'Student'); ?></h1>
-                            <p class="text-xs text-slate-500 font-medium">ID: <?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
+                            <h1 class="text-base font-extrabold text-slate-950 leading-snug tracking-tight"><?= htmlspecialchars($student['name'] ?? 'Student'); ?></h1>
+                            <p class="text-xs text-slate-600 font-semibold mt-0.5">ID: <strong class="text-slate-900"><?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?></strong> &bull; Program: <strong class="text-slate-900"><?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></strong></p>
                         </div>
                     </div>
-                    <span class="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200">
+                    <span class="px-3.5 py-1.5 bg-emerald-100/80 text-emerald-900 text-xs font-bold rounded-full border border-emerald-300 shadow-2xs">
                         12 Weeks Verified
                     </span>
                 </div>
 
                 <!-- Evaluation Form -->
-                <form id="evaluationForm" onsubmit="handleEvaluationSubmit(event)" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-7 space-y-6">
+                <form id="evaluationForm" onsubmit="handleEvaluationSubmit(event)" class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-7 space-y-6">
                     <input type="hidden" id="eval_student_id" value="<?= (int)($student['id'] ?? 0); ?>">
 
-                    <div class="border-b border-slate-100 pb-3">
-                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Performance Criteria Rating (1 - 100)</h2>
-                        <p class="text-xs text-slate-400 mt-0.5">Rate each competency category based on the intern's actual work output.</p>
+                    <div class="border-b border-slate-200/70 pb-3">
+                        <h2 class="text-xs font-black text-slate-900 uppercase tracking-wider">Performance Criteria Rating (1 - 100)</h2>
+                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Rate each competency category based on the intern's actual work output.</p>
                     </div>
 
                     <!-- Rating Fields -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1.5">Technical Competence (40%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="tech_score" required placeholder="e.g., 90.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
+                            <label class="block font-bold text-slate-800 mb-1.5">Technical Competence (40%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="tech_score" required placeholder="e.g., 90.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1.5">Work Ethics & Professionalism (25%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="ethics_score" required placeholder="e.g., 92.5" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
+                            <label class="block font-bold text-slate-800 mb-1.5">Work Ethics & Professionalism (25%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="ethics_score" required placeholder="e.g., 92.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1.5">Communication Skills (20%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="comm_score" required placeholder="e.g., 88.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
+                            <label class="block font-bold text-slate-800 mb-1.5">Communication Skills (20%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="comm_score" required placeholder="e.g., 88.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1.5">Punctuality & Attendance (15%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="punct_score" required placeholder="e.g., 95.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-medium">
+                            <label class="block font-bold text-slate-800 mb-1.5">Punctuality & Attendance (15%)</label>
+                            <input type="number" step="0.1" min="50" max="100" id="punct_score" required placeholder="e.g., 95.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
                         </div>
                     </div>
 
                     <!-- Feedback Field -->
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1.5 text-xs">Supervisor Comments & Recommendation</label>
-                        <textarea id="feedback" rows="4" placeholder="Write qualitative remarks regarding the student's performance and career readiness..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-[#0F2854] font-medium"></textarea>
+                        <label class="block font-bold text-slate-800 mb-1.5 text-xs">Supervisor Comments & Recommendation</label>
+                        <textarea id="feedback" rows="4" placeholder="Write qualitative remarks regarding the student's performance and career readiness..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs focus:outline-none focus:border-[#0F2854] font-medium text-slate-900"></textarea>
                     </div>
 
                     <!-- Form Action Button -->
-                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                        <a href="evaluate.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">Cancel</a>
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200/70">
+                        <a href="evaluate.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all">Cancel</a>
                         <button type="submit" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer">
                             <span>Sign & Submit Evaluation</span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
                         </button>
                     </div>
                 </form>
@@ -103,55 +100,55 @@
     </div>
 
     <!-- ============================================================
-         OTP VERIFICATION MODAL (Exact match to Wireframe)
+         OTP VERIFICATION MODAL
          ============================================================ -->
     <div id="otpModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-7 relative space-y-5 animate-in fade-in zoom-in duration-200">
+        <div class="bg-white rounded-3xl border border-slate-300 shadow-2xl max-w-md w-full p-7 relative space-y-5 animate-in fade-in zoom-in duration-200">
             
             <!-- Modal Header -->
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="text-sm font-bold text-slate-900">OTP verification</h3>
-                <button onclick="closeOtpModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1">✕</button>
+            <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+                <h3 class="text-sm font-black text-slate-900 tracking-tight">OTP Verification</h3>
+                <button onclick="closeOtpModal()" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-xs font-bold flex items-center justify-center border border-slate-300 transition-all cursor-pointer">✕</button>
             </div>
 
             <!-- Mail Graphic -->
             <div class="text-center space-y-1">
-                <div class="w-14 h-14 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center mx-auto text-slate-600 shadow-inner">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <div class="w-14 h-14 bg-slate-100 border border-slate-300 rounded-full flex items-center justify-center mx-auto text-slate-700 shadow-inner">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
                     </svg>
                 </div>
-                <h4 class="text-sm font-bold text-slate-900 pt-2">Check your Gmail</h4>
-                <p class="text-xs text-slate-500">
-                    Enter the 6-digit OTP sent to <strong id="otpEmailTarget" class="text-slate-800 font-semibold">your email</strong>
+                <h4 class="text-sm font-black text-slate-950 pt-2">Check your Gmail</h4>
+                <p class="text-xs text-slate-600 font-medium">
+                    Enter the 6-digit OTP sent to <strong id="otpEmailTarget" class="text-slate-950 font-extrabold">your email</strong>
                 </p>
             </div>
 
             <!-- 6-Box Form -->
             <form onsubmit="handleOtpVerify(event)" class="space-y-4">
                 <div class="flex justify-center gap-2" id="otpBoxContainer">
-                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
-                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-bold text-slate-900 bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-black text-slate-950 bg-slate-100 focus:bg-white border border-slate-300 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all shadow-2xs" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-black text-slate-950 bg-slate-100 focus:bg-white border border-slate-300 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all shadow-2xs" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-black text-slate-950 bg-slate-100 focus:bg-white border border-slate-300 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all shadow-2xs" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-black text-slate-950 bg-slate-100 focus:bg-white border border-slate-300 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all shadow-2xs" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-black text-slate-950 bg-slate-100 focus:bg-white border border-slate-300 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all shadow-2xs" />
+                    <input type="text" maxlength="1" class="otp-box w-11 h-12 text-center text-lg font-black text-slate-950 bg-slate-100 focus:bg-white border border-slate-300 focus:border-[#0F2854] rounded-xl focus:outline-none transition-all shadow-2xs" />
                 </div>
 
-                <p id="otpErrorMsg" class="text-rose-600 text-xs font-semibold text-center hidden"></p>
+                <p id="otpErrorMsg" class="text-rose-600 text-xs font-bold text-center hidden"></p>
 
                 <div class="text-center text-xs">
-                    <span id="resendTimerText" class="text-slate-400">Resend OTP in <strong id="timerCountdown" class="text-slate-600">0:45</strong></span>
-                    <button type="button" id="resendOtpBtn" onclick="requestOtpCode()" class="text-[#0F2854] font-bold hover:underline hidden">
+                    <span id="resendTimerText" class="text-slate-500 font-medium">Resend OTP in <strong id="timerCountdown" class="text-slate-800 font-bold">0:45</strong></span>
+                    <button type="button" id="resendOtpBtn" onclick="requestOtpCode()" class="text-[#0F2854] font-extrabold hover:underline hidden">
                         Resend Code
                     </button>
                 </div>
 
-                <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                    <button type="button" onclick="closeOtpModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+                <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200/70">
+                    <button type="button" onclick="closeOtpModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all cursor-pointer">
                         Cancel
                     </button>
-                    <button type="submit" id="verifyBtn" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all">
+                    <button type="submit" id="verifyBtn" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
                         Verify & Submit
                     </button>
                 </div>

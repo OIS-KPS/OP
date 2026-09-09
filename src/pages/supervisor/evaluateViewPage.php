@@ -15,17 +15,9 @@ $signedTime = !empty($evaluation['otp_signed_at']) ? strtotime($evaluation['otp_
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        @media print {
-            aside, header, .no-print { display: none !important; }
-            main { padding: 0 !important; max-width: 100% !important; }
-            body { background: white !important; }
-            .print-clean { border: none !important; box-shadow: none !important; }
-        }
-    </style>
+    
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased">
+<body class="bg-slate-50 text-slate-800 subpixel-antialiased">
 
     <div class="flex min-h-screen">
         

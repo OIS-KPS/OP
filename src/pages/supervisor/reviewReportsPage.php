@@ -60,11 +60,10 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
     <!-- Inter Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
     <style>
-        body { font-family: 'Inter', sans-serif; }
         #pdf-viewer { position: relative; width: 100%; min-width: 0; overflow-y: auto; overflow-x: hidden; background: #f1f5f9; }
         .pdf-page { position: relative; max-width: 100%; margin: 0 auto 14px; background: #fff; box-shadow: 0 1px 4px rgba(15, 23, 42, .12); border-radius: 6px; }
         .pdf-page canvas { display: block; max-width: 100%; height: auto; }
@@ -75,7 +74,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
         .entity-card:hover, .entity-card.entity-selected { border-color: #f59e0b; background: #fffbeb; box-shadow: 0 0 0 2px rgba(245, 158, 11, .15); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased">
+<body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
 <div class="flex min-h-screen">
     
@@ -90,37 +89,37 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
         <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1 relative">
 
             <!-- Page Header Card -->
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/90 shadow-xs">
                 <div>
-                    <h1 class="text-base font-bold text-slate-900 leading-snug">Review Accomplishment Reports</h1>
-                    <p class="text-xs font-medium text-slate-500 mt-1">Review student task logs, inspect extracted technical activities, and approve reports.</p>
+                    <h1 class="text-base font-extrabold text-slate-950 leading-snug tracking-tight">Review Accomplishment Reports</h1>
+                    <p class="text-xs font-semibold text-slate-600 mt-1">Review student task logs, inspect extracted technical activities, and approve reports.</p>
                 </div>
 
                 <!-- Status Filter Tabs -->
-                <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200/70 text-xs font-semibold">
-                    <a href="review_reports.php?status=All" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'All' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">All</a>
-                    <a href="review_reports.php?status=Pending" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Pending</a>
-                    <a href="review_reports.php?status=Approved" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Approved</a>
-                    <a href="review_reports.php?status=Needs+Revision" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Needs Revision' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'; ?>">Needs Changes</a>
+                <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-300 text-xs font-bold">
+                    <a href="review_reports.php?status=All" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'All' ? 'bg-white text-slate-950 shadow-2xs font-black' : 'text-slate-700 hover:text-slate-950'; ?>">All</a>
+                    <a href="review_reports.php?status=Pending" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Pending' ? 'bg-white text-amber-700 shadow-2xs font-black' : 'text-slate-700 hover:text-slate-950'; ?>">Pending</a>
+                    <a href="review_reports.php?status=Approved" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Approved' ? 'bg-white text-emerald-700 shadow-2xs font-black' : 'text-slate-700 hover:text-slate-950'; ?>">Approved</a>
+                    <a href="review_reports.php?status=Needs+Revision" class="px-3.5 py-1.5 rounded-lg transition-all <?= $filter_status === 'Needs Revision' ? 'bg-white text-rose-700 shadow-2xs font-black' : 'text-slate-700 hover:text-slate-950'; ?>">Needs Changes</a>
                 </div>
             </div>
 
             <!-- Flash Alert Message -->
             <?php if (!empty($message)): ?>
-                <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl text-xs font-semibold shadow-2xs flex items-center gap-2">
-                    <span class="font-bold text-sm">✓</span>
+                <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl text-xs font-bold shadow-2xs flex items-center gap-2">
+                    <span class="font-black text-sm">✓</span>
                     <span><?= e($message); ?></span>
                 </div>
             <?php endif; ?>
 
-            <!-- Submissions Table -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
+            <!-- Submissions Table Card -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                <div class="p-6 border-b border-slate-200/70 flex justify-between items-center bg-slate-50/60">
                     <div>
-                        <h3 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Submissions Queue</h3>
-                        <p class="text-[11px] font-medium text-slate-500 mt-0.5">Showing student accomplishment logs matching your filter</p>
+                        <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Submissions Queue</h3>
+                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Showing student accomplishment logs matching your filter</p>
                     </div>
-                    <span class="text-xs font-bold text-slate-700 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                    <span class="text-xs font-black text-slate-900 bg-white px-3.5 py-1 rounded-lg border border-slate-300 shadow-2xs">
                         <?= count($reports); ?> Total
                     </span>
                 </div>
@@ -129,7 +128,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-100 font-bold">
+                                <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
                                     <th class="py-4 px-6">Student</th>
                                     <th class="py-4 px-6">Report #</th>
                                     <th class="py-4 px-6">Date Submitted</th>
@@ -137,65 +136,65 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                     <th class="py-4 px-6 text-right">Action</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 text-slate-700">
+                            <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                 <?php foreach ($reports as $item): 
                                     $status = strtolower($item['status'] ?? 'pending');
                                     $isPending = ($status === 'pending');
                                     $isItemApproved = ($status === 'approved');
                                     $itemApprovedAt = $item['approved_at'] ?? null;
                                 ?>
-                                    <tr class="hover:bg-slate-50/70 transition-colors <?= $isPending ? 'bg-amber-50/15' : ''; ?>">
+                                    <tr class="hover:bg-slate-50 transition-colors <?= $isPending ? 'bg-amber-50/20' : ''; ?>">
                                         <td class="py-4 px-6">
                                             <div class="flex items-center gap-3">
-                                                <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/80">
+                                                <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-300">
                                                     <?php if (!empty($item['student_avatar'])): ?>
-                                                        <img src="<?= e($item['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar">
+                                                        <img src="<?= e($item['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar" onerror="this.onerror=null; this.parentElement.innerHTML='<?= e(strtoupper(substr($item['student_name'] ?? 'S', 0, 1))); ?>';">
                                                     <?php else: ?>
                                                         <?= e(strtoupper(substr($item['student_name'] ?? 'S', 0, 1))); ?>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="font-bold text-slate-900 text-sm"><?= e($item['student_name']); ?></p>
-                                                    <p class="text-[11px] text-slate-400 font-medium">ID: <?= e($item['student_number'] ?? 'N/A'); ?> &bull; <?= e($item['program'] ?? 'BSIT'); ?></p>
+                                                    <p class="font-extrabold text-slate-950 text-sm tracking-tight"><?= e($item['student_name']); ?></p>
+                                                    <p class="text-[11px] text-slate-500 font-semibold">ID: <?= e($item['student_number'] ?? 'N/A'); ?> &bull; <?= e($item['program'] ?? 'BSIT'); ?></p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+                                            <span class="inline-flex items-center px-3 py-1 rounded-lg bg-slate-100 text-slate-900 font-extrabold text-xs border border-slate-300">
                                                 Week <?= e($item['week_number']); ?>
                                             </span>
                                         </td>
-                                        <td class="py-4 px-6 text-slate-600 font-medium whitespace-nowrap">
+                                        <td class="py-4 px-6 text-slate-700 font-semibold whitespace-nowrap">
                                             <?= !empty($item['submitted_at']) ? e(date("M d, Y \a\\t g:i A", strtotime($item['submitted_at']))) : '—'; ?>
                                         </td>
                                         <td class="py-4 px-6 whitespace-nowrap">
                                             <?php if ($isItemApproved): ?>
                                                 <div class="flex flex-col items-start gap-1">
-                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                                                         Approved
                                                     </span>
                                                     <?php if (!empty($itemApprovedAt)): ?>
-                                                        <span class="text-[11px] font-medium text-slate-500 pl-0.5">
+                                                        <span class="text-[11px] font-semibold text-slate-500 pl-0.5">
                                                             <?= e(date("M d, Y \a\\t g:i A", strtotime($itemApprovedAt))); ?>
                                                         </span>
                                                     <?php endif; ?>
                                                 </div>
                                             <?php elseif ($status === 'pending'): ?>
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold shadow-2xs">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                                                     Waiting for Review
                                                 </span>
                                             <?php else: ?>
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold shadow-2xs">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100/80 text-rose-900 border border-rose-300 text-xs font-bold shadow-2xs">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                                                     Needs Changes
                                                 </span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="py-4 px-6 text-right whitespace-nowrap">
                                             <a href="review_reports.php?review_id=<?= (int)$item['id']; ?>&status=<?= e($filter_status); ?>" 
-                                               class="px-4 py-2 <?= $isPending ? 'bg-[#0F2854] text-white hover:bg-blue-900 shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'; ?> text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5">
+                                               class="px-4 py-2 <?= $isPending ? 'bg-[#0F2854] text-white hover:bg-blue-900 shadow-xs' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300'; ?> text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer">
                                                 <span><?= $isPending ? 'Review' : 'View Details'; ?></span>
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
                                             </a>
@@ -207,11 +206,11 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                     </div>
                 <?php else: ?>
                     <div class="text-center py-16 px-4 space-y-2">
-                        <div class="w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto text-lg font-bold border border-slate-200">
+                        <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mx-auto text-lg font-black border border-slate-300">
                             📋
                         </div>
-                        <h4 class="text-sm font-bold text-slate-800">No reports found</h4>
-                        <p class="text-xs font-medium text-slate-500 max-w-xs mx-auto">There are no submissions matching your current filter.</p>
+                        <h4 class="text-sm font-black text-slate-900">No reports found</h4>
+                        <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">There are no submissions matching your current filter.</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -225,32 +224,32 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
      ============================================================ -->
 <?php if ($hasActiveReport): ?>
 <div id="reviewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto">
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-6xl w-full overflow-hidden relative my-auto flex flex-col p-6 sm:p-7 space-y-5 max-h-[92vh]">
+    <div class="bg-white rounded-3xl border border-slate-300 shadow-2xl max-w-6xl w-full overflow-hidden relative my-auto flex flex-col p-6 sm:p-7 space-y-5 max-h-[92vh]">
         
         <!-- Modal Header -->
-        <div class="border-b border-slate-100 pb-4 flex justify-between items-center pr-8 shrink-0">
+        <div class="border-b border-slate-200 pb-4 flex justify-between items-center pr-8 shrink-0">
             <div>
                 <div class="flex items-center gap-2.5">
-                    <h2 class="text-base font-bold text-slate-900">
+                    <h2 class="text-base font-black text-slate-950 tracking-tight">
                         <?= e($activeReport['student_name'] ?? 'Student'); ?> &bull; Week <?= e($activeReport['week_number'] ?? 'N/A'); ?> Report
                     </h2>
                     <?php if ($isApproved): ?>
-                        <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-full">Approved</span>
+                        <span class="px-2.5 py-0.5 bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-[10px] font-bold rounded-full">Approved</span>
                     <?php elseif ($isRevision): ?>
-                        <span class="px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold rounded-full">Needs Changes</span>
+                        <span class="px-2.5 py-0.5 bg-rose-100/80 text-rose-900 border border-rose-300 text-[10px] font-bold rounded-full">Needs Changes</span>
                     <?php else: ?>
-                        <span class="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-full">Pending</span>
+                        <span class="px-2.5 py-0.5 bg-amber-100/80 text-amber-900 border border-amber-300 text-[10px] font-bold rounded-full">Pending</span>
                     <?php endif; ?>
                 </div>
-                <p class="text-xs text-slate-500 mt-0.5">
+                <p class="text-xs font-medium text-slate-600 mt-0.5">
                     Submitted on <?= !empty($activeSubmittedAt) ? e(date("F d, Y \a\\t g:i A", strtotime($activeSubmittedAt))) : '—'; ?>
                     <?php if ($isApproved && !empty($activeApprovedAt)): ?>
-                        &bull; <span class="text-emerald-700 font-semibold">Approved on <?= e(date("F d, Y \a\\t g:i A", strtotime($activeApprovedAt))); ?></span>
+                        &bull; <span class="text-emerald-800 font-bold">Approved on <?= e(date("F d, Y \a\\t g:i A", strtotime($activeApprovedAt))); ?></span>
                     <?php endif; ?>
                 </p>
             </div>
 
-            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-bold transition-all" aria-label="Close">
+            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center text-sm font-bold border border-slate-300 transition-all" aria-label="Close">
                 ✕
             </a>
         </div>
@@ -259,31 +258,31 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-5 min-h-0 flex-1">
             
             <!-- Left: PDF Viewer -->
-            <div class="lg:col-span-3 bg-slate-100/70 rounded-2xl border border-slate-200 p-3 flex flex-col h-[60vh] min-h-[420px]">
+            <div class="lg:col-span-3 bg-slate-100/80 rounded-2xl border border-slate-300 p-3 flex flex-col h-[60vh] min-h-[420px]">
                 <div class="flex items-center justify-between mb-2 px-1 shrink-0">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Report Document</span>
+                    <span class="text-[11px] font-black uppercase tracking-wider text-slate-700">Report Document</span>
                     <?php if (!empty($pdfUrl)): ?>
-                        <a href="<?= e($pdfUrl); ?>" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-[#0F2854] hover:underline">
+                        <a href="<?= e($pdfUrl); ?>" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-[#0F2854] hover:underline">
                             Open Fullscreen ↗
                         </a>
                     <?php endif; ?>
                 </div>
 
                 <?php if (!empty($pdfUrl)): ?>
-                    <div class="flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                    <div class="flex-1 min-h-0 bg-white rounded-xl border border-slate-300 overflow-hidden shadow-2xs">
                         <div id="pdf-viewer" class="w-full h-full" data-pdf-url="<?= e($pdfUrl); ?>">
-                            <div class="h-full flex items-center justify-center text-xs text-slate-400 p-4">Loading Document…</div>
+                            <div class="h-full flex items-center justify-center text-xs text-slate-500 font-semibold p-4">Loading Document…</div>
                         </div>
                     </div>
                 <?php else: ?>
-                    <div class="flex-1 min-h-0 bg-white rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-center p-6">
-                        <p class="text-xs font-bold text-slate-700">No PDF uploaded</p>
-                        <p class="text-[11px] text-slate-400 mt-0.5">There is no document attached to this submission.</p>
+                    <div class="flex-1 min-h-0 bg-white rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-center p-6">
+                        <p class="text-xs font-bold text-slate-800">No PDF uploaded</p>
+                        <p class="text-[11px] text-slate-500 font-medium mt-0.5">There is no document attached to this submission.</p>
                     </div>
                 <?php endif; ?>
 
                 <?php if (!empty($activeReport['student_id'])): ?>
-                    <div class="pt-2.5 mt-2 border-t border-slate-200/60 text-center shrink-0">
+                    <div class="pt-2.5 mt-2 border-t border-slate-300 text-center shrink-0">
                         <a href="interns.php?id=<?= (int)$activeReport['student_id']; ?>" class="text-xs font-bold text-[#0F2854] hover:underline">
                             View All Weekly Reports by <?= e($activeReport['student_name'] ?? 'Student'); ?> &rarr;
                         </a>
@@ -295,14 +294,14 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
             <div class="lg:col-span-2 flex flex-col h-[60vh] min-h-[420px] space-y-4">
                 
                 <!-- Skills/Entities Box -->
-                <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col min-h-0 flex-1 shadow-2xs">
+                <div class="bg-white rounded-2xl border border-slate-300 p-4 flex flex-col min-h-0 flex-1 shadow-2xs">
                     <div class="flex items-center justify-between mb-1 shrink-0">
-                        <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Skills & Keywords Found</span>
-                        <span class="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <span class="text-xs font-black text-slate-900 uppercase tracking-wider">Skills & Keywords Found</span>
+                        <span class="text-[11px] font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300">
                             <?= count($extractedEntities); ?> Found
                         </span>
                     </div>
-                    <p class="text-[11px] text-slate-400 mb-3 shrink-0">Click any keyword to find and highlight it in the PDF.</p>
+                    <p class="text-[11px] text-slate-500 font-medium mb-3 shrink-0">Click any keyword to find and highlight it in the PDF.</p>
 
                     <?php if (!empty($extractedEntities)): ?>
                         <div class="space-y-2 overflow-y-auto pr-1 min-h-0 flex-1">
@@ -312,21 +311,21 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                 $isTechnical = (($entity['classification'] ?? $entity['activity_type'] ?? 'Technical') === 'Technical' || ($entity['activity_type'] ?? '') === 'Software' || ($entity['activity_type'] ?? '') === 'Hardware');
                                 if (trim((string)$entityName) === '') continue;
                             ?>
-                                <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-200/80 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($entityName); ?>">
+                                <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-300 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($entityName); ?>">
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-xs font-bold text-slate-900"><?= e($entityName); ?></span>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $isTechnical ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200/60 text-slate-600'; ?>">
+                                        <span class="text-xs font-extrabold text-slate-950"><?= e($entityName); ?></span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $isTechnical ? 'bg-emerald-100/80 text-emerald-900 border border-emerald-300' : 'bg-slate-200 text-slate-800 border border-slate-300'; ?>">
                                             <?= $isTechnical ? 'Technical' : 'Clerical'; ?>
                                         </span>
                                     </div>
-                                    <span class="block text-[10px] font-semibold text-slate-400 mt-1">Category: <strong class="text-slate-600"><?= e($category); ?></strong></span>
+                                    <span class="block text-[10px] font-semibold text-slate-500 mt-1">Category: <strong class="text-slate-800"><?= e($category); ?></strong></span>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <div class="my-auto text-center py-6 text-slate-400">
-                            <p class="text-xs font-semibold text-slate-600">No keywords detected</p>
-                            <p class="text-[11px] mt-0.5">Could not auto-extract technical tasks from this file.</p>
+                        <div class="my-auto text-center py-6 text-slate-500">
+                            <p class="text-xs font-bold text-slate-800">No keywords detected</p>
+                            <p class="text-[11px] font-medium mt-0.5">Could not auto-extract technical tasks from this file.</p>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -334,21 +333,21 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                 <!-- Action Controls Form -->
                 <?php if ($isApproved): ?>
                     <div class="flex items-center justify-end shrink-0 pt-2">
-                        <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all">
+                        <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all">
                             Close Review
                         </a>
                     </div>
                 <?php else: ?>
-                    <div class="space-y-3 pt-3 border-t border-slate-100 shrink-0">
+                    <div class="space-y-3 pt-3 border-t border-slate-200 shrink-0">
                         
                         <!-- Revision Instructions Box -->
                         <div id="revisionBox" class="hidden space-y-1.5">
-                            <label class="block text-[11px] font-bold text-slate-700">Revision Instructions for Student:</label>
-                            <textarea id="supervisorRemarksInput" rows="2" placeholder="Explain the corrections or missing items the student needs to address..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#0F2854]"></textarea>
+                            <label class="block text-[11px] font-black text-slate-800">Revision Instructions for Student:</label>
+                            <textarea id="supervisorRemarksInput" rows="2" placeholder="Explain the corrections or missing items the student needs to address..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-[#0F2854]"></textarea>
                         </div>
 
                         <div class="flex items-center justify-end gap-2">
-                            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all">
+                            <a href="review_reports.php?status=<?= e($filter_status); ?>" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all">
                                 Cancel
                             </a>
 
@@ -360,7 +359,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                 <input type="hidden" name="status" id="formStatusField" value="">
 
                                 <!-- Request Changes Button -->
-                                <button type="button" onclick="handleRevisionClick(this.form)" id="btnRequestChanges" class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all cursor-pointer">
+                                <button type="button" onclick="handleRevisionClick(this.form)" id="btnRequestChanges" class="px-4 py-2.5 bg-rose-100 hover:bg-rose-200 text-rose-900 text-xs font-bold rounded-xl border border-rose-300 transition-all cursor-pointer">
                                     Request Changes
                                 </button>
 
@@ -424,13 +423,13 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
     if (!pdfUrl) return;
 
     const loadingHTML =
-        '<div class="h-full flex items-center justify-center text-xs text-slate-400 p-4">Loading Document…</div>';
+        '<div class="h-full flex items-center justify-center text-xs text-slate-500 font-semibold p-4">Loading Document…</div>';
 
     function showError(message) {
         viewer.innerHTML =
             '<div class="h-full flex flex-col items-center justify-center text-center p-6">' +
-                '<div class="text-rose-500 text-sm font-bold mb-2">Unable to display PDF</div>' +
-                '<div class="text-xs text-slate-500 max-w-md">' + escapeHtml(message) + '</div>' +
+                '<div class="text-rose-600 text-sm font-black mb-2">Unable to display PDF</div>' +
+                '<div class="text-xs text-slate-600 max-w-md font-medium">' + escapeHtml(message) + '</div>' +
                 '<a href="' + escapeHtml(pdfUrl) + '" target="_blank" rel="noopener noreferrer" ' +
                    'class="mt-3 text-xs font-bold text-[#0F2854] hover:underline">Open PDF directly ↗</a>' +
             '</div>';
