@@ -20,6 +20,7 @@ $isRevision = ($activeStatus === 'rejected');
 
 $activeFilePath = $activeReport['file_path'] ?? '';
 $activeSubmittedAt = $activeReport['submitted_at'] ?? null;
+$activeApprovedAt = $activeReport['approved_at'] ?? null;
 $extractedEntities = $activeReport['extracted_entities'] ?? [];
 
 /*
@@ -140,6 +141,8 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                 <?php foreach ($reports as $item): 
                                     $status = strtolower($item['status'] ?? 'pending');
                                     $isPending = ($status === 'pending');
+                                    $isItemApproved = ($status === 'approved');
+                                    $itemApprovedAt = $item['approved_at'] ?? null;
                                 ?>
                                     <tr class="hover:bg-slate-50/70 transition-colors <?= $isPending ? 'bg-amber-50/15' : ''; ?>">
                                         <td class="py-4 px-6">
@@ -166,11 +169,18 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                             <?= !empty($item['submitted_at']) ? e(date("M d, Y \a\\t g:i A", strtotime($item['submitted_at']))) : '—'; ?>
                                         </td>
                                         <td class="py-4 px-6 whitespace-nowrap">
-                                            <?php if ($status === 'approved'): ?>
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                    Approved
-                                                </span>
+                                            <?php if ($isItemApproved): ?>
+                                                <div class="flex flex-col items-start gap-1">
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                        Approved
+                                                    </span>
+                                                    <?php if (!empty($itemApprovedAt)): ?>
+                                                        <span class="text-[11px] font-medium text-slate-500 pl-0.5">
+                                                            <?= e(date("M d, Y \a\\t g:i A", strtotime($itemApprovedAt))); ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
                                             <?php elseif ($status === 'pending'): ?>
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold shadow-2xs">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -234,6 +244,9 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                 </div>
                 <p class="text-xs text-slate-500 mt-0.5">
                     Submitted on <?= !empty($activeSubmittedAt) ? e(date("F d, Y \a\\t g:i A", strtotime($activeSubmittedAt))) : '—'; ?>
+                    <?php if ($isApproved && !empty($activeApprovedAt)): ?>
+                        &bull; <span class="text-emerald-700 font-semibold">Approved on <?= e(date("F d, Y \a\\t g:i A", strtotime($activeApprovedAt))); ?></span>
+                    <?php endif; ?>
                 </p>
             </div>
 
