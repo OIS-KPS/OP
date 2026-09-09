@@ -47,7 +47,7 @@ try {
             exit();
         }
 
-        // 3. Fetch all reports
+        // 3. Fetch all reports (including approved_at timestamp)
         $stmtReports = $pdo->prepare("
             SELECT 
                 id, 
@@ -55,7 +55,8 @@ try {
                 file_path, 
                 ocr_activities,
                 status, 
-                submitted_at 
+                submitted_at,
+                approved_at
             FROM reports 
             WHERE student_id = ? 
             ORDER BY week_number ASC
