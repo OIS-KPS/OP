@@ -9,30 +9,130 @@ body {
     -moz-osx-font-smoothing: auto !important;
 }
 
-#pdf-viewer { position: relative; width: 100%; min-width: 0; overflow-y: auto; overflow-x: hidden; background: #f1f5f9; }
-        .pdf-page { position: relative; max-width: 100%; margin: 0 auto 14px; background: #fff; box-shadow: 0 1px 4px rgba(15, 23, 42, .12); border-radius: 6px; }
-        .pdf-page canvas { display: block; max-width: 100%; height: auto; }
-        .pdf-text-layer { position: absolute; inset: 0; overflow: hidden; line-height: 1; user-select: text; }
-        .pdf-text-layer span { position: absolute; color: transparent; white-space: pre; transform-origin: 0 0; cursor: text; }
-        .pdf-text-layer span.entity-highlight { color: #713f12; background: #fde68a; border-radius: 2px; box-shadow: 0 0 0 1px rgba(245, 158, 11, .35); }
-        .entity-card { cursor: pointer; transition: all .15s ease; }
-        .entity-card:hover, .entity-card.entity-selected { border-color: #f59e0b; background: #fffbeb; box-shadow: 0 0 0 2px rgba(245, 158, 11, .15); }
+/* ============================================================
+ * Natural Full-Length PDF Display (No Inner Scroll)
+ * ============================================================ */
+#pdf-viewer,
+.pdf-stage {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #e8edf4;
+    padding: 1.5rem;
+}
 
-/* Custom scrollbar for clean UI */
-::-webkit-scrollbar {
+.pdf-page {
+    position: relative;
+    max-width: 100%;
+    margin: 0 auto 1.5rem;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(15, 40, 84, .14);
+    border-radius: 6px;
+}
+
+.pdf-page:last-child {
+    margin-bottom: 0;
+}
+
+.pdf-page canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.pdf-text-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    line-height: 1;
+    user-select: text;
+}
+
+.pdf-text-layer span {
+    position: absolute;
+    color: transparent;
+    white-space: pre;
+    transform-origin: 0 0;
+    cursor: text;
+}
+
+.pdf-text-layer span.entity-highlight {
+    color: transparent;
+    background: rgba(250, 204, 21, .68);
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(180, 83, 9, .28);
+}
+
+/* ============================================================
+ * Interactive Entity Inspection Cards
+ * ============================================================ */
+.entity-card {
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+
+.entity-card:hover {
+    transform: translateY(-1px);
+}
+
+.entity-card.active,
+.entity-card.entity-selected {
+    border-color: #f59e0b !important;
+    background: #fffbeb !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, .2) !important;
+}
+
+/* ============================================================
+ * Filter Tabs
+ * ============================================================ */
+.filter-tab {
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+    transform: none !important;
+}
+
+.filter-tab:not(.active) {
+    background-color: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.filter-tab:not(.active):hover {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+
+.filter-tab.active {
+    background-color: #0F2854 !important;
+    color: #ffffff !important;
+    border: 1px solid #0F2854 !important;
+}
+
+/* ============================================================
+ * Custom Scrollbar Utilities
+ * ============================================================ */
+::-webkit-scrollbar,
+.thin-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-track,
+.thin-scrollbar::-webkit-scrollbar-track {
     background: #f8fafc;
 }
 
-::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb,
+.thin-scrollbar::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 9999px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover,
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
