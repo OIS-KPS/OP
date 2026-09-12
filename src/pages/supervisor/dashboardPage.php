@@ -24,171 +24,133 @@
             <!-- Top Header Component -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
-            <!-- Main Content Canvas -->
-            <main class="p-6 md:p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
+            <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
-                <!-- 1. Polished Metric Stat Cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <!-- 1. Top Header Welcome Card -->
+                        
+
+                <!-- 2. Balanced 3-Column Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
                     
-                    <!-- Interns Metric Card -->
-                    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex items-center justify-between hover:border-slate-300 transition-colors">
+                    <!-- Card 1: Assigned Interns -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex items-center justify-between">
                         <div class="space-y-1">
-                            <span class="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Total Assigned Interns</span>
-                            <p class="text-3xl font-black text-slate-950 tracking-tight"><?= intval($totalInterns ?? 0); ?></p>
-                            <p class="text-xs font-semibold text-slate-600">Students active in this cycle</p>
+                            <span class="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Assigned Interns</span>
+                            <p class="text-3xl font-black text-slate-950 tracking-tight"><?= (int)$totalInterns; ?></p>
+                            <p class="text-xs font-semibold text-slate-600">Active students in department</p>
                         </div>
-                        <div class="w-13 h-13 rounded-2xl bg-blue-50 text-[#0F2854] border border-blue-200 flex items-center justify-center shrink-0">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                        <div class="w-12 h-12 rounded-xl bg-blue-50 text-[#0F2854] border border-blue-200 flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z"/></svg>
                         </div>
                     </div>
 
-                    <!-- Pending Approvals Metric Card -->
-                    <div class="bg-white rounded-2xl p-6 border <?= !empty($totalPending) && $totalPending > 0 ? 'border-amber-300 bg-gradient-to-br from-white to-amber-50/30' : 'border-slate-200/90'; ?> shadow-xs flex items-center justify-between transition-colors">
+                    <!-- Card 2: Pending Reviews -->
+                    <div class="bg-white rounded-2xl p-6 border <?= $totalPending > 0 ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200/90'; ?> shadow-xs flex items-center justify-between">
                         <div class="space-y-1">
-                            <span class="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Pending Approvals</span>
-                            <div class="flex items-baseline gap-2">
-                                <p class="text-3xl font-black text-amber-600 tracking-tight"><?= intval($totalPending ?? count($pendingReports ?? [])); ?></p>
-                                <?php if (!empty($totalPending) && $totalPending > 0): ?>
-                                    <span class="text-[11px] font-black text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-md">Action needed</span>
-                                <?php endif; ?>
-                            </div>
-                            <p class="text-xs font-semibold text-slate-600">Weekly logs awaiting your sign-off</p>
+                            <span class="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Pending Reports</span>
+                            <p class="text-3xl font-black <?= $totalPending > 0 ? 'text-amber-600' : 'text-slate-950'; ?> tracking-tight"><?= (int)$totalPending; ?></p>
+                            <p class="text-xs font-semibold text-slate-600">Weekly logs awaiting sign-off</p>
                         </div>
-                        <div class="w-13 h-13 rounded-2xl bg-amber-50 text-amber-600 border border-amber-300 flex items-center justify-center shrink-0">
+                        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 border border-amber-300 flex items-center justify-center shrink-0">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </div>
                     </div>
 
-                </div>
-
-                <!-- 2. Pending Weekly Reports Table -->
-                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-                    <div class="p-6 border-b border-slate-200/70 flex justify-between items-center bg-slate-50/60">
-                        <div>
-                            <h3 class="text-xs font-extrabold text-slate-900 tracking-wider uppercase">Pending Accomplishment Reports</h3>
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Submitted logs requiring verification and feedback</p>
+                    <!-- Card 3: Completed Final Evaluations -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex items-center justify-between">
+                        <div class="space-y-1">
+                            <span class="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Completed Evaluations</span>
+                            <p class="text-3xl font-black text-emerald-600 tracking-tight"><?= (int)$totalEvaluated; ?></p>
+                            <p class="text-xs font-semibold text-slate-600">Appraisals signed &amp; verified</p>
                         </div>
-                        <span class="text-xs font-extrabold text-slate-900 bg-white px-3.5 py-1 rounded-lg border border-slate-300 shadow-2xs">
-                            <?= count($pendingReports ?? []); ?> Pending
-                        </span>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-300 flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
                     </div>
 
-                    <?php if (!empty($pendingReports) && count($pendingReports) > 0): ?>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                        <th class="py-4 px-6">Student Intern</th>
-                                        <th class="py-4 px-6">Week #</th>
-                                        <th class="py-4 px-6">Submitted Date & Time</th>
-                                        <th class="py-4 px-6">Review Status</th>
-                                        <th class="py-4 px-6 text-right">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-200/80 text-slate-800">
-                                    <?php foreach ($pendingReports as $report): ?>
-                                        <tr class="hover:bg-slate-50 transition-colors group">
-                                            
-                                            <!-- Intern Identity -->
-                                            <td class="py-4 px-6">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200 group-hover:border-[#0F2854] transition-colors">
-                                                        <?php if (!empty($report['student_avatar'])): ?>
-                                                            <img src="<?= htmlspecialchars($report['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar">
-                                                        <?php else: ?>
-                                                            <?= strtoupper(substr($report['student_name'] ?? 'S', 0, 1)); ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                    <div>
-                                                        <p class="font-extrabold text-slate-950 text-sm tracking-tight"><?= htmlspecialchars($report['student_name']); ?></p>
-                                                        <p class="text-[11px] text-slate-500 font-semibold">ID: <?= htmlspecialchars($report['student_number'] ?? 'N/A'); ?></p>
-                                                    </div>
-                                                </div>
-                                            </td>
+                </div>
 
-                                            <!-- Week Chip -->
-                                            <td class="py-4 px-6 whitespace-nowrap">
-                                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs border border-slate-300">
-                                                    Week <?= htmlspecialchars($report['week_number'] ?? '1'); ?>
-                                                </span>
-                                            </td>
-
-                                            <!-- Date Submitted -->
-                                            <td class="py-4 px-6 text-slate-700 font-semibold whitespace-nowrap">
-                                                <div class="flex items-center gap-2">
-                                                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
-                                                    <span><?= !empty($report['submitted_at']) ? date("M d, Y \a\\t g:i A", strtotime($report['submitted_at'])) : '—'; ?></span>
-                                                </div>
-                                            </td>
-
-                                            <!-- Status Badge -->
-                                            <td class="py-4 px-6 whitespace-nowrap">
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                                    Awaiting Review
-                                                </span>
-                                            </td>
-
-                                            <!-- Actions -->
-                                            <td class="py-4 px-6 text-right whitespace-nowrap">
-                                                <div class="flex items-center justify-end gap-2">
-                                                    <?php if (!empty($report['file_path'])): ?>
-                                                        <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim($report['file_path'], '/')); ?>" 
-                                                           target="_blank" 
-                                                           class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
-                                                            <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
-                                                            <span>View File</span>
-                                                        </a>
-                                                    <?php endif; ?>
-
-                                                    <a href="review_reports.php?review_id=<?= $report['id'] ?? ''; ?>" class="px-4 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
-                                                        <span>Review</span>
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <div class="text-center py-14 px-4 space-y-2">
-                            <div class="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto text-lg font-black border border-emerald-200">
-                                ✓
+                <!-- 3. Two-Column Dashboard Content Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+                    
+                    <!-- Left (3 Cols): Quick Review Queue -->
+                    <div class="lg:col-span-3 bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                        <div class="p-6 border-b border-slate-200/70 flex justify-between items-center bg-slate-50/60">
+                            <div>
+                                <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Action Required</h3>
+                                <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Pending accomplishment reports awaiting verification</p>
                             </div>
-                            <h4 class="text-sm font-black text-slate-900">All caught up!</h4>
-                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">There are currently no accomplishment reports awaiting your review.</p>
+                            <a href="review_reports.php?status=Pending" class="text-xs font-bold text-[#0F2854] hover:underline">
+                                View Full Queue &rarr;
+                            </a>
                         </div>
-                    <?php endif; ?>
-                </div>
 
-                <!-- 3. Connected Timeline Activity Feed -->
-                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 space-y-4">
-                    <div class="border-b border-slate-200/70 pb-3 flex justify-between items-center">
-                        <div>
-                            <h3 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Recent Activity Feed</h3>
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Timeline of recent report submissions and verification events</p>
-                        </div>
-                    </div>
+                        <?php if (!empty($pendingReports) && count($pendingReports) > 0): ?>
+                            <div class="divide-y divide-slate-200/80">
+                                <?php foreach ($pendingReports as $report): ?>
+                                    <div class="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-300">
+                                                <?php if (!empty($report['student_avatar'])): ?>
+                                                    <img src="<?= htmlspecialchars($report['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar">
+                                                <?php else: ?>
+                                                    <?= strtoupper(substr($report['student_name'] ?? 'S', 0, 1)); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="font-extrabold text-slate-950 text-sm tracking-tight truncate"><?= htmlspecialchars($report['student_name']); ?></p>
+                                                <p class="text-[11px] text-slate-500 font-semibold">
+                                                    Week <?= htmlspecialchars($report['week_number']); ?> &bull; <?= date("M d, Y \a\\t g:i A", strtotime($report['submitted_at'])); ?>
+                                                </p>
+                                            </div>
+                                        </div>
 
-                    <div class="relative pl-6 space-y-5 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-300">
-                        <?php if (!empty($recentActivities) && count($recentActivities) > 0): ?>
-                            <?php foreach ($recentActivities as $activity): ?>
-                                <div class="relative flex items-start justify-between gap-4">
-                                    <!-- Timeline Dot -->
-                                    <div class="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-[#0F2854] ring-4 ring-white"></div>
-                                    <div>
-                                        <p class="font-extrabold text-slate-900 text-xs leading-snug"><?= htmlspecialchars($activity['title'] ?? ''); ?></p>
-                                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5"><?= htmlspecialchars($activity['description'] ?? 'Submitted weekly accomplishment log'); ?></p>
+                                        <a href="review_reports.php?review_id=<?= (int)$report['report_id']; ?>&status=Pending" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all shrink-0 inline-flex items-center gap-1.5 cursor-pointer">
+                                            <span>Review</span>
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                        </a>
                                     </div>
-                                    <span class="text-[11px] font-bold text-slate-500 shrink-0"><?= htmlspecialchars($activity['time_ago'] ?? ''); ?></span>
-                                </div>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            </div>
                         <?php else: ?>
-                            <p class="text-xs text-slate-500 font-semibold italic py-1">No recent submission activities recorded.</p>
+                            <div class="text-center py-12 px-4 space-y-2">
+                                <div class="w-10 h-10 bg-emerald-100/80 text-emerald-800 rounded-xl flex items-center justify-center mx-auto text-base font-black border border-emerald-300">
+                                    ✓
+                                </div>
+                                <h4 class="text-sm font-black text-slate-900">All caught up</h4>
+                                <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">No pending accomplishment reports waiting for review.</p>
+                            </div>
                         <?php endif; ?>
                     </div>
+
+                    <!-- Right (2 Cols): Timeline Activity Feed -->
+                    <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 space-y-4">
+                        <div class="border-b border-slate-200/70 pb-3">
+                            <h3 class="text-xs font-black text-slate-900 uppercase tracking-wider">Recent Activity Feed</h3>
+                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Timeline of verified submissions and events</p>
+                        </div>
+
+                        <div class="relative pl-5 space-y-5 before:content-[''] before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                            <?php if (!empty($recentActivities) && count($recentActivities) > 0): ?>
+                                <?php foreach ($recentActivities as $activity): 
+                                    $isApprove = ($activity['type'] === 'approved');
+                                    $isReject = ($activity['type'] === 'rejected');
+                                ?>
+                                    <div class="relative">
+                                        <!-- Dot Indicator -->
+                                        <div class="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full <?= $isApprove ? 'bg-emerald-600' : ($isReject ? 'bg-rose-600' : 'bg-amber-500'); ?> ring-4 ring-white"></div>
+                                        <div>
+                                            <p class="font-extrabold text-slate-900 text-xs leading-snug"><?= $activity['title']; ?></p>
+                                            <span class="text-[10px] font-bold text-slate-400 block mt-0.5"><?= $activity['time_ago']; ?></span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p class="text-xs text-slate-500 font-semibold italic py-2">No recent activity events recorded.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
                 </div>
 
             </main>
