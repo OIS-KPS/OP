@@ -3,12 +3,6 @@
 $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
 
-/*
- * The controller may provide $recentReports with one of these entity keys:
- *   entities, extracted_entities, or report_entities.
- * Each entity may contain entity_name/name, activity_type, it_related,
- * confidence_score/confidence, and priority.
- */
 $reviewReports = array_values(array_filter($recentReports ?? [], static function ($report) {
     return !empty($report['file_path']);
 }));
@@ -65,7 +59,7 @@ foreach ($reviewReports as $index => $report) {
     <title>Student Dashboard - OJT Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
@@ -105,14 +99,14 @@ foreach ($reviewReports as $index => $report) {
                             <p class="text-xs text-blue-100/80 mt-1">Waiting for your supervisor to evaluate and submit your performance report to the coordinator.</p>
                         <?php else: ?>
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-white/10 text-blue-100 border border-white/15">Weekly Task</span>
-                            <h1 class="text-base md:text-lg font-bold leading-tight">Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Accomplishment Report Due</h1>
+                            <h1 class="text-base md:text-lg font-bold leading-tight">Week <?= htmlspecialchars((string)($nextWeek ?? '1')); ?> Accomplishment Report Due</h1>
                             <p class="text-xs text-blue-100/80 mt-1">Submit your weekly tasks and activities for supervisor review and verification.</p>
                         <?php endif; ?>
                     </div>
 
                     <?php if (!$isEvaluated && !$isRequested): ?>
-                        <a href="submit_report.php?week=<?= htmlspecialchars($nextWeek ?? '1'); ?>" class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2">
-                            Submit Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Report
+                        <a href="submit_report.php?week=<?= htmlspecialchars((string)($nextWeek ?? '1')); ?>" class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2">
+                            <span>Submit Week <?= htmlspecialchars((string)($nextWeek ?? '1')); ?> Report</span>
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7-7 7m0 0H3"/></svg>
                         </a>
                     <?php endif; ?>
@@ -121,7 +115,7 @@ foreach ($reviewReports as $index => $report) {
                 <div class="pt-5 border-t border-white/10 space-y-2">
                     <div class="flex justify-between items-center text-xs font-semibold text-slate-200">
                         <span>Overall Progress</span>
-                        <span class="font-bold text-white"><?= intval($totalApproved ?? 0); ?> of <?= htmlspecialchars($targetWeeks ?? '12'); ?> Weeks Approved (<?= htmlspecialchars($progressPercentage ?? '0'); ?>%)</span>
+                        <span class="font-bold text-white"><?= intval($totalApproved ?? 0); ?> of <?= htmlspecialchars((string)($targetWeeks ?? '12')); ?> Weeks Approved (<?= htmlspecialchars((string)($progressPercentage ?? '0')); ?>%)</span>
                     </div>
                     <div class="w-full h-2.5 bg-black/25 rounded-full overflow-hidden border border-white/10">
                         <div class="bg-emerald-400 h-full rounded-full transition-all duration-500" style="width: <?= min(100, intval($progressPercentage ?? 0)); ?>%"></div>
@@ -129,44 +123,81 @@ foreach ($reviewReports as $index => $report) {
                 </div>
             </div>
 
-            <!-- Recent report activity -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                <div class="p-6 border-b border-slate-100 flex justify-between items-center gap-4">
+            <!-- Recent Report Activity -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                <div class="p-6 border-b border-slate-200/70 flex justify-between items-center gap-4 bg-slate-50/60">
                     <div>
-                        <h2 class="text-xs font-bold text-slate-900 tracking-wider uppercase">Recent Report Activity</h2>
-                        <p class="text-xs font-medium text-slate-500 mt-1">Latest recorded weekly submissions and review updates.</p>
+                        <h2 class="text-xs font-black text-slate-900 tracking-wider uppercase">Recent Report Activity</h2>
+                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Chronological record of your submissions and supervisor reviews</p>
                     </div>
-                    <a href="reports.php" class="text-xs font-bold text-[#0F2854] hover:underline inline-flex items-center gap-1">View All Reports <span aria-hidden="true">›</span></a>
+                    <a href="reports.php" class="text-xs font-bold text-[#0F2854] hover:underline inline-flex items-center gap-1">
+                        <span>View All Reports</span>
+                        <span aria-hidden="true">&rsaquo;</span>
+                    </a>
                 </div>
-                <div class="divide-y divide-slate-100">
+
+                <div class="divide-y divide-slate-200/80 text-xs">
                     <?php if (empty($recentReports)): ?>
-                        <div class="py-12 text-center text-slate-500 text-xs italic">No reports submitted yet. Click the submission button above to begin.</div>
+                        <div class="py-12 text-center space-y-1.5">
+                            <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xs font-bold">
+                                ⏱
+                            </div>
+                            <p class="font-bold text-slate-700 text-xs">No recent report activity</p>
+                            <p class="text-[11px] font-medium text-slate-400">Activity will appear once you submit weekly reports.</p>
+                        </div>
                     <?php else: ?>
                         <?php foreach ($recentReports as $r):
                             $status = strtolower($r['status'] ?? 'pending');
                             $filePath = $r['file_path'] ?? '';
+                            $prevFile = $r['previous_file_path'] ?? '';
+                            $remarks = $r['supervisor_remarks'] ?? '';
+                            $submittedAt = $r['submitted_at'] ?? null;
+                            $approvedAt = $r['approved_at'] ?? null;
+                            $updatedAt = $r['updated_at'] ?? null;
+
+                            if ($status === 'approved') {
+                                $eventTitle = 'Week ' . htmlspecialchars((string)$r['week_number']) . ' Report Approved';
+                                $eventDesc = !empty($approvedAt) ? 'Approved on ' . date("M d, Y \a\\t g:i A", strtotime($approvedAt)) : 'Approved by supervisor';
+                                $badgeClass = 'bg-emerald-100/80 text-emerald-900 border-emerald-300';
+                                $badgeDot = 'bg-emerald-600';
+                                $badgeLabel = 'Approved';
+                            } elseif ($status === 'rejected') {
+                                $eventTitle = 'Week ' . htmlspecialchars((string)$r['week_number']) . ' Needs Revision';
+                                $eventDesc = !empty($remarks) ? 'Note: ' . htmlspecialchars(substr($remarks, 0, 75)) . (strlen($remarks) > 75 ? '...' : '') : 'Supervisor requested changes';
+                                $badgeClass = 'bg-rose-100/80 text-rose-900 border-rose-300';
+                                $badgeDot = 'bg-rose-600';
+                                $badgeLabel = 'Needs Changes';
+                            } else {
+                                $isRevised = !empty($prevFile);
+                                $eventTitle = 'Week ' . htmlspecialchars((string)$r['week_number']) . ($isRevised ? ' Revised Report Submitted' : ' Report Submitted');
+                                $eventDesc = !empty($submittedAt) ? 'Submitted on ' . date("M d, Y \a\\t g:i A", strtotime($submittedAt)) : 'Waiting for supervisor review';
+                                $badgeClass = 'bg-amber-100/80 text-amber-900 border-amber-300';
+                                $badgeDot = 'bg-amber-600';
+                                $badgeLabel = 'Waiting for Review';
+                            }
                         ?>
-                            <div class="p-5 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors">
+                            <div class="p-5 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                                 <div class="flex items-center gap-3.5">
-                                    <div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-[#0F2854] font-bold text-xs flex items-center justify-center shrink-0">W<?= htmlspecialchars($r['week_number'] ?? '—'); ?></div>
-                                    <div>
-                                        <h4 class="text-xs font-bold text-slate-900">Week <?= htmlspecialchars($r['week_number'] ?? '—'); ?> Accomplishment Report</h4>
-                                        <p class="text-xs font-medium text-slate-500 mt-0.5">Submitted: <?= !empty($r['submitted_at']) ? date("M d, Y \\a\\t g:i A", strtotime($r['submitted_at'])) : '—'; ?></p>
+                                    <div class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-300 text-[#0F2854] font-black text-xs flex items-center justify-center shrink-0">
+                                        W<?= htmlspecialchars((string)$r['week_number']); ?>
+                                    </div>
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-xs font-bold text-slate-900"><?= $eventTitle; ?></h4>
+                                        <p class="text-[11px] font-semibold text-slate-500"><?= $eventDesc; ?></p>
                                     </div>
                                 </div>
+
                                 <div class="flex items-center gap-3 self-end sm:self-center">
-                                    <?php if ($status === 'approved'): ?>
-                                        <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">Approved</span>
-                                    <?php elseif ($status === 'rejected'): ?>
-                                        <span class="px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">Needs Changes</span>
-                                    <?php else: ?>
-                                        <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">Waiting for Review</span>
-                                    <?php endif; ?>
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs <?= $badgeClass; ?>">
+                                        <span class="w-1.5 h-1.5 rounded-full <?= $badgeDot; ?>"></span>
+                                        <?= $badgeLabel; ?>
+                                    </span>
+
                                     <?php if (!empty($filePath)): ?>
-                                        <a href="review_report.php?report_id=<?= urlencode((string)($r['id'] ?? $r['report_id'] ?? '')); ?>"
-   class="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#0F2854] bg-slate-100 hover:bg-slate-200/80 rounded-xl border border-slate-200/70 transition-all">
-    Review PDF
-</a>
+                                        <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim(str_replace('\\', '/', $filePath), '/')); ?>" target="_blank" class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+                                            <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                            <span>View File</span>
+                                        </a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -177,7 +208,5 @@ foreach ($reviewReports as $index => $report) {
         </main>
     </div>
 </div>
-
-
 </body>
-</html> 
+</html>
