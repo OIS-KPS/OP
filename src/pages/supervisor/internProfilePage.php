@@ -94,20 +94,22 @@ $reportsList = $reports ?? [];
                                         <th class="py-4 px-6">Week #</th>
                                         <th class="py-4 px-6">Date Submitted</th>
                                         <th class="py-4 px-6">Attached File</th>
-                                        <th class="py-4 px-6">Status</th>
+                                        <th class="py-4 px-6">Status & Approval</th>
                                         <th class="py-4 px-6 text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                     <?php foreach ($reportsList as $report): 
                                         $status = strtolower($report['status'] ?? 'pending');
-                                        $filePath = $report['file_path'] ?? $report['attachment_path'] ?? '';
-                                        $submittedAt = $report['submitted_at'] ?? $report['created_at'] ?? null;
+                                        $filePath = $report['file_path'] ?? '';
+                                        $submittedAt = $report['submitted_at'] ?? null;
                                         $approvedAt = $report['approved_at'] ?? null;
+                                        $remarks = $report['supervisor_remarks'] ?? '';
                                         $isApproved = ($status === 'approved');
                                         $isPending = ($status === 'pending');
+                                        $isRejected = ($status === 'rejected');
                                     ?>
-                                        <tr class="hover:bg-slate-50 transition-colors">
+                                        <tr class="hover:bg-slate-50 transition-colors <?= $isRejected ? 'bg-rose-50/20' : ''; ?>">
                                             
                                             <!-- Week Number Chip -->
                                             <td class="py-4 px-6 whitespace-nowrap">
@@ -118,22 +120,35 @@ $reportsList = $reports ?? [];
 
                                             <!-- Submitted Date -->
                                             <td class="py-4 px-6 text-slate-700 font-semibold whitespace-nowrap">
-                                                <?= !empty($submittedAt) ? e(date("M d, Y \a\\t g:i A", strtotime($submittedAt))) : '—'; ?>
+                                                <div class="flex items-center gap-2">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                    <span><?= !empty($submittedAt) ? e(date("M d, Y \a\\t g:i A", strtotime($submittedAt))) : '—'; ?></span>
+                                                </div>
                                             </td>
 
-                                            <!-- File Link -->
-                                            <td class="py-4 px-6 whitespace-nowrap">
-                                                <?php if (!empty($filePath)): ?>
-                                                    <a href="/ICS-PORTAL/<?= e(ltrim(str_replace('\\', '/', $filePath), '/')); ?>" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all cursor-pointer">
-                                                        <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
-                                                        <span>View File</span>
-                                                    </a>
-                                                <?php else: ?>
-                                                    <span class="text-slate-400 text-xs italic">No file</span>
-                                                <?php endif; ?>
+                                            <!-- Attached File & Change Request Remarks -->
+                                            <td class="py-4 px-6">
+                                                <div class="space-y-1.5">
+                                                    <?php if (!empty($filePath)): ?>
+                                                        <a href="/ICS-PORTAL/<?= e(ltrim(str_replace('\\', '/', $filePath), '/')); ?>" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all cursor-pointer">
+                                                            <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                                            <span>View File</span>
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <span class="text-slate-400 text-xs italic">No file</span>
+                                                    <?php endif; ?>
+
+                                                    <!-- Shows the remarks note if this file was requested for changes -->
+                                                    <?php if ($isRejected && !empty($remarks)): ?>
+                                                        <div class="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-900 font-medium max-w-sm">
+                                                            <span class="font-extrabold block text-rose-950 mb-0.5">Requested Changes:</span>
+                                                            <?= e($remarks); ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
                                             </td>
 
-                                            <!-- Status Badge with Approval Timestamp -->
+                                            <!-- Status with Approved Timestamp -->
                                             <td class="py-4 px-6 whitespace-nowrap">
                                                 <?php if ($isApproved): ?>
                                                     <div class="flex flex-col items-start gap-1">
@@ -143,7 +158,7 @@ $reportsList = $reports ?? [];
                                                         </span>
                                                         <?php if (!empty($approvedAt)): ?>
                                                             <span class="text-[11px] font-semibold text-slate-500 pl-0.5">
-                                                                <?= e(date("M d, Y \a\\t g:i A", strtotime($approvedAt))); ?>
+                                                                Approved on <?= e(date("M d, Y \a\\t g:i A", strtotime($approvedAt))); ?>
                                                             </span>
                                                         <?php endif; ?>
                                                     </div>
