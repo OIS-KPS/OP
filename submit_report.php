@@ -12,10 +12,15 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
 
 $sessionUserId = (int)$_SESSION['user_id'];
 
-// Resolve student profile and check evaluation state
+// Resolve student profile and check evaluation state (Joining users for name)
 $stmtStudent = $pdo->prepare("
-    SELECT s.id, e.id AS evaluation_id 
+    SELECT 
+        s.id, 
+        u.name, 
+        s.student_number, 
+        e.id AS evaluation_id 
     FROM students s 
+    INNER JOIN users u ON s.user_id = u.id
     LEFT JOIN evaluations e ON e.student_id = s.id
     WHERE s.user_id = ? 
     LIMIT 1
@@ -36,9 +41,10 @@ if (!empty($studentRow['evaluation_id'])) {
     exit();
 }
 
-$student_id = (int)$studentRow['id'];
-$weekNumber = isset($_GET['week']) ? intval($_GET['week']) : 1;
-$errors = [];
+$student_id  = (int)$studentRow['id'];
+$studentName = $studentRow['name'] ?? 'Student';
+$weekNumber  = isset($_GET['week']) ? intval($_GET['week']) : (isset($_POST['week']) ? intval($_POST['week']) : 1);
+$errors      = [];
 
 // Prevent modifying an already APPROVED report
 $stmtCheckApproved = $pdo->prepare("SELECT status FROM reports WHERE student_id = ? AND week_number = ?");
@@ -65,18 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mkdir($uploadDir, 0777, true);
             }
 
-            // Remove existing file from disk if re-uploading
-            $stmtCheck = $pdo->prepare("SELECT file_path FROM reports WHERE student_id = ? AND week_number = ?");
-            $stmtCheck->execute([$student_id, $weekNumber]);
-            $oldPath = $stmtCheck->fetchColumn();
-
-            if ($oldPath) {
-                $oldFileDiskPath = __DIR__ . '/' . ltrim($oldPath, '/');
-                if (file_exists($oldFileDiskPath)) {
-                    unlink($oldFileDiskPath);
-                }
-            }
-
             $newFileName = "WAR_Week_{$weekNumber}_Student_{$student_id}_" . time() . ".pdf";
             $destPath    = $uploadDir . $newFileName;
 
@@ -94,29 +88,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         try {
-            $stmtCheckRow = $pdo->prepare("SELECT id FROM reports WHERE student_id = ? AND week_number = ?");
+            // Check existing report for re-upload tracking
+            $stmtCheckRow = $pdo->prepare("SELECT id, file_path, previous_file_path FROM reports WHERE student_id = ? AND week_number = ?");
             $stmtCheckRow->execute([$student_id, $weekNumber]);
-            $existingId = $stmtCheckRow->fetchColumn();
+            $existingReport = $stmtCheckRow->fetch(PDO::FETCH_ASSOC);
 
-            if ($existingId) {
+            if ($existingReport) {
+                // Archive current file to previous_file_path so the flagged version remains trackable
+                $archivedOldFile = !empty($existingReport['file_path']) ? $existingReport['file_path'] : $existingReport['previous_file_path'];
+
                 $stmtUpdate = $pdo->prepare("
                     UPDATE reports 
-                    SET file_path = ?, status = 'pending', submitted_at = NOW() 
+                    SET previous_file_path = ?,
+                        file_path = ?, 
+                        status = 'pending', 
+                        submitted_at = NOW(),
+                        updated_at = NOW()
                     WHERE id = ?
                 ");
-                $stmtUpdate->execute([$filePath, $existingId]);
+                $stmtUpdate->execute([$archivedOldFile, $filePath, $existingReport['id']]);
+
+                // Direct insert to audit_logs (aligned with nbsc_ojt schema)
+                $logDesc = "Student {$studentName} submitted revised Week {$weekNumber} accomplishment report.";
+                $stmtLog = $pdo->prepare("
+                    INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
+                    VALUES (?, 'student', 'REPORT_SUBMISSION', ?, ?, ?, NOW())
+                ");
+                $stmtLog->execute([
+                    $sessionUserId,
+                    $logDesc,
+                    $_SERVER['REMOTE_ADDR'] ?? '::1',
+                    $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+                ]);
             } else {
                 $stmtInsert = $pdo->prepare("
                     INSERT INTO reports (student_id, week_number, file_path, status, submitted_at)
                     VALUES (?, ?, ?, 'pending', NOW())
                 ");
                 $stmtInsert->execute([$student_id, $weekNumber, $filePath]);
-            }
 
-            if (function_exists('logActivity')) {
-                $logAction = $existingId ? 'REPORT_REUPLOAD' : 'REPORT_SUBMISSION';
-                $logDesc   = "Student submitted Week {$weekNumber} accomplishment report.";
-                logActivity($pdo, $sessionUserId, 'student', $logAction, $logDesc);
+                // Direct insert to audit_logs
+                $logDesc = "Student {$studentName} submitted Week {$weekNumber} accomplishment report.";
+                $stmtLog = $pdo->prepare("
+                    INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
+                    VALUES (?, 'student', 'REPORT_SUBMISSION', ?, ?, ?, NOW())
+                ");
+                $stmtLog->execute([
+                    $sessionUserId,
+                    $logDesc,
+                    $_SERVER['REMOTE_ADDR'] ?? '::1',
+                    $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+                ]);
             }
 
             header("Location: reports.php?submitted=success");

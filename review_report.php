@@ -28,25 +28,106 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
     exit('Database connection is not available. Please check config/db.php.');
 }
 /* ============================================================
- * 1. AUTHENTICATION
+ * 1. AUTHENTICATION & ACCESS CONTROL
  * ============================================================ */
 if (!isset($_SESSION['user_id'])) {
     header('Location: /ICS-PORTAL/auth/login.php');
     exit;
 }
 $userId = (int)$_SESSION['user_id'];
+$userRole = $_SESSION['role'] ?? '';
+
 $reportId = filter_input(INPUT_GET, 'report_id', FILTER_VALIDATE_INT);
+if (!$reportId && isset($_POST['report_id'])) {
+    $reportId = filter_input(INPUT_POST, 'report_id', FILTER_VALIDATE_INT);
+}
+
 if (!$reportId) {
     http_response_code(400);
     exit('Invalid report ID.');
 }
+
 /* ============================================================
- * 2. LOAD REPORT
- * ============================================================
- *
- * IMPORTANT: This query matches the actual database schema.
- * The reports table contains file_path and submitted_at.
- * It does NOT contain attachment_path or created_at.
+ * 2. HANDLE SUPERVISOR REVIEW ACTIONS (Approve / Needs Changes)
+ * ============================================================ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRole === 'supervisor') {
+    $action = trim((string)$_POST['action']);
+    
+    // Resolve report details and student name for audit trail
+    $stmtFetchReport = $pdo->prepare("
+        SELECT r.id, r.week_number, u.name AS student_name 
+        FROM reports r
+        INNER JOIN students s ON s.id = r.student_id
+        INNER JOIN users u ON u.id = s.user_id
+        WHERE r.id = ?
+        LIMIT 1
+    ");
+    $stmtFetchReport->execute([$reportId]);
+    $targetReport = $stmtFetchReport->fetch(PDO::FETCH_ASSOC);
+
+    if ($targetReport) {
+        $weekNum = $targetReport['week_number'];
+        $studName = $targetReport['student_name'];
+
+        if ($action === 'approve') {
+            $stmtUpdate = $pdo->prepare("
+                UPDATE reports 
+                SET status = 'approved',
+                    approved_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmtUpdate->execute([$reportId]);
+
+            // Insert into audit_logs
+            $logDesc = "Supervisor approved Week {$weekNum} accomplishment report for {$studName}.";
+            $stmtLog = $pdo->prepare("
+                INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
+                VALUES (?, 'supervisor', 'REPORT_APPROVAL', ?, ?, ?, NOW())
+            ");
+            $stmtLog->execute([
+                $userId,
+                $logDesc,
+                $_SERVER['REMOTE_ADDR'] ?? '::1',
+                $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+            ]);
+
+            header("Location: review_report.php?report_id={$reportId}&status=approved");
+            exit;
+
+        } elseif ($action === 'reject') {
+            $remarks = trim((string)($_POST['supervisor_remarks'] ?? ''));
+
+            $stmtUpdate = $pdo->prepare("
+                UPDATE reports 
+                SET status = 'rejected',
+                    supervisor_remarks = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmtUpdate->execute([$remarks, $reportId]);
+
+            // Insert into audit_logs
+            $logDesc = "Supervisor requested changes on Week {$weekNum} accomplishment report for {$studName}.";
+            $stmtLog = $pdo->prepare("
+                INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
+                VALUES (?, 'supervisor', 'REPORT_REVISION', ?, ?, ?, NOW())
+            ");
+            $stmtLog->execute([
+                $userId,
+                $logDesc,
+                $_SERVER['REMOTE_ADDR'] ?? '::1',
+                $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+            ]);
+
+            header("Location: review_report.php?report_id={$reportId}&status=rejected");
+            exit;
+        }
+    }
+}
+
+/* ============================================================
+ * 3. LOAD REPORT RECORD
  * ============================================================ */
 try {
     $sql = "
@@ -55,10 +136,12 @@ try {
             r.student_id,
             r.week_number,
             r.file_path,
+            r.previous_file_path,
             r.ocr_activities,
             r.supervisor_remarks,
             r.status,
             r.submitted_at,
+            r.approved_at,
             s.student_number,
             s.program,
             s.section,
@@ -69,13 +152,14 @@ try {
         INNER JOIN users u
             ON u.id = s.user_id
         WHERE r.id = :report_id
-          AND s.user_id = :user_id
+          AND (s.user_id = :user_id OR :user_role = 'supervisor')
         LIMIT 1
     ";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        ':report_id' => $reportId,
-        ':user_id' => $userId
+        ':report_id'  => $reportId,
+        ':user_id'    => $userId,
+        ':user_role'  => $userRole
     ]);
     $report = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -83,12 +167,14 @@ try {
     http_response_code(500);
     exit('Database error while loading the report.');
 }
+
 if (!$report) {
     http_response_code(404);
     exit('Report not found or you do not have permission to view it.');
 }
+
 /* ============================================================
- * 3. DETERMINE PDF URL
+ * 4. DETERMINE PDF URL
  * ============================================================ */
 $filePath = trim((string)($report['file_path'] ?? ''));
 function buildPdfUrl(string $filePath): string
@@ -97,11 +183,9 @@ function buildPdfUrl(string $filePath): string
     if ($path === '') {
         return '';
     }
-    // Already an external URL.
     if (preg_match('#^https?://#i', $path)) {
         return $path;
     }
-    // Convert a Windows path inside the project to a browser path.
     $projectRoot = str_replace('\\', '/', __DIR__);
     $normalizedProjectRoot = rtrim($projectRoot, '/');
     $lowerPath = strtolower($path);
@@ -110,23 +194,19 @@ function buildPdfUrl(string $filePath): string
         $relative = substr($path, strlen($normalizedProjectRoot) + 1);
         return '/ICS-PORTAL/' . ltrim($relative, '/');
     }
-    // If the stored path already contains the project folder, do not
-    // prepend /ICS-PORTAL/ twice.
     if (preg_match('#^/?ICS-PORTAL/#i', $path)) {
         return '/' . ltrim($path, '/');
     }
-    // Already an application-rooted browser path.
     if (str_starts_with($path, '/')) {
         return $path;
     }
-    // Common database value: uploads/reports/file.pdf
     return '/ICS-PORTAL/' . ltrim($path, '/');
 }
 $pdfUrl = buildPdfUrl($filePath);
-/* ============================================================
- * 4. RUN PYTHON EXTRACTION AND LOAD ENTITIES
- * ============================================================ */
 
+/* ============================================================
+ * 5. PYTHON EXTRACTION AND ENTITY CATALOG PIPELINE
+ * ============================================================ */
 function rr_local_pdf_path(string $filePath): string
 {
     $path = trim(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $filePath));
@@ -189,14 +269,6 @@ function rr_run_python_extractor(string $pdfPath): array
 
 $entities = [];
 
-/**
- * Load the entity catalog from the actual predefined_entities table.
- *
- * The SQL schema defines:
- *   entity_name, aliases, category, activity_type, it_related
- *
- * The catalog is therefore the single source of truth for classification.
- */
 function rr_load_predefined_entities(PDO $pdo): array
 {
     $stmt = $pdo->query("
@@ -229,13 +301,6 @@ function rr_normalize_entity_text(string $text): string
         : strtolower($text);
 }
 
-/**
- * Build a lookup containing both canonical names and aliases.
- *
- * Example from the supplied SQL:
- *   PHP -> aliases: php programming, php development, php system
- *   Data Entry -> aliases: data encoding, encoding, encode data
- */
 function rr_build_entity_catalog(array $rows): array
 {
     $catalog = [];
@@ -264,10 +329,6 @@ function rr_build_entity_catalog(array $rows): array
                 continue;
             }
 
-            /*
-             * Keep the longest catalog term when two catalog entries
-             * normalize to the same value.
-             */
             if (
                 !isset($catalog[$normalized]) ||
                 strlen($term) > strlen((string)($catalog[$normalized]['matched_term'] ?? ''))
@@ -295,18 +356,6 @@ function rr_build_entity_catalog(array $rows): array
     return $catalog;
 }
 
-/**
- * Match a spaCy result against the SQL predefined catalog.
- *
- * Matching checks:
- * 1. matched_term
- * 2. entity_name
- * 3. entity
- * 4. label
- *
- * This prevents Python output from replacing the category/activity
- * classification stored in predefined_entities.
- */
 function rr_match_predefined_entity(array $entity, array $catalog): ?array
 {
     $candidateKeys = [
@@ -334,11 +383,6 @@ function rr_match_predefined_entity(array $entity, array $catalog): ?array
             return $catalog[$normalized];
         }
 
-        /*
-         * Some extractors return a longer phrase containing the
-         * predefined term. Check catalog terms using Unicode-safe
-         * boundary matching.
-         */
         foreach ($catalog as $catalogTerm => $definition) {
             if (mb_strlen($catalogTerm, 'UTF-8') < 3) {
                 continue;
@@ -357,14 +401,6 @@ function rr_match_predefined_entity(array $entity, array $catalog): ?array
     return null;
 }
 
-/**
- * Convert Python extraction output to the exact report_entities schema.
- *
- * One database row is created per unique entity. The old implementation
- * inserted the same entity repeatedly according to "frequency", but the
- * supplied SQL schema has no frequency column. Keeping one row per entity
- * avoids duplicate cards and duplicate highlights.
- */
 function rr_prepare_report_entities(
     array $pythonEntities,
     array $catalog
@@ -445,10 +481,6 @@ function rr_prepare_report_entities(
 }
 
 try {
-    /*
-     * Always read existing entities first.
-     * Add ?extract=1 to rebuild them from the current PDF.
-     */
     $entitySql = "
         SELECT
             id,
@@ -473,11 +505,6 @@ try {
     $forceExtract = isset($_GET['extract']) && $_GET['extract'] === '1';
 
     if ($forceExtract || !$entities) {
-        /*
-         * IMPORTANT:
-         * The predefined catalog comes directly from the SQL table.
-         * No hard-coded PHP/MySQL/Java/etc. list is used here.
-         */
         $predefinedRows = rr_load_predefined_entities($pdo);
         $catalog = rr_build_entity_catalog($predefinedRows);
 
@@ -555,10 +582,9 @@ try {
 
     $entities = [];
 }
-/* Add ?extract=1 to force a fresh Python extraction after catalog changes. */
 
 /* ============================================================
- * 5. HELPERS
+ * 6. VIEW HELPERS
  * ============================================================ */
 function rr_e($value): string
 {
@@ -568,6 +594,7 @@ function rr_e($value): string
         'UTF-8'
     );
 }
+
 function entityValue(array $entity, array $keys, $fallback = '')
 {
     foreach ($keys as $key) {
@@ -581,10 +608,7 @@ function entityValue(array $entity, array $keys, $fallback = '')
     }
     return $fallback;
 }
-/*
- * JSON is placed in a script tag using json_encode with the
- * appropriate escaping flags.
- */
+
 $entityJson = json_encode(
     array_values($entities),
     JSON_UNESCAPED_UNICODE |
@@ -597,16 +621,11 @@ $entityJson = json_encode(
 if ($entityJson === false) {
     $entityJson = '[]';
 }
+
 $weekNumber = (string)($report['week_number'] ?? '—');
 $submittedAt = $report['submitted_at'] ?? null;
-if ($submittedAt) {
-    $formattedDate = date(
-        'M d, Y \a\t g:i A',
-        strtotime($submittedAt)
-    );
-} else {
-    $formattedDate = '—';
-}
+$formattedDate = $submittedAt ? date('M d, Y \a\t g:i A', strtotime($submittedAt)) : '—';
+
 $status = strtolower((string)($report['status'] ?? 'pending'));
 $statusLabel = 'Waiting for Review';
 $statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
@@ -623,7 +642,7 @@ if ($status === 'approved') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Review Week <?= rr_e($weekNumber); ?> Report - OJT Portal</title>
+    <title>Review Week <?= rr_e($weekNumber); ?> Report - OJT Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -631,9 +650,7 @@ if ($status === 'approved') {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
+        body { font-family: 'Inter', sans-serif; }
         .pdf-stage {
             background: #e8edf4;
             overflow-y: auto;
@@ -654,7 +671,6 @@ if ($status === 'approved') {
             max-width: 100%;
             height: auto;
         }
-
         .pdf-text-layer {
             position: absolute;
             inset: 0;
@@ -676,33 +692,15 @@ if ($status === 'approved') {
             box-shadow: 0 0 0 1px rgba(180, 83, 9, .28);
         }
         .entity-card {
-            transition:
-                border-color .15s ease,
-                background-color .15s ease,
-                transform .15s ease;
+            transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
         }
-        .entity-card:hover {
-            transform: translateY(-1px);
-        }
-        .entity-card.active {
-            border-color: #f59e0b;
-            background: #fffbeb;
-        }
-        .thin-scrollbar::-webkit-scrollbar {
-            width: 7px;
-            height: 7px;
-        }
-        .thin-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 999px;
-        }
-        .pdf-loading {
-            min-height: 300px;
-        }
+        .entity-card:hover { transform: translateY(-1px); }
+        .entity-card.active { border-color: #f59e0b; background: #fffbeb; }
+        .thin-scrollbar::-webkit-scrollbar { width: 7px; height: 7px; }
+        .thin-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .pdf-loading { min-height: 300px; }
         @media (max-width: 1279px) {
-            .pdf-stage {
-                min-height: 55vh;
-            }
+            .pdf-stage { min-height: 55vh; }
         }
     </style>
 </head>
@@ -711,133 +709,97 @@ if ($status === 'approved') {
     <?php include __DIR__ . '/src/components/sidebar.php'; ?>
     <div class="flex-1 flex flex-col min-w-0">
         <?php include __DIR__ . '/src/components/header.php'; ?>
-        <main
-            class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 flex-1"
-        >
+        <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 flex-1">
 
-            <div
-                class="bg-white rounded-2xl border border-slate-200/80
-                       shadow-xs overflow-hidden"
-            >
-                <div
-                    class="p-5 sm:p-6 flex flex-col lg:flex-row
-                           lg:items-center lg:justify-between gap-4"
-                >
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                <div class="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div class="flex items-start gap-3">
                         <a
                             href="/ICS-PORTAL/dashboard.php"
-                            class="flex h-10 w-10 shrink-0 items-center
-                                   justify-center rounded-xl border
-                                   border-emerald-200 bg-emerald-50/40
-                                   text-slate-600 hover:bg-slate-100
-                                   hover:text-emerald-700 transition"
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/40 text-slate-600 hover:bg-slate-100 hover:text-emerald-700 transition"
                             aria-label="Back to dashboard"
                             title="Back to Dashboard"
                         >
-                            <svg
-                                class="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    d="M19 12H5m7 7-7-7 7-7"
-                                />
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m7 7-7-7 7-7" />
                             </svg>
                         </a>
                         <div>
-                            <p
-                                class="text-[10px] font-bold uppercase
-                                       tracking-wider text-emerald-700"
-                            >
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
                                 Report Review
                             </p>
-                            <h1
-                                class="mt-1 text-base sm:text-lg font-bold
-                                       text-slate-900"
-                            >
-                                Week <?= rr_e($weekNumber); ?>
-                                Accomplishment Report
+                            <h1 class="mt-1 text-base sm:text-lg font-bold text-slate-900">
+                                Week <?= rr_e($weekNumber); ?> Accomplishment Report
                             </h1>
-                            <p
-                                class="mt-1 text-xs font-medium
-                                       text-slate-500"
-                            >
-                                Submitted: <?= rr_e($formattedDate); ?>
+                            <p class="mt-1 text-xs font-medium text-slate-500">
+                                Submitted by: <strong class="text-slate-800"><?= rr_e($report['student_name'] ?? 'Student'); ?></strong> (<?= rr_e($report['student_number'] ?? '—'); ?>) &bull; Submitted: <?= rr_e($formattedDate); ?>
                             </p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span
-                            class="px-3 py-1.5 rounded-full border
-                                   text-[10px] font-bold <?= rr_e($statusClass); ?>"
-                        >
+                    
+                    <div class="flex items-center gap-3">
+                        <span class="px-3 py-1.5 rounded-full border text-[10px] font-bold <?= rr_e($statusClass); ?>">
                             <?= rr_e($statusLabel); ?>
                         </span>
+
+                        <?php if ($userRole === 'supervisor' && $status !== 'approved'): ?>
+                            <!-- Supervisor Approval Button -->
+                            <form method="POST" action="review_report.php" class="inline" onsubmit="return confirm('Approve this accomplishment report?');">
+                                <input type="hidden" name="report_id" value="<?= (int)$report['id']; ?>">
+                                <input type="hidden" name="action" value="approve">
+                                <button type="submit" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    <span>Approve Report</span>
+                                </button>
+                            </form>
+
+                            <!-- Supervisor Request Changes Modal Trigger -->
+                            <button type="button" onclick="document.getElementById('rejectRemarksModal').classList.remove('hidden')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
+                                <span>Request Changes</span>
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
+
+                <?php if (!empty($report['supervisor_remarks'])): ?>
+                    <div class="p-4 bg-rose-50 border-t border-rose-200/80 text-xs text-rose-950 flex items-start gap-2">
+                        <span class="font-bold shrink-0">Feedback Note:</span>
+                        <p class="font-medium leading-relaxed"><?= rr_e($report['supervisor_remarks']); ?></p>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div
                 class="grid min-h-0 grid-cols-1
                        xl:grid-cols-[minmax(0,1.55fr)_minmax(330px,.7fr)]
-                                              rounded-2xl border border-slate-200/80
+                       rounded-2xl border border-slate-200/80
                        bg-white shadow-xs overflow-hidden
                        xl:h-[calc(100vh-230px)]
                        xl:max-h-[calc(100vh-230px)]"
             >
-                <!-- =================================================
-                     LEFT: PDF
-                ================================================== -->
-                <section
-                    class="min-w-0 min-h-0 border-b
-                           xl:border-b-0 xl:border-r border-slate-200"
-                >
-                    <div
-                        class="flex items-center justify-between gap-3
-                               border-b border-slate-100 p-4 sm:p-5"
-                    >
+                <!-- LEFT: PDF -->
+                <section class="min-w-0 min-h-0 border-b xl:border-b-0 xl:border-r border-slate-200">
+                    <div class="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
                         <div class="min-w-0">
-                            <h2
-                                class="text-xs font-bold text-slate-900"
-                            >
-                                PDF Content
-                            </h2>
-                            <p
-                                class="mt-1 text-[11px] text-slate-500"
-                            >
-                                Original report document
-                            </p>
+                            <h2 class="text-xs font-bold text-slate-900">PDF Content</h2>
+                            <p class="mt-1 text-[11px] text-slate-500">Original report document</p>
                         </div>
-                        <div
-                            class="flex shrink-0 items-center gap-2"
-                        >
+                        <div class="flex shrink-0 items-center gap-2">
                             <button
                                 type="button"
                                 id="zoomOut"
-                                class="h-8 w-8 rounded-lg border
-                                       border-slate-200 text-lg font-bold
-                                       text-slate-600 hover:bg-slate-50"
+                                class="h-8 w-8 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
                                 aria-label="Zoom out"
                             >
                                 −
                             </button>
-                            <span
-                                id="zoomValue"
-                                class="w-12 text-center text-[11px]
-                                       font-semibold text-slate-500"
-                            >
+                            <span id="zoomValue" class="w-12 text-center text-[11px] font-semibold text-slate-500">
                                 100%
                             </span>
                             <button
                                 type="button"
                                 id="zoomIn"
-                                class="h-8 w-8 rounded-lg border
-                                       border-slate-200 text-lg font-bold
-                                       text-slate-600 hover:bg-slate-50"
+                                class="h-8 w-8 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
                                 aria-label="Zoom in"
                             >
                                 +
@@ -853,54 +815,27 @@ if ($status === 'approved') {
                                overflow-y-auto overflow-x-auto
                                overscroll-contain p-3 sm:p-5"
                     >
-                        <div
-                            id="pdfLoading"
-                            class="pdf-loading flex items-center
-                                   justify-center text-xs text-slate-500"
-                        >
+                        <div id="pdfLoading" class="pdf-loading flex items-center justify-center text-xs text-slate-500">
                             Loading PDF…
                         </div>
-                        <div
-                            id="pdfPages"
-                            class="space-y-5"
-                        ></div>
+                        <div id="pdfPages" class="space-y-5"></div>
                     </div>
                 </section>
-                <!-- =================================================
-                     RIGHT: EXTRACTED ENTITIES
-                ================================================== -->
-                <aside
-                                        class="flex min-h-0 min-w-0 flex-col bg-white
-                           xl:h-full"
-                >
-                    <div
-                        class="flex items-center justify-between gap-3
-                               border-b border-slate-100 p-4 sm:p-5"
-                    >
+
+                <!-- RIGHT: EXTRACTED ENTITIES -->
+                <aside class="flex min-h-0 min-w-0 flex-col bg-white xl:h-full">
+                    <div class="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
                         <div>
-                            <h2
-                                class="text-xs font-bold text-slate-900"
-                            >
-                                Extracted Entities
-                            </h2>
-                            <p
-                                class="mt-1 text-[11px] text-slate-500"
-                            >
-                                Entities extracted from this report.
-                            </p>
+                            <h2 class="text-xs font-bold text-slate-900">Extracted Entities</h2>
+                            <p class="mt-1 text-[11px] text-slate-500">Entities extracted from this report.</p>
                         </div>
-                        <span
-                            id="entityCount"
-                            class="rounded-full bg-emerald-50 px-2.5 py-1
-                                   text-[10px] font-bold text-emerald-700"
-                        >
-                            <?= count($entities); ?>
-                            <?= count($entities) === 1 ? 'entity' : 'entities'; ?>
+                        <span id="entityCount" class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                            <?= count($entities); ?> <?= count($entities) === 1 ? 'entity' : 'entities'; ?>
                         </span>
                     </div>
                     <div
                         id="entityList"
-                                                class="thin-scrollbar min-h-0 flex-1
+                        class="thin-scrollbar min-h-0 flex-1
                                h-[420px] max-h-[55vh]
                                overflow-y-auto overscroll-contain p-4 space-y-2
                                xl:h-auto xl:max-h-none"
@@ -910,19 +845,51 @@ if ($status === 'approved') {
         </main>
     </div>
 </div>
+
+<!-- Supervisor Request Changes Remarks Modal -->
+<?php if ($userRole === 'supervisor'): ?>
+<div id="rejectRemarksModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
+    <div class="bg-white rounded-2xl border border-slate-300 shadow-xl max-w-md w-full p-6 space-y-4">
+        <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+            <div>
+                <h3 class="text-sm font-black text-slate-950">Request Report Changes</h3>
+                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Specify what the intern needs to revise</p>
+            </div>
+            <button type="button" onclick="document.getElementById('rejectRemarksModal').classList.add('hidden')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center">✕</button>
+        </div>
+
+        <form method="POST" action="review_report.php" class="space-y-4">
+            <input type="hidden" name="report_id" value="<?= (int)$report['id']; ?>">
+            <input type="hidden" name="action" value="reject">
+
+            <div class="space-y-1.5">
+                <label for="supervisor_remarks" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Revision Instructions</label>
+                <textarea 
+                    id="supervisor_remarks" 
+                    name="supervisor_remarks" 
+                    rows="4" 
+                    required 
+                    placeholder="E.g., Please complete your accomplishment log breakdown for Friday..." 
+                    class="w-full text-xs p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                ></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-200/70">
+                <button type="button" onclick="document.getElementById('rejectRemarksModal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs">Submit Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 (() => {
     'use strict';
     const report = {
         id: <?= json_encode((string)$reportId); ?>,
-        title: <?= json_encode(
-            'Week ' . $weekNumber . ' Accomplishment Report',
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        ); ?>,
-        fileUrl: <?= json_encode(
-            $pdfUrl,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        ); ?>,
+        title: <?= json_encode('Week ' . $weekNumber . ' Accomplishment Report', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>,
+        fileUrl: <?= json_encode($pdfUrl, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>,
         entities: <?= $entityJson; ?>
     };
     const pdfStage = document.getElementById('pdfStage');
@@ -981,7 +948,7 @@ if ($status === 'approved') {
             entity,
             [
                 'entity_name',
-                                'name',
+                'name',
                 'entity',
                 'label'
             ],
@@ -989,7 +956,6 @@ if ($status === 'approved') {
         );
     }
     function getEntityKey(entity, index) {
-
         return normalize(getEntityName(entity, index))
             + '::'
             + index;
@@ -1343,7 +1309,6 @@ if ($status === 'approved') {
     renderEntities();
     renderPdf();
 })();
-
 </script>
 </body>
 </html>
