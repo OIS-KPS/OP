@@ -44,7 +44,7 @@ if (!function_exists('e')) {
                     
                     <!-- Table Header Bar -->
                     <div class="p-6 border-b border-slate-200/70 bg-slate-50/60">
-                        <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Assigned Interns Roster</h3>
+                        <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Assigned Interns</h3>
                         <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Inspect accomplishment logs and weekly activity submissions per student</p>
                     </div>
 
