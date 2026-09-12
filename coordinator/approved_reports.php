@@ -65,6 +65,7 @@ try {
             r.student_id,
             r.week_number,
             r.file_path,
+            r.previous_file_path,
             r.status,
             r.submitted_at,
             r.approved_at,
@@ -84,7 +85,7 @@ try {
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
         {$whereSql}
-        ORDER BY r.week_number DESC, r.submitted_at DESC
+        ORDER BY r.week_number DESC, COALESCE(r.approved_at, r.submitted_at) DESC
     ";
 
     $stmt = $pdo->prepare($sql);

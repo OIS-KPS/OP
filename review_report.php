@@ -35,9 +35,13 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 $userId = (int)$_SESSION['user_id'];
-$userRole = $_SESSION['role'] ?? '';
+$userRole = strtolower($_SESSION['role'] ?? '');
 
+// Accept report_id OR id query parameter
 $reportId = filter_input(INPUT_GET, 'report_id', FILTER_VALIDATE_INT);
+if (!$reportId && isset($_GET['id'])) {
+    $reportId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+}
 if (!$reportId && isset($_POST['report_id'])) {
     $reportId = filter_input(INPUT_POST, 'report_id', FILTER_VALIDATE_INT);
 }
@@ -152,7 +156,10 @@ try {
         INNER JOIN users u
             ON u.id = s.user_id
         WHERE r.id = :report_id
-          AND (s.user_id = :user_id OR :user_role = 'supervisor')
+          AND (
+              s.user_id = :user_id 
+              OR :user_role IN ('supervisor', 'coordinator', 'admin')
+          )
         LIMIT 1
     ";
     $stmt = $pdo->prepare($sql);
@@ -636,6 +643,14 @@ if ($status === 'approved') {
     $statusLabel = 'Needs Changes';
     $statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
 }
+
+// Back button URL routing based on user role
+$backUrl = '/ICS-PORTAL/dashboard.php';
+if ($userRole === 'coordinator') {
+    $backUrl = '/ICS-PORTAL/coordinator/approved_reports.php';
+} elseif ($userRole === 'supervisor') {
+    $backUrl = '/ICS-PORTAL/supervisor/interns.php';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -706,7 +721,15 @@ if ($status === 'approved') {
 </head>
 <body class="bg-[#F8FAFC] text-slate-800 antialiased">
 <div class="flex min-h-screen">
-    <?php include __DIR__ . '/src/components/sidebar.php'; ?>
+    <?php 
+    if ($userRole === 'coordinator') {
+        include __DIR__ . '/src/components/coordinator_sidebar.php';
+    } elseif ($userRole === 'supervisor') {
+        include __DIR__ . '/src/components/supervisor_sidebar.php';
+    } else {
+        include __DIR__ . '/src/components/sidebar.php';
+    }
+    ?>
     <div class="flex-1 flex flex-col min-w-0">
         <?php include __DIR__ . '/src/components/header.php'; ?>
         <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 flex-1">
@@ -715,10 +738,10 @@ if ($status === 'approved') {
                 <div class="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div class="flex items-start gap-3">
                         <a
-                            href="/ICS-PORTAL/dashboard.php"
+                            href="<?= $backUrl; ?>"
                             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/40 text-slate-600 hover:bg-slate-100 hover:text-emerald-700 transition"
-                            aria-label="Back to dashboard"
-                            title="Back to Dashboard"
+                            aria-label="Back to reports list"
+                            title="Back"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m7 7-7-7 7-7" />
