@@ -514,6 +514,13 @@ ALTER TABLE `supervisors`
   ADD CONSTRAINT `fk_supervisor_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;
 
+ALTER TABLE `students` 
+ADD COLUMN `requested_company_name` VARCHAR(255) NULL AFTER `completion_requested`,
+ADD COLUMN `requested_supervisor_name` VARCHAR(255) NULL AFTER `requested_company_name`,
+ADD COLUMN `requested_supervisor_email` VARCHAR(255) NULL AFTER `requested_supervisor_name`,
+ADD COLUMN `placement_request_status` ENUM('none', 'pending', 'approved', 'rejected') NOT NULL DEFAULT 'none' AFTER `requested_supervisor_email`,
+ADD COLUMN `placement_rejection_reason` TEXT NULL AFTER `placement_request_status`;
+
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
