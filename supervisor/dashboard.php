@@ -18,6 +18,7 @@ $supervisor = [
 
 $totalInterns = 0;
 $totalPending = 0;
+$totalNeedsChanges = 0;
 $totalEvaluated = 0;
 $pendingReports = [];
 $recentActivities = [];
@@ -65,16 +66,28 @@ try {
         $pendingStmt->execute([$supervisor_id]);
         $totalPending = (int)$pendingStmt->fetchColumn();
 
+        $needsChangesStmt = $pdo->prepare("
+            SELECT COUNT(r.id) 
+            FROM reports r
+            JOIN students s ON r.student_id = s.id
+            WHERE s.supervisor_id = ? AND LOWER(r.status) = 'rejected'
+        ");
+        $needsChangesStmt->execute([$supervisor_id]);
+        $totalNeedsChanges = (int)$needsChangesStmt->fetchColumn();
+
         $evalStmt = $pdo->prepare("SELECT COUNT(*) FROM evaluations WHERE supervisor_id = ?");
         $evalStmt->execute([$supervisor_id]);
         $totalEvaluated = (int)$evalStmt->fetchColumn();
 
-        // 3. Fetch Urgent Pending Queue (Top 5)
+        // 3. Fetch Pending & Flagged Reports Queue (Ordered chronologically)
         $reportsStmt = $pdo->prepare("
             SELECT 
                 r.id AS report_id,
                 r.week_number,
                 r.file_path,
+                r.previous_file_path,
+                r.supervisor_remarks,
+                r.status,
                 r.submitted_at,
                 u_student.name AS student_name,
                 u_student.avatar_url AS student_avatar,
@@ -82,36 +95,39 @@ try {
             FROM reports r
             JOIN students s ON r.student_id = s.id
             JOIN users u_student ON s.user_id = u_student.id
-            WHERE s.supervisor_id = ? AND LOWER(r.status) = 'pending'
-            ORDER BY r.submitted_at ASC
-            LIMIT 5
+            WHERE s.supervisor_id = ? AND LOWER(r.status) IN ('pending', 'rejected')
+            ORDER BY COALESCE(r.updated_at, r.submitted_at) DESC
+            LIMIT 6
         ");
         $reportsStmt->execute([$supervisor_id]);
         $pendingReports = $reportsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // 4. Activity Feed (Recent chronological events)
+        // 4. Activity Feed (Chronological events across all supervised students)
         $actStmt = $pdo->prepare("
             SELECT 
+                r.id,
                 r.week_number,
                 r.status,
                 r.submitted_at,
                 r.approved_at,
                 r.updated_at,
+                r.previous_file_path,
                 u_student.name AS student_name
             FROM reports r
             JOIN students s ON r.student_id = s.id
             JOIN users u_student ON s.user_id = u_student.id
             WHERE s.supervisor_id = ?
             ORDER BY COALESCE(r.approved_at, r.updated_at, r.submitted_at) DESC
-            LIMIT 5
+            LIMIT 6
         ");
         $actStmt->execute([$supervisor_id]);
         $activityLogs = $actStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($activityLogs as $log) {
             $status = strtolower($log['status'] ?? 'pending');
-            $timestamp = !empty($log['approved_at']) ? $log['approved_at'] : $log['submitted_at'];
-            $timeAgo = date("M d, Y &bull; g:i A", strtotime($timestamp));
+            $hasRevision = !empty($log['previous_file_path']);
+            $timestamp = !empty($log['approved_at']) ? $log['approved_at'] : (!empty($log['updated_at']) ? $log['updated_at'] : $log['submitted_at']);
+            $timeAgo = !empty($timestamp) ? date("M d, Y &bull; g:i A", strtotime($timestamp)) : 'Recently';
 
             if ($status === 'approved') {
                 $title = "Approved Week " . $log['week_number'] . " report for " . htmlspecialchars($log['student_name']);
@@ -120,14 +136,14 @@ try {
                 $title = "Requested changes on Week " . $log['week_number'] . " report for " . htmlspecialchars($log['student_name']);
                 $type = 'rejected';
             } else {
-                $title = htmlspecialchars($log['student_name']) . " submitted Week " . $log['week_number'] . " report";
+                $title = htmlspecialchars($log['student_name']) . " submitted " . ($hasRevision ? "revised " : "") . "Week " . $log['week_number'] . " report";
                 $type = 'pending';
             }
 
             $recentActivities[] = [
-                'title' => $title,
+                'title'    => $title,
                 'time_ago' => $timeAgo,
-                'type' => $type
+                'type'     => $type
             ];
         }
     }

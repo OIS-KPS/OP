@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') 
     exit();
 }
 
-$userId = $_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
 
 // Capture 'id' parameter from query string (?id=1) for single intern portfolio view
 $selected_student_id = isset($_GET['id']) && !empty($_GET['id']) ? intval($_GET['id']) : null;
@@ -30,6 +30,7 @@ try {
         JOIN users u ON s.user_id = u.id
         LEFT JOIN companies c ON s.company_id = c.id
         WHERE s.user_id = ?
+        LIMIT 1
     ");
     $stmtSup->execute([$userId]);
     $supData = $stmtSup->fetch(PDO::FETCH_ASSOC);
@@ -38,7 +39,7 @@ try {
         die("Supervisor profile record not found. Please contact the administrator.");
     }
 
-    $supervisor_id = $supData['supervisor_id'];
+    $supervisor_id = (int)$supData['supervisor_id'];
     $_SESSION['supervisor_id'] = $supervisor_id;
 
     $supervisor = [
@@ -62,6 +63,7 @@ try {
             FROM students s
             JOIN users u ON s.user_id = u.id
             WHERE s.id = ? AND s.supervisor_id = ?
+            LIMIT 1
         ");
         $studentStmt->execute([$selected_student_id, $supervisor_id]);
         $student = $studentStmt->fetch(PDO::FETCH_ASSOC);
@@ -72,9 +74,18 @@ try {
             exit();
         }
 
-        // Fetch accomplishment reports submitted by this specific student
+        // Fetch accomplishment reports matching exact nbsc_ojt reports schema
         $reportsStmt = $pdo->prepare("
-            SELECT id, week_number, file_path, ocr_activities, status, submitted_at 
+            SELECT 
+                id, 
+                week_number, 
+                file_path, 
+                ocr_activities, 
+                supervisor_remarks, 
+                status, 
+                submitted_at, 
+                approved_at, 
+                updated_at 
             FROM reports 
             WHERE student_id = ? 
             ORDER BY week_number ASC
