@@ -1,8 +1,16 @@
 <!-- src/pages/student/dashboardPage.php -->
+
 <?php
+
 $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
 
+/*
+ * The controller may provide $recentReports with one of these entity keys:
+ *   entities, extracted_entities, or report_entities.
+ * Each entity may contain entity_name/name, activity_type, it_related,
+ * confidence_score/confidence, and priority.
+ */
 $reviewReports = array_values(array_filter($recentReports ?? [], static function ($report) {
     return !empty($report['file_path']);
 }));
@@ -31,7 +39,9 @@ $studentDashboardJson = static function ($value): string {
 };
 
 $reportViewerData = [];
+
 foreach ($reviewReports as $index => $report) {
+
     $entities = $report['entities']
         ?? $report['extracted_entities']
         ?? $report['report_entities']
@@ -50,21 +60,112 @@ foreach ($reviewReports as $index => $report) {
         'entities' => is_array($entities) ? array_values($entities) : [],
     ];
 }
+
 ?>
+
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Dashboard - OJT Portal</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Student Dashboard - OJT Portal
+    </title>
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <link
+        rel="stylesheet"
+        href="/ICS-PORTAL/public/css/style.css"
+    >
+
     <style>
+
         body {
             font-family: 'Inter', sans-serif;
+        }
+
+        .pdf-stage {
+            background: #e8edf4;
+        }
+
+        .pdf-page {
+            position: relative;
+            margin: 0 auto 1rem;
+            width: fit-content;
+            max-width: 100%;
+            box-shadow: 0 8px 24px rgba(15, 40, 84, .12);
+        }
+
+        .pdf-page canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .pdf-text-layer {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            line-height: 1;
+            opacity: .95;
+        }
+
+        .pdf-text-layer span {
+            position: absolute;
+            color: transparent;
+            white-space: pre;
+            cursor: text;
+            transform-origin: 0 0;
+        }
+
+        .pdf-text-layer span.entity-highlight {
+            color: transparent;
+            background: rgba(250, 204, 21, .68);
+            border-radius: 3px;
+            box-shadow: 0 0 0 1px rgba(180, 83, 9, .28);
+        }
+
+        .entity-card {
+            transition:
+                border-color .15s ease,
+                background-color .15s ease,
+                transform .15s ease;
+        }
+
+        .entity-card.active {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .entity-card:hover {
+            transform: translateY(-1px);
         }
 
         .thin-scrollbar::-webkit-scrollbar {
@@ -76,24 +177,50 @@ foreach ($reviewReports as $index => $report) {
             background: #cbd5e1;
             border-radius: 999px;
         }
+
     </style>
+
 </head>
+
+
 <body class="bg-[#F8FAFC] text-slate-800 antialiased">
+
 <div class="flex min-h-screen">
+
     <?php include __DIR__ . '/../../components/sidebar.php'; ?>
 
+
     <div class="flex-1 flex flex-col min-w-0">
+
         <?php include __DIR__ . '/../../components/header.php'; ?>
 
-        <main class="p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
-            <div class="bg-[#0F2854] rounded-2xl p-6 sm:p-7 text-white shadow-xs space-y-5">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <main
+            class="p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1"
+        >
+
+
+            <!-- =========================================================
+                 WEEKLY TASK CARD
+            ========================================================== -->
+
+            <div
+                class="bg-[#0F2854] rounded-2xl p-6 sm:p-7 text-white shadow-xs space-y-5"
+            >
+
+                <div
+                    class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+                >
+
+                    <!-- Weekly Task Information -->
 
                     <div class="space-y-1">
+
                         <?php if ($isEvaluated): ?>
 
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                            <span
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-200 border border-emerald-400/30"
+                            >
                                 OJT Completed
                             </span>
 
@@ -105,9 +232,12 @@ foreach ($reviewReports as $index => $report) {
                                 Your supervisor has signed and forwarded your final evaluation to the OJT Coordinator.
                             </p>
 
+
                         <?php elseif ($isRequested): ?>
 
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-200 border border-amber-400/30">
+                            <span
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-200 border border-amber-400/30"
+                            >
                                 Awaiting Evaluation
                             </span>
 
@@ -119,14 +249,17 @@ foreach ($reviewReports as $index => $report) {
                                 Waiting for your supervisor to evaluate and submit your performance report to the coordinator.
                             </p>
 
+
                         <?php else: ?>
 
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-white/10 text-blue-100 border border-white/15">
+                            <span
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-white/10 text-blue-100 border border-white/15"
+                            >
                                 Weekly Task
                             </span>
 
                             <h1 class="text-base md:text-lg font-bold leading-tight">
-                                Week <?= htmlspecialchars((string)($nextWeek ?? '1')); ?> Accomplishment Report Due
+                                Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Accomplishment Report Due
                             </h1>
 
                             <p class="text-xs text-blue-100/80 mt-1">
@@ -134,207 +267,263 @@ foreach ($reviewReports as $index => $report) {
                             </p>
 
                         <?php endif; ?>
+
                     </div>
 
-                    <?php if (!$isEvaluated && !$isRequested): ?>
-                        <a href="submit_report.php?week=<?= htmlspecialchars((string)($nextWeek ?? '1')); ?>"
-                           class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2">
-                            <span>
-                                Submit Week <?= htmlspecialchars((string)($nextWeek ?? '1')); ?> Report
-                            </span>
 
-                            <svg class="w-3.5 h-3.5"
-                                 fill="none"
-                                 stroke="currentColor"
-                                 stroke-width="2.5"
-                                 viewBox="0 0 24 24">
-                                <path stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                      d="M14 5l7 7-7 7m0 0H3"/>
-                            </svg>
-                        </a>
+                    <!-- =====================================================
+                         ACTION BUTTONS
+                    ====================================================== -->
+
+                    <?php if (!$isEvaluated && !$isRequested): ?>
+
+                        <div class="flex flex-wrap items-center gap-2">
+
+
+                            <!-- =================================================
+                                 DOWNLOAD WEEKLY ACCOMPLISHMENT REPORT FORMAT
+                            ================================================== -->
+
+                            <a
+                                href="/ICS-PORTAL/public/files/Weekly-Accomplishment-Report-Format.docx"
+                                download="Weekly-Accomplishment-Report-Format.docx"
+                                class="shrink-0 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs transition-all border border-white/15 inline-flex items-center gap-2"
+                            >
+
+                                <!-- Download Icon -->
+
+                                <svg
+                                    class="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    viewBox="0 0 24 24"
+                                >
+
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"
+                                    />
+
+                                </svg>
+
+                                <span>
+                                    Download Format
+                                </span>
+
+                            </a>
+
+
+                            <!-- =================================================
+                                 SUBMIT WEEKLY REPORT
+                            ================================================== -->
+
+                            <a
+                                href="submit_report.php?week=<?= htmlspecialchars($nextWeek ?? '1'); ?>"
+                                class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2"
+                            >
+
+                                <span>
+                                    Submit Week <?= htmlspecialchars($nextWeek ?? '1'); ?> Report
+                                </span>
+
+                                <!-- Arrow Icon -->
+
+                                <svg
+                                    class="w-3.5 h-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.5"
+                                    viewBox="0 0 24 24"
+                                >
+
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M14 5l7 7-7 7m0 0H3"
+                                    />
+
+                                </svg>
+
+                            </a>
+
+                        </div>
+
                     <?php endif; ?>
 
                 </div>
 
+
+                <!-- =========================================================
+                     OVERALL PROGRESS
+                ========================================================== -->
+
                 <div class="pt-5 border-t border-white/10 space-y-2">
-                    <div class="flex justify-between items-center text-xs font-semibold text-slate-200">
-                        <span>Overall Progress</span>
+
+                    <div
+                        class="flex justify-between items-center text-xs font-semibold text-slate-200"
+                    >
+
+                        <span>
+                            Overall Progress
+                        </span>
 
                         <span class="font-bold text-white">
+
                             <?= intval($totalApproved ?? 0); ?>
+
                             of
-                            <?= htmlspecialchars((string)($targetWeeks ?? '12')); ?>
+
+                            <?= htmlspecialchars($targetWeeks ?? '12'); ?>
+
                             Weeks Approved
-                            (<?= htmlspecialchars((string)($progressPercentage ?? '0')); ?>%)
+
+                            (
+
+                            <?= htmlspecialchars($progressPercentage ?? '0'); ?>%
+
+                            )
+
                         </span>
+
                     </div>
 
-                    <div class="w-full h-2.5 bg-black/25 rounded-full overflow-hidden border border-white/10">
-                        <div class="bg-emerald-400 h-full rounded-full transition-all duration-500"
-                             style="width: <?= min(100, intval($progressPercentage ?? 0)); ?>%">
-                        </div>
+
+                    <div
+                        class="w-full h-2.5 bg-black/25 rounded-full overflow-hidden border border-white/10"
+                    >
+
+                        <div
+                            class="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                            style="width: <?= min(100, intval($progressPercentage ?? 0)); ?>%"
+                        ></div>
+
                     </div>
+
                 </div>
+
             </div>
 
-            <!-- Recent Report Activity -->
-            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
 
-                <div class="p-6 border-b border-slate-200/70 flex justify-between items-center gap-4 bg-slate-50/60">
+            <!-- =========================================================
+                 RECENT REPORT ACTIVITY
+            ========================================================== -->
+
+            <div
+                class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
+            >
+
+                <div
+                    class="p-6 border-b border-slate-100 flex justify-between items-center gap-4"
+                >
+
                     <div>
-                        <h2 class="text-xs font-black text-slate-900 tracking-wider uppercase">
+
+                        <h2
+                            class="text-xs font-bold text-slate-900 tracking-wider uppercase"
+                        >
                             Recent Report Activity
                         </h2>
 
-                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5">
-                            Chronological record of your submissions and supervisor reviews
+                        <p
+                            class="text-xs font-medium text-slate-500 mt-1"
+                        >
+                            Latest recorded weekly submissions and review updates.
                         </p>
+
                     </div>
 
-                    <a href="reports.php"
-                       class="text-xs font-bold text-[#0F2854] hover:underline inline-flex items-center gap-1">
-                        <span>View All Reports</span>
-                        <span aria-hidden="true">&rsaquo;</span>
+
+                    <a
+                        href="reports.php"
+                        class="text-xs font-bold text-[#0F2854] hover:underline inline-flex items-center gap-1"
+                    >
+                        View All Reports
+                        <span aria-hidden="true">
+                            ›
+                        </span>
                     </a>
                 </div>
-
-                <div class="divide-y divide-slate-200/80 text-xs">
-
+                <div class="divide-y divide-slate-100">
                     <?php if (empty($recentReports)): ?>
-
-                        <div class="py-12 text-center space-y-1.5">
-
-                            <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xs font-bold">
-                                ⏱
-                            </div>
-
-                            <p class="font-bold text-slate-700 text-xs">
-                                No recent report activity
-                            </p>
-
-                            <p class="text-[11px] font-medium text-slate-400">
-                                Activity will appear once you submit weekly reports.
-                            </p>
-
+                        <div
+                            class="py-12 text-center text-slate-500 text-xs italic"
+                        >
+                            No reports submitted yet. Click the submission button above to begin.
                         </div>
-
                     <?php else: ?>
-
                         <?php foreach ($recentReports as $r):
-
                             $status = strtolower($r['status'] ?? 'pending');
                             $filePath = $r['file_path'] ?? '';
-                            $prevFile = $r['previous_file_path'] ?? '';
-                            $remarks = $r['supervisor_remarks'] ?? '';
-                            $submittedAt = $r['submitted_at'] ?? null;
-                            $approvedAt = $r['approved_at'] ?? null;
-                            $updatedAt = $r['updated_at'] ?? null;
-
-                            if ($status === 'approved') {
-
-                                $eventTitle = 'Week ' . htmlspecialchars((string)$r['week_number']) . ' Report Approved';
-
-                                $eventDesc = !empty($approvedAt)
-                                    ? 'Approved on ' . date("M d, Y \a\\t g:i A", strtotime($approvedAt))
-                                    : 'Approved by supervisor';
-
-                                $badgeClass = 'bg-emerald-100/80 text-emerald-900 border-emerald-300';
-                                $badgeDot = 'bg-emerald-600';
-                                $badgeLabel = 'Approved';
-
-                            } elseif ($status === 'rejected') {
-
-                                $eventTitle = 'Week ' . htmlspecialchars((string)$r['week_number']) . ' Needs Revision';
-
-                                $eventDesc = !empty($remarks)
-                                    ? 'Note: ' . htmlspecialchars(substr($remarks, 0, 75)) . (strlen($remarks) > 75 ? '...' : '')
-                                    : 'Supervisor requested changes';
-
-                                $badgeClass = 'bg-rose-100/80 text-rose-900 border-rose-300';
-                                $badgeDot = 'bg-rose-600';
-                                $badgeLabel = 'Needs Changes';
-
-                            } else {
-
-                                $isRevised = !empty($prevFile);
-
-                                $eventTitle = 'Week ' . htmlspecialchars((string)$r['week_number']) .
-                                    ($isRevised ? ' Revised Report Submitted' : ' Report Submitted');
-
-                                $eventDesc = !empty($submittedAt)
-                                    ? 'Submitted on ' . date("M d, Y \a\\t g:i A", strtotime($submittedAt))
-                                    : 'Waiting for supervisor review';
-
-                                $badgeClass = 'bg-amber-100/80 text-amber-900 border-amber-300';
-                                $badgeDot = 'bg-amber-600';
-                                $badgeLabel = 'Waiting for Review';
-                            }
                         ?>
-
-                            <div class="p-5 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
-
+                            <div
+                                class="p-5 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
+                            >
+                                <!-- Report Information -->
                                 <div class="flex items-center gap-3.5">
-
-                                    <div class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-300 text-[#0F2854] font-black text-xs flex items-center justify-center shrink-0">
-                                        W<?= htmlspecialchars((string)$r['week_number']); ?>
+                                  <div
+                                        class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-[#0F2854] font-bold text-xs flex items-center justify-center shrink-0"
+                                 >
+                                        W<?= htmlspecialchars($r['week_number'] ?? '—'); ?>
                                     </div>
-
-                                    <div class="space-y-0.5">
-
-                                        <h4 class="text-xs font-bold text-slate-900">
-                                            <?= $eventTitle; ?>
+                                    <div>
+                                        <h4
+                                            class="text-xs font-bold text-slate-900"
+                                        >
+                                            Week <?= htmlspecialchars($r['week_number'] ?? '—'); ?> Accomplishment Report
                                         </h4>
-
-                                        <p class="text-[11px] font-semibold text-slate-500">
-                                            <?= $eventDesc; ?>
+                                        <p
+                                            class="text-xs font-medium text-slate-500 mt-0.5"
+                                        >
+                                            Submitted:
+                                            <?= !empty($r['submitted_at'])
+                                                ? date(
+                                                    "M d, Y \\a\\t g:i A",
+                                                    strtotime($r['submitted_at'])
+                                                )
+                                                : '—';
+                                            ?>
                                         </p>
-
                                     </div>
-
                                 </div>
-
-                                <div class="flex items-center gap-3 self-end sm:self-center">
-
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs <?= $badgeClass; ?>">
-                                        <span class="w-1.5 h-1.5 rounded-full <?= $badgeDot; ?>"></span>
-                                        <?= $badgeLabel; ?>
-                                    </span>
-
-                                    <?php if (!empty($filePath)): ?>
-
-                                        <!-- UPDATED VIEW FILE BUTTON -->
-                                        <a href="review_report.php?report_id=<?= (int)$r['id']; ?>"
-                                           class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer">
-
-                                            <svg class="w-3.5 h-3.5 text-slate-600"
-                                                 fill="none"
-                                                 stroke="currentColor"
-                                                 stroke-width="2"
-                                                 viewBox="0 0 24 24">
-                                                <path stroke-linecap="round"
-                                                      stroke-linejoin="round"
-                                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                <path stroke-linecap="round"
-                                                      stroke-linejoin="round"
-                                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                            </svg>
-
-                                            <span>View File</span>
-                                        </a>
-
+                                <!-- Report Status / Review -->
+                                <div
+                                    class="flex items-center gap-3 self-end sm:self-center"
+                                >
+                                    <?php if ($status === 'approved'): ?>
+                                        <span
+                                            class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold"
+                                        >
+                                            Approved
+                                        </span>
+                                    <?php elseif ($status === 'rejected'): ?>
+                                        <span
+                                            class="px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold"
+                                        >
+                                            Needs Changes
+                                        </span>
+                                    <?php else: ?>
+                                        <span
+                                            class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold"
+                                        >
+                                            Waiting for Review
+                                        </span>
                                     <?php endif; ?>
-
+                                    <?php if (!empty($filePath)): ?>
+                                        <a
+                                            href="review_report.php?report_id=<?= urlencode((string)($r['id'] ?? $r['report_id'] ?? '')); ?>"
+                                            class="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#0F2854] bg-slate-100 hover:bg-slate-200/80 rounded-xl border border-slate-200/70 transition-all"
+                                        >
+                                            Review PDF
+                                        </a>
+                                    <?php endif; ?>
                                 </div>
                             </div>
-
                         <?php endforeach; ?>
-
                     <?php endif; ?>
-
                 </div>
             </div>
-
         </main>
     </div>
 </div>
