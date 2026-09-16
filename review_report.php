@@ -235,26 +235,60 @@ function rr_local_pdf_path(string $filePath): string
 
 function rr_run_python_extractor(string $pdfPath): array
 {
-    $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'entity_extractor.py';
-    if (!is_file($scriptPath)) {
-        throw new RuntimeException('Python extractor was not found at /ICS-PORTAL/python/entity_extractor.py.');
+    // Match the supervisor page: support the working extractor name first,
+    // then compatible legacy names.
+    $scriptCandidates = [
+        __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'entity_extractor.py',
+        __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'extract_entities.py',
+        __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'entity_extractor_fixed.py',
+    ];
+
+    $scriptPath = '';
+    foreach ($scriptCandidates as $candidate) {
+        if (is_file($candidate) && is_readable($candidate)) {
+            $scriptPath = realpath($candidate) ?: $candidate;
+            break;
+        }
+    }
+
+    if ($scriptPath === '') {
+        throw new RuntimeException(
+            'Python extraction script was not found. Checked: ' . implode(', ', $scriptCandidates)
+        );
     }
 
     $localPdf = rr_local_pdf_path($pdfPath);
     if ($localPdf === '') {
-        throw new RuntimeException('The submitted PDF file could not be found on the server.');
+        throw new RuntimeException('The submitted PDF file could not be found on the server: ' . $pdfPath);
     }
 
-    $pythonBinary = getenv('PYTHON_BINARY') ?: (PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3');
-    $command = escapeshellarg($pythonBinary) . ' ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($localPdf);
+    $pythonCandidates = [
+        getenv('PYTHON_BINARY') ?: '',
+        'C:\\Users\\HP\\AppData\\Local\\Programs\\Python\\Python314\\python.exe',
+        'C:\\Python314\\python.exe',
+        PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3',
+    ];
+    $pythonBinary = PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3';
+    foreach ($pythonCandidates as $candidate) {
+        if ($candidate !== '' && ($candidate === 'python' || $candidate === 'python3' || is_file($candidate))) {
+            $pythonBinary = $candidate;
+            break;
+        }
+    }
+
+    $command = escapeshellarg($pythonBinary) . ' ' .
+        escapeshellarg($scriptPath) . ' ' .
+        escapeshellarg($localPdf);
+
     $descriptorSpec = [
         0 => ['pipe', 'r'],
         1 => ['pipe', 'w'],
         2 => ['pipe', 'w'],
     ];
-
     $process = proc_open($command, $descriptorSpec, $pipes, __DIR__);
-    if (!is_resource($process)) throw new RuntimeException('Unable to start the Python extractor.');
+    if (!is_resource($process)) {
+        throw new RuntimeException('Unable to start the Python extractor.');
+    }
 
     fclose($pipes[0]);
     $stdout = stream_get_contents($pipes[1]);
@@ -263,17 +297,25 @@ function rr_run_python_extractor(string $pdfPath): array
     fclose($pipes[2]);
     $exitCode = proc_close($process);
 
-    $result = json_decode(trim((string)$stdout), true);
+    $rawOutput = trim((string)$stdout);
+    $result = json_decode($rawOutput, true);
     if (!is_array($result)) {
-        throw new RuntimeException('The Python extractor returned invalid JSON: ' . trim((string)$stderr));
+        throw new RuntimeException(
+            'Python returned invalid JSON. Exit code: ' . $exitCode .
+            '. Output: ' . $rawOutput .
+            '. Error: ' . trim((string)$stderr)
+        );
     }
+
     if ($exitCode !== 0 || empty($result['success'])) {
-        throw new RuntimeException((string)($result['error'] ?? trim((string)$stderr) ?: 'Python entity extraction failed.'));
+        $message = (string)($result['error'] ?? 'Python entity extraction failed.');
+        $details = trim((string)($result['details'] ?? $stderr));
+        throw new RuntimeException($message . ($details !== '' ? ' Details: ' . $details : ''));
     }
 
-    return is_array($result['entities'] ?? null) ? $result['entities'] : [];
+    // Return the complete result so callers can use content/diagnostics too.
+    return $result;
 }
-
 $entities = [];
 
 function rr_load_predefined_entities(PDO $pdo): array
@@ -391,7 +433,10 @@ function rr_match_predefined_entity(array $entity, array $catalog): ?array
         }
 
         foreach ($catalog as $catalogTerm => $definition) {
-            if (mb_strlen($catalogTerm, 'UTF-8') < 3) {
+            $catalogTermLength = function_exists('mb_strlen')
+                ? mb_strlen($catalogTerm, 'UTF-8')
+                : strlen($catalogTerm);
+            if ($catalogTermLength < 3) {
                 continue;
             }
 
@@ -428,7 +473,11 @@ function rr_prepare_report_entities(
             $category = $matched['category'];
             $activityType = $matched['activity_type'];
             $itRelated = $matched['it_related'];
-            $source = 'spacy_predefined';
+            $source = in_array(
+                (string)($entity['source'] ?? 'predefined'),
+                ['spacy', 'predefined', 'spacy_predefined'],
+                true
+            ) ? (string)$entity['source'] : 'predefined';
         } else {
             $entityName = trim((string)(
                 $entity['matched_term']
@@ -509,7 +558,9 @@ try {
     $entityStmt->execute([':report_id' => $reportId]);
     $entities = $entityStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $forceExtract = isset($_GET['extract']) && $_GET['extract'] === '1';
+    $forceExtract =
+        (isset($_GET['extract']) && $_GET['extract'] === '1') ||
+        (isset($_GET['refresh']) && $_GET['refresh'] === '1');
 
     if ($forceExtract || !$entities) {
         $predefinedRows = rr_load_predefined_entities($pdo);
@@ -521,7 +572,10 @@ try {
             );
         }
 
-        $pythonEntities = rr_run_python_extractor($filePath);
+        $pythonResult = rr_run_python_extractor($filePath);
+        $pythonEntities = is_array($pythonResult['entities'] ?? null)
+            ? $pythonResult['entities']
+            : [];
         $preparedEntities = rr_prepare_report_entities(
             $pythonEntities,
             $catalog
@@ -582,12 +636,15 @@ try {
         $pdo->rollBack();
     }
 
-    error_log(
-        'review_report entity extraction: ' .
-        $e->getMessage()
-    );
-
+    $entityError = $e->getMessage();
+    error_log('review_report entity extraction: ' . $entityError);
     $entities = [];
+
+    // Use ?debug=1 only while troubleshooting locally.
+    if (isset($_GET['debug']) && $_GET['debug'] === '1') {
+        http_response_code(500);
+        exit('Entity extraction failed: ' . rr_e($entityError));
+    }
 }
 
 /* ============================================================
@@ -721,17 +778,39 @@ if ($userRole === 'coordinator') {
 </head>
 <body class="bg-[#F8FAFC] text-slate-800 antialiased">
 <div class="flex min-h-screen">
-    <?php 
+    <?php
+    /* Resolve layout components with filesystem paths on Windows and Linux. */
+    if (!function_exists('rr_include_component')) {
+        function rr_include_component(string $relativePath): void
+        {
+            $relativePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($relativePath, '/\\'));
+            $candidates = [
+                __DIR__ . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'components' . DIRECTORY_SEPARATOR . $relativePath,
+                __DIR__ . DIRECTORY_SEPARATOR . 'components' . DIRECTORY_SEPARATOR . $relativePath,
+            ];
+
+            foreach ($candidates as $componentPath) {
+                if (is_file($componentPath) && is_readable($componentPath)) {
+                    require $componentPath;
+                    return;
+                }
+            }
+
+            http_response_code(500);
+            exit('Required layout component not found: ' . $relativePath);
+        }
+    }
+
     if ($userRole === 'coordinator') {
-        include __DIR__ . '/src/components/coordinator_sidebar.php';
+        rr_include_component('coordinator_sidebar.php');
     } elseif ($userRole === 'supervisor') {
-        include __DIR__ . '/src/components/supervisor_sidebar.php';
+        rr_include_component('supervisor_sidebar.php');
     } else {
-        include __DIR__ . '/src/components/sidebar.php';
+        rr_include_component('sidebar.php');
     }
     ?>
     <div class="flex-1 flex flex-col min-w-0">
-        <?php include __DIR__ . '/src/components/header.php'; ?>
+        <?php rr_include_component('header.php'); ?>
         <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 flex-1">
 
             <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -850,7 +929,12 @@ if ($userRole === 'coordinator') {
                     <div class="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
                         <div>
                             <h2 class="text-xs font-bold text-slate-900">Extracted Entities</h2>
-                            <p class="mt-1 text-[11px] text-slate-500">Entities extracted from this report.</p>
+                            <p class="mt-1 text-[11px] text-slate-500">
+                                Entities extracted from this report.
+                                <?php if (isset($_GET['extract']) && $_GET['extract'] === '1'): ?>
+                                    <span class="text-amber-600">Fresh extraction requested.</span>
+                                <?php endif; ?>
+                            </p>
                         </div>
                         <span id="entityCount" class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
                             <?= count($entities); ?> <?= count($entities) === 1 ? 'entity' : 'entities'; ?>
