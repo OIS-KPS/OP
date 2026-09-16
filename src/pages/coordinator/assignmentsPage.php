@@ -158,7 +158,7 @@
                                             </td>
 
                                             <!-- Host Company -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                            <td class="py-4 px-6 align-middle">
                                                 <?php if (!empty($s['company_name'])): ?>
                                                     <p class="font-bold text-slate-900 text-xs company-name"><?= htmlspecialchars($s['company_name']); ?></p>
                                                     <p class="text-[11px] text-slate-600 font-medium mt-0.5"><?= htmlspecialchars($s['company_dept'] ?? 'Main Office'); ?></p>
@@ -166,6 +166,27 @@
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Unassigned
                                                     </span>
+                                                <?php endif; ?>
+
+                                                <?php if (($s['placement_request_status'] ?? '') === 'pending'): ?>
+                                                    <div class="mt-3 p-3 bg-amber-50/90 border border-amber-300/80 rounded-xl space-y-2 shadow-2xs">
+                                                        <div class="flex items-center justify-between">
+                                                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-200/70 text-amber-900 font-extrabold text-[10px]">
+                                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                                                                Pending Request
+                                                            </span>
+                                                            <span class="text-[10px] font-semibold text-slate-500">Review Required</span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="text-[10px] uppercase font-black text-slate-500 tracking-wider">Requested Company</p>
+                                                            <p class="text-xs font-black text-slate-950"><?= htmlspecialchars($s['requested_company_name']); ?></p>
+                                                        </div>
+                                                        <form method="POST" action="assignments.php" class="flex items-center gap-2 pt-1 border-t border-amber-200/60">
+                                                            <input type="hidden" name="student_id" value="<?= $s['id']; ?>">
+                                                            <button type="submit" name="action" value="approve_placement" class="flex-1 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs shadow-2xs transition-colors cursor-pointer text-center">Approve</button>
+                                                            <button type="submit" name="action" value="reject_placement" class="flex-1 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg text-xs shadow-2xs transition-colors cursor-pointer text-center">Reject</button>
+                                                        </form>
+                                                    </div>
                                                 <?php endif; ?>
                                             </td>
 
