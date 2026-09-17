@@ -176,6 +176,7 @@ CREATE TABLE `predefined_entities` (
   `activity_type` enum('Software','Hardware','Clerical','Other') NOT NULL DEFAULT 'Other',
   `it_related` enum('yes','no') NOT NULL DEFAULT 'yes',
   `description` text DEFAULT NULL,
+  `is_archived` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

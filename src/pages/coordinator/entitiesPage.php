@@ -5,6 +5,8 @@ if (!function_exists('e')) {
         return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
     }
 }
+$view = $view ?? 'active';
+$viewParam = $view === 'archived' ? '&view=archived' : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -60,32 +62,52 @@ if (!function_exists('e')) {
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-7 rounded-2xl border border-slate-200/90 shadow-xs">
                 <div>
                     <h1 class="text-base font-extrabold text-slate-950 tracking-tight leading-snug">Entity Dictionary</h1>
-                    <p class="text-xs font-semibold text-slate-600 mt-1">Manage technical skills, software tools, and task entities used to scan student accomplishment reports.</p>
+                    <p class="text-xs font-semibold text-slate-600 mt-1">
+                        <?= $view === 'archived'
+                            ? 'Archived entities are excluded from extraction. Restore them or delete them permanently.'
+                            : 'Manage technical skills, software tools, and task entities used to scan student accomplishment reports.'; ?>
+                    </p>
                 </div>
 
-                <button onclick="openModal('addEntityModal')" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0">
-                    <span class="text-sm font-bold">+</span> Add Entities
-                </button>
+                <?php if ($view !== 'archived'): ?>
+                    <button onclick="openModal('addEntityModal')" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0">
+                        <span class="text-sm font-bold">+</span> Add Entities
+                    </button>
+                <?php endif; ?>
             </div>
 
             <!-- Filter & Search Controls -->
             <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
                 <form method="GET" action="entities.php" class="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
-                    
-                    <!-- Quick Activity Filters -->
-                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 text-xs">
-                        <a href="entities.php" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($typeFilter === 'All') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                            All <span class="ml-1 opacity-90 font-bold"><?= count($entities); ?></span>
-                        </a>
-                        <a href="entities.php?activity_type=Software" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($typeFilter === 'Software') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                            Software
-                        </a>
-                        <a href="entities.php?activity_type=Hardware" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($typeFilter === 'Hardware') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                            Hardware
-                        </a>
-                        <a href="entities.php?activity_type=Clerical" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($typeFilter === 'Clerical') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                            Clerical
-                        </a>
+                    <input type="hidden" name="view" value="<?= e($view); ?>">
+
+                    <!-- View switch + Quick Activity Filters -->
+                    <div class="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 text-xs">
+                        <div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 shrink-0">
+                            <a href="entities.php" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($view === 'active') ? 'bg-[#0F2854] text-white shadow-xs' : 'text-slate-600 hover:bg-white'; ?>">
+                                Active <span class="ml-1 opacity-90 font-bold"><?= (int) ($activeCount ?? 0); ?></span>
+                            </a>
+                            <a href="entities.php?view=archived" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($view === 'archived') ? 'bg-rose-700 text-white shadow-xs' : 'text-slate-600 hover:bg-white'; ?>">
+                                Archive <span class="ml-1 opacity-90 font-bold"><?= (int) ($archivedCount ?? 0); ?></span>
+                            </a>
+                        </div>
+
+                        <span class="mx-0.5 h-6 w-px bg-slate-300 shrink-0"></span>
+
+                        <div class="flex items-center gap-1.5 overflow-x-auto text-xs">
+                            <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'All') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
+                                All <span class="ml-1 opacity-90 font-bold"><?= count($entities); ?></span>
+                            </a>
+                            <a href="entities.php?activity_type=Software<?= $viewParam; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'Software') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
+                                Software
+                            </a>
+                            <a href="entities.php?activity_type=Hardware<?= $viewParam; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'Hardware') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
+                                Hardware
+                            </a>
+                            <a href="entities.php?activity_type=Clerical<?= $viewParam; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'Clerical') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
+                                Clerical
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Search and Category Dropdown -->
@@ -107,7 +129,7 @@ if (!function_exists('e')) {
                         </div>
 
                         <?php if ($search !== '' || $categoryFilter !== 'All' || $typeFilter !== 'All'): ?>
-                            <a href="entities.php" class="px-3 py-2 text-slate-600 hover:text-slate-900 text-xs font-bold whitespace-nowrap">Reset</a>
+                            <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="px-3 py-2 text-slate-600 hover:text-slate-900 text-xs font-bold whitespace-nowrap">Reset</a>
                         <?php endif; ?>
                     </div>
 
@@ -119,24 +141,32 @@ if (!function_exists('e')) {
                 <div class="p-6 border-b border-slate-200/70 flex justify-between items-center bg-slate-50/60 shrink-0">
                     <div>
                         <h3 class="text-xs font-extrabold text-slate-950 tracking-wider uppercase">Entity List</h3>
-                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Entities recognized during weekly document reviews</p>
+                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5"><?= $view === 'archived' ? 'Archived entities excluded from reviews and extraction' : 'Entities recognized during weekly document reviews'; ?></p>
                     </div>
                     <span class="text-xs font-black text-slate-900 bg-white px-3.5 py-1 rounded-lg border border-slate-300 shadow-2xs">
-                        <?= count($entities); ?> Total
+                        <?= count($entities); ?> <?= $view === 'archived' ? 'Archived' : 'Total'; ?>
                     </span>
                 </div>
 
                 <?php if (!empty($entities)): ?>
-                    <div class="overflow-y-auto overflow-x-auto max-h-[620px] thin-scrollbar">
-                        <table class="w-full text-left border-collapse text-xs">
+                    <div class="w-full overflow-y-auto max-h-[620px] thin-scrollbar">
+                        <table class="w-full table-fixed text-left border-collapse text-xs">
+                            <colgroup>
+                                <col style="width: 26%;">
+                                <col style="width: 12%;">
+                                <col style="width: 10%;">
+                                <col style="width: 10%;">
+                                <col style="width: 26%;">
+                                <col style="width: 16%;">
+                            </colgroup>
                             <thead>
                                 <tr class="bg-slate-100 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                    <th class="py-4 px-6">Entity / Tool</th>
-                                    <th class="py-4 px-6">Category</th>
-                                    <th class="py-4 px-6">Type</th>
-                                    <th class="py-4 px-6">Technical?</th>
-                                    <th class="py-4 px-6">Other Names (Aliases)</th>
-                                    <th class="py-4 px-6 text-right">Actions</th>
+                                    <th class="py-4 px-4">Entity / Tool</th>
+                                    <th class="py-4 px-4">Category</th>
+                                    <th class="py-4 px-4">Type</th>
+                                    <th class="py-4 px-4">Technical?</th>
+                                    <th class="py-4 px-4">Other Names (Aliases)</th>
+                                    <th class="py-4 px-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-200/80 text-slate-800 bg-white">
@@ -146,23 +176,23 @@ if (!function_exists('e')) {
                                     $isIt = ($ent['it_related'] === 'yes');
                                 ?>
                                     <tr class="hover:bg-slate-50 transition-colors">
-                                        <td class="py-4 px-6 align-middle">
-                                            <p class="font-extrabold text-slate-950 text-sm tracking-tight"><?= e($ent['entity_name']); ?></p>
+                                        <td class="py-4 px-4 align-middle">
+                                            <p class="font-extrabold text-slate-950 text-sm tracking-tight break-words"><?= e($ent['entity_name']); ?></p>
                                             <?php if (!empty($ent['description'])): ?>
-                                                <p class="text-[11px] text-slate-600 font-semibold mt-0.5 leading-normal"><?= e($ent['description']); ?></p>
+                                                <p class="text-[11px] text-slate-600 font-semibold mt-0.5 leading-normal break-words"><?= e($ent['description']); ?></p>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                            <span class="px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
+                                        <td class="py-4 px-4 align-middle">
+                                            <span class="inline-block px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300 break-words">
                                                 <?= e($ent['category']); ?>
                                             </span>
                                         </td>
-                                        <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                        <td class="py-4 px-4 align-middle">
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold <?= $isSoftware ? 'bg-blue-50 text-blue-900 border border-blue-200' : ($isHardware ? 'bg-amber-50 text-amber-900 border border-amber-200' : 'bg-slate-100 text-slate-800 border border-slate-300'); ?>">
                                                 <?= e($ent['activity_type']); ?>
                                             </span>
                                         </td>
-                                        <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                        <td class="py-4 px-4 align-middle">
                                             <?php if ($isIt): ?>
                                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-[10px] font-bold">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Yes
@@ -173,20 +203,39 @@ if (!function_exists('e')) {
                                                 </span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="py-4 px-6 text-slate-700 font-medium max-w-xs truncate text-[11px] align-middle">
+                                        <td class="py-4 px-4 text-slate-700 font-medium text-[11px] align-middle break-words whitespace-normal">
                                             <?= !empty($ent['aliases']) ? e($ent['aliases']) : '<span class="text-slate-400 font-normal">None</span>'; ?>
                                         </td>
-                                        <td class="py-4 px-6 text-right whitespace-nowrap align-middle space-x-1.5">
-                                            <button type="button" onclick='openEditModal(<?= json_encode($ent, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-xl text-xs transition-colors border border-slate-300 shadow-2xs cursor-pointer">
-                                                Edit
-                                            </button>
-                                            <form method="POST" action="entities.php" class="inline-block" onsubmit="return confirm('Are you sure you want to delete <?= e($ent['entity_name']); ?>?');">
-                                                <input type="hidden" name="action" value="delete">
-                                                <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
-                                                <button type="submit" class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-900 font-bold rounded-xl text-xs transition-colors border border-rose-300 shadow-2xs cursor-pointer">
-                                                    Delete
-                                                </button>
-                                            </form>
+                                        <td class="py-4 px-3 align-middle">
+                                            <div class="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap">
+                                                <?php if ($view === 'archived'): ?>
+                                                    <form method="POST" action="entities.php?view=archived" class="inline-block" onsubmit="return confirm('Restore <?= e($ent['entity_name']); ?> to the active entity list?');">
+                                                        <input type="hidden" name="action" value="restore">
+                                                        <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
+                                                        <button type="submit" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg text-[10px] transition-colors border border-emerald-300 shadow-2xs cursor-pointer">
+                                                            Restore
+                                                        </button>
+                                                    </form>
+                                                    <form method="POST" action="entities.php?view=archived" class="inline-block" onsubmit="return confirm('Permanently delete <?= e($ent['entity_name']); ?>? This cannot be undone.');">
+                                                        <input type="hidden" name="action" value="permanent_delete">
+                                                        <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
+                                                        <button type="submit" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-900 font-bold rounded-lg text-[10px] transition-colors border border-rose-300 shadow-2xs cursor-pointer">
+                                                            Delete
+                                                        </button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <button type="button" onclick='openEditModal(<?= json_encode($ent, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg text-[10px] transition-colors border border-slate-300 shadow-2xs cursor-pointer">
+                                                        Edit
+                                                    </button>
+                                                    <form method="POST" action="entities.php" class="inline-block" onsubmit="return confirm('Archive <?= e($ent['entity_name']); ?>? It will stop being used for entity matching but stay in the Archive tab.');">
+                                                        <input type="hidden" name="action" value="archive">
+                                                        <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
+                                                        <button type="submit" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-lg text-[10px] transition-colors border border-amber-300 shadow-2xs cursor-pointer">
+                                                            Archive
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -195,7 +244,7 @@ if (!function_exists('e')) {
                     </div>
                 <?php else: ?>
                     <div class="py-16 text-center text-slate-500 text-xs font-semibold">
-                        No entities found matching your search.
+                        <?= $view === 'archived' ? 'No archived entities yet.' : 'No entities found matching your search.'; ?>
                     </div>
                 <?php endif; ?>
             </div>
