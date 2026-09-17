@@ -98,7 +98,8 @@ if (!function_exists('e')) {
                                         $isWARComplete = ($approvedWars >= $requiredWeeks || $submittedWars >= $requiredWeeks);
                                         $evalStatus    = strtolower($student['evaluation_status'] ?? '');
                                         $isEvaluated   = !empty($student['evaluation_id']) || in_array($evalStatus, ['verified', 'completed', 'approved']);
-                                        $needsAction   = ($isWARComplete && !$isEvaluated);
+                                        $isTriggered   = !empty($student['evaluation_triggered']);
+                                        $needsAction   = (!$isEvaluated && $isTriggered);
                                     ?>
                                         <tr class="hover:bg-slate-50 transition-colors group <?= $needsAction ? 'bg-amber-50/20' : ''; ?>">
                                             
@@ -142,10 +143,15 @@ if (!function_exists('e')) {
                                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                                                         Completed
                                                     </span>
-                                                <?php elseif ($isWARComplete): ?>
+                                                <?php elseif ($isTriggered): ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                                                         Ready for Evaluation
+                                                    </span>
+                                                <?php elseif ($isWARComplete): ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100/80 text-blue-900 border border-blue-300 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                                        Awaiting Coordinator
                                                     </span>
                                                 <?php else: ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-300 text-xs font-semibold">
@@ -166,11 +172,15 @@ if (!function_exists('e')) {
                                                     <a href="evaluate_view.php?id=<?= $student['evaluation_id']; ?>" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all inline-block cursor-pointer">
                                                         View Result
                                                     </a>
-                                                <?php elseif ($isWARComplete): ?>
+                                                <?php elseif ($isTriggered): ?>
                                                     <a href="evaluate_form.php?student_id=<?= $student['id']; ?>" class="px-4 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
                                                         <span>Evaluate</span>
                                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
                                                     </a>
+                                                <?php elseif ($isWARComplete): ?>
+                                                    <button disabled class="px-3.5 py-1.5 bg-slate-100 text-slate-400 text-xs font-semibold rounded-xl border border-slate-200 cursor-not-allowed inline-block" title="Coordinator must trigger the evaluation request first">
+                                                        Awaiting Coordinator
+                                                    </button>
                                                 <?php else: ?>
                                                     <button disabled class="px-3.5 py-1.5 bg-slate-100 text-slate-400 text-xs font-semibold rounded-xl border border-slate-200 cursor-not-allowed inline-block">
                                                         Incomplete Weeks

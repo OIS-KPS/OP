@@ -46,30 +46,37 @@ if (isset($_GET['code'])) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // -------------------------------------------------------------
-        // STEP 2: Account Creation or Profile Syncing
+        // STEP 2: Registered-Only Access Check
         // -------------------------------------------------------------
         if (!$user) {
-            // Register brand new user defaulting to 'student' role
-            $insertUser = $pdo->prepare("INSERT INTO users (name, email, role, avatar_url) VALUES (?, ?, 'student', ?)");
-            $insertUser->execute([$name, $email, $picture]);
-            $userId   = $pdo->lastInsertId();
-            $userRole = 'student';
+            // Do NOT auto-register — only accounts pre-created by the coordinator may sign in
+            logActivity($pdo, null, 'guest', 'GOOGLE_LOGIN_DENIED', "Unregistered Google account blocked: {$name} ({$email})");
 
-            // Audit Log: New User Registration via Google OAuth
-            logActivity($pdo, $userId, 'student', 'USER_REGISTER_GOOGLE', "New user registered via Google OAuth: {$name} ({$email})");
-        } else {
-            $userId   = $user['id'];
-            $userRole = strtolower($user['role'] ?? 'student');
-
-            // Sync latest Google avatar picture if updated
-            if ($picture && ($user['avatar_url'] ?? '') !== $picture) {
-                $updateAvatar = $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
-                $updateAvatar->execute([$picture, $userId]);
-            }
-
-            // Audit Log: Successful Google OAuth Login
-            logActivity($pdo, $userId, $userRole, 'GOOGLE_LOGIN', "User {$name} ({$email}) logged in via Google OAuth.");
+            $_SESSION['login_error'] = 'This Google account is not registered in the system. Please contact the OJT Coordinator to create your account first.';
+            header("Location: login.php");
+            exit();
         }
+
+        // Block archived/disabled accounts
+        if (strtolower($user['status'] ?? 'active') !== 'active') {
+            logActivity($pdo, $user['id'], $user['role'] ?? 'guest', 'LOGIN_FAILED', "Blocked Google login for account with status '{$user['status']}': {$user['email']}");
+
+            $_SESSION['login_error'] = 'Your account has been archived or disabled. Please contact the OJT Coordinator.';
+            header("Location: login.php");
+            exit();
+        }
+
+        $userId   = $user['id'];
+        $userRole = strtolower($user['role'] ?? 'student');
+
+        // Sync latest Google avatar picture if updated
+        if ($picture && ($user['avatar_url'] ?? '') !== $picture) {
+            $updateAvatar = $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
+            $updateAvatar->execute([$picture, $userId]);
+        }
+
+        // Audit Log: Successful Google OAuth Login
+        logActivity($pdo, $userId, $userRole, 'GOOGLE_LOGIN', "User {$name} ({$email}) logged in via Google OAuth.");
 
         // Establish Core Base Sessions
         $_SESSION['user_id']      = $userId;

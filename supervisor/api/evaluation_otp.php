@@ -41,7 +41,7 @@ if ($action === 'request_otp') {
 
     // Verify student is assigned to this supervisor
     $stmt = $pdo->prepare("
-        SELECT s.id AS student_id, u_std.name AS student_name, u_sup.email AS supervisor_email, u_sup.name AS supervisor_name
+        SELECT s.id AS student_id, s.evaluation_triggered, u_std.name AS student_name, u_sup.email AS supervisor_email, u_sup.name AS supervisor_name
         FROM students s
         JOIN users u_std ON s.user_id = u_std.id
         JOIN supervisors sup ON s.supervisor_id = sup.id
@@ -54,6 +54,11 @@ if ($action === 'request_otp') {
 
     if (!$data) {
         echo json_encode(['success' => false, 'error' => 'Student not assigned to your supervision.']);
+        exit();
+    }
+
+    if (empty($data['evaluation_triggered'])) {
+        echo json_encode(['success' => false, 'error' => 'Final evaluation not yet authorized by the OJT Coordinator.']);
         exit();
     }
 
@@ -102,6 +107,16 @@ if ($action === 'verify_and_submit_evaluation') {
 
     if ($studentId <= 0 || strlen($otpEntered) !== 6) {
         echo json_encode(['success' => false, 'error' => 'Please provide a valid 6-digit OTP code.']);
+        exit();
+    }
+
+    // Ensure the coordinator has authorized this evaluation
+    $stmtAuth = $pdo->prepare("SELECT evaluation_triggered FROM students WHERE id = ? LIMIT 1");
+    $stmtAuth->execute([$studentId]);
+    $authRow = $stmtAuth->fetch(PDO::FETCH_ASSOC);
+
+    if (!$authRow || empty($authRow['evaluation_triggered'])) {
+        echo json_encode(['success' => false, 'error' => 'Final evaluation not yet authorized by the OJT Coordinator.']);
         exit();
     }
 

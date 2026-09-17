@@ -12,6 +12,35 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
 
 $pageTitle = "Final Evaluations";
 
+// Flash Messages
+$flashSuccess = $_SESSION['flash_success'] ?? null;
+$flashError   = $_SESSION['flash_error'] ?? null;
+unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+
+// 1.5. Handle Trigger Evaluation POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'request_evaluation') {
+    $studentId = isset($_POST['student_id']) ? intval($_POST['student_id']) : 0;
+
+    if ($studentId > 0) {
+        $stmtTrigger = $pdo->prepare("UPDATE students SET evaluation_triggered = 1 WHERE id = ?");
+        $stmtTrigger->execute([$studentId]);
+
+        $stmtStud = $pdo->prepare("SELECT u.name, u.email FROM students s JOIN users u ON s.user_id = u.id WHERE s.id = ?");
+        $stmtStud->execute([$studentId]);
+        $stud = $stmtStud->fetch(PDO::FETCH_ASSOC);
+
+        $studName = $stud['name'] ?? "Student #{$studentId}";
+        logActivity($pdo, $_SESSION['user_id'] ?? null, 'coordinator', 'EVAL_TRIGGERED', "Coordinator triggered final evaluation request for student {$studName}.");
+
+        $_SESSION['flash_success'] = "Evaluation request sent to the supervisor for {$studName}.";
+    } else {
+        $_SESSION['flash_error'] = 'Invalid student selected for evaluation request.';
+    }
+
+    header("Location: evaluations.php" . (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== '' ? '?' . $_SERVER['QUERY_STRING'] : ''));
+    exit();
+}
+
 // 2. Filter Inputs
 $selectedCompany = $_GET['company_id'] ?? 'all';
 $selectedStatus  = $_GET['status'] ?? 'all';
@@ -70,6 +99,7 @@ try {
             s.id AS student_id,
             s.student_number,
             s.program,
+            s.evaluation_triggered,
             COALESCE(s.section, 'A') AS section,
             u.name AS student_name,
             u.email AS student_email,
@@ -123,10 +153,21 @@ try {
 
     // 5. Modal Record Loader
     if ($viewEvalId) {
+        // Prefer an exact evaluation ID match (avoids colliding with a student ID)
         foreach ($filteredEvals as $ev) {
-            if (intval($ev['eval_id'] ?? 0) === $viewEvalId || intval($ev['student_id']) === $viewEvalId) {
+            if (intval($ev['eval_id'] ?? 0) === $viewEvalId) {
                 $activeEval = $ev;
                 break;
+            }
+        }
+
+        // Fallback: match by student ID when no evaluation ID was provided
+        if (!$activeEval) {
+            foreach ($filteredEvals as $ev) {
+                if (intval($ev['student_id']) === $viewEvalId) {
+                    $activeEval = $ev;
+                    break;
+                }
             }
         }
     }
