@@ -120,14 +120,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // DELETE FROM DB
-    if ($action === 'delete') {
+    // ARCHIVE (soft delete)
+    if ($action === 'archive') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
             try {
-                $stmt = $pdo->prepare("DELETE FROM predefined_entities WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE predefined_entities SET is_archived = 1 WHERE id = ?");
                 $stmt->execute([$id]);
-                $_SESSION['entity_message'] = "Entity deleted from database.";
+                $_SESSION['entity_message'] = "Entity archived. Restore or permanently delete it from the Archive tab.";
             } catch (PDOException $e) {
                 $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
             }
@@ -135,19 +135,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: entities.php");
         exit();
     }
+
+    // RESTORE FROM ARCHIVE
+    if ($action === 'restore') {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id > 0) {
+            try {
+                $stmt = $pdo->prepare("UPDATE predefined_entities SET is_archived = 0 WHERE id = ?");
+                $stmt->execute([$id]);
+                $_SESSION['entity_message'] = "Entity restored from archive.";
+            } catch (PDOException $e) {
+                $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
+            }
+        }
+        header("Location: entities.php?view=archived");
+        exit();
+    }
+
+    // PERMANENT DELETE (from archive only)
+    if ($action === 'permanent_delete') {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id > 0) {
+            try {
+                $stmt = $pdo->prepare("DELETE FROM predefined_entities WHERE id = ?");
+                $stmt->execute([$id]);
+                $_SESSION['entity_message'] = "Entity permanently deleted from the archive.";
+            } catch (PDOException $e) {
+                $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
+            }
+        }
+        header("Location: entities.php?view=archived");
+        exit();
+    }
 }
 
 // ==========================================
 // 2. FETCH REAL DATA DIRECTLY FROM MYSQL
 // ==========================================
+$view           = ($_GET['view'] ?? 'active') === 'archived' ? 'archived' : 'active';
+$archivedFlag   = $view === 'archived' ? 1 : 0;
 $search         = trim($_GET['search'] ?? '');
 $categoryFilter = trim($_GET['category'] ?? 'All');
 $typeFilter     = trim($_GET['activity_type'] ?? 'All');
 
 $sql = "SELECT id, entity_name, aliases, category, activity_type, it_related, description, created_at, updated_at 
         FROM predefined_entities 
-        WHERE 1=1";
-$params = [];
+        WHERE is_archived = :archived";
+$params = ['archived' => $archivedFlag];
 
 if ($search !== '') {
     $sql .= " AND (entity_name LIKE :s OR aliases LIKE :s OR description LIKE :s)";
@@ -170,8 +204,21 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $entities = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-// Fetch distinct categories dynamically from database rows
-$catStmt = $pdo->query("SELECT DISTINCT category FROM predefined_entities WHERE category IS NOT NULL AND category != '' ORDER BY category ASC");
+// Active/archived counters for the view switch.
+$countStmt = $pdo->query("SELECT is_archived, COUNT(*) AS total FROM predefined_entities GROUP BY is_archived");
+$activeCount = 0;
+$archivedCount = 0;
+foreach ($countStmt->fetchAll(PDO::FETCH_ASSOC) as $countRow) {
+    if ((int) $countRow['is_archived'] === 1) {
+        $archivedCount = (int) $countRow['total'];
+    } else {
+        $activeCount = (int) $countRow['total'];
+    }
+}
+
+// Fetch distinct categories dynamically for the current view.
+$catStmt = $pdo->prepare("SELECT DISTINCT category FROM predefined_entities WHERE is_archived = ? AND category IS NOT NULL AND category != '' ORDER BY category ASC");
+$catStmt->execute([$archivedFlag]);
 $allCategories = $catStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
 
 require_once __DIR__ . '/../src/pages/coordinator/entitiesPage.php';

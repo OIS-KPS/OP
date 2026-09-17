@@ -123,6 +123,7 @@ def load_predefined_entities(connection):
                 description
             FROM predefined_entities
             WHERE LOWER(TRIM(entity_name)) <> 'my'
+              AND is_archived = 0
             ORDER BY
                 CHAR_LENGTH(entity_name) DESC,
                 entity_name ASC

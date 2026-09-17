@@ -329,6 +329,7 @@ function rr_load_predefined_entities(PDO $pdo): array
             activity_type,
             it_related
         FROM predefined_entities
+        WHERE is_archived = 0
         ORDER BY CHAR_LENGTH(entity_name) DESC, entity_name ASC
     ");
 
