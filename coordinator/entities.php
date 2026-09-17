@@ -61,14 +61,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['entity_error'] = "Invalid entity ID or name.";
         } else {
             try {
+                $pdo->beginTransaction();
+
+                // Capture the old name/aliases so renamed entries still cascade.
+                $oldStmt = $pdo->prepare("SELECT entity_name, aliases FROM predefined_entities WHERE id = ?");
+                $oldStmt->execute([$id]);
+                $old = $oldStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
                 $stmt = $pdo->prepare("
                     UPDATE predefined_entities 
                     SET entity_name = ?, aliases = ?, category = ?, activity_type = ?, it_related = ?, description = ?
                     WHERE id = ?
                 ");
                 $stmt->execute([$name, $aliases ?: null, $category ?: 'Other', $activity, $it_related, $description ?: null, $id]);
-                $_SESSION['entity_message'] = "Entity '{$name}' updated in database.";
+
+                // Auto-sync every previously extracted entity matching this
+                // dictionary entry (canonical name, old name, or any alias).
+                $terms = [];
+                foreach ([$name, $old['entity_name'] ?? '', $aliases, $old['aliases'] ?? ''] as $source) {
+                    foreach (preg_split('/[|;,\n]+/', (string) $source) as $term) {
+                        $term = strtolower(trim($term));
+                        if ($term !== '') {
+                            $terms[$term] = $term;
+                        }
+                    }
+                }
+                $terms = array_values($terms);
+
+                $synced = 0;
+                if (!empty($terms)) {
+                    $placeholders = implode(',', array_fill(0, count($terms), '?'));
+                    $syncStmt = $pdo->prepare("
+                        UPDATE report_entities
+                        SET category = ?, activity_type = ?, it_related = ?
+                        WHERE LOWER(TRIM(entity_name)) IN ($placeholders)
+                           OR LOWER(TRIM(canonical_name)) IN ($placeholders)
+                    ");
+                    $syncStmt->execute(array_merge(
+                        [$category ?: 'Other', $activity, $it_related],
+                        $terms,
+                        $terms
+                    ));
+                    $synced = $syncStmt->rowCount();
+                }
+
+                $pdo->commit();
+
+                $_SESSION['entity_message'] = "Entity '{$name}' updated in database."
+                    . ($synced > 0 ? " {$synced} previously extracted record" . ($synced === 1 ? '' : 's') . " synced automatically." : "");
             } catch (PDOException $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
             }
         }
