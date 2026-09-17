@@ -40,6 +40,20 @@ if (!function_exists('e')) {
             <!-- Main Workspace -->
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1 relative">
 
+                <!-- Flash Alert -->
+                <?php if (!empty($flashSuccess)): ?>
+                    <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
+                        <p class="font-extrabold text-xs"><?= e($flashSuccess); ?></p>
+                        <a href="evaluations.php" class="text-xs font-bold text-emerald-800 hover:underline">Dismiss</a>
+                    </div>
+                <?php endif; ?>
+                <?php if (!empty($flashError)): ?>
+                    <div class="bg-rose-50 border border-rose-300 text-rose-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
+                        <p class="font-extrabold text-xs"><?= e($flashError); ?></p>
+                        <a href="evaluations.php" class="text-xs font-bold text-rose-800 hover:underline">Dismiss</a>
+                    </div>
+                <?php endif; ?>
+
                 <!-- 1. Top Stat Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     
@@ -181,6 +195,7 @@ if (!function_exists('e')) {
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                     <?php foreach ($filteredEvals as $eval): 
                                         $isCompleted = ($eval['status'] === 'Completed');
+                                        $isTriggered = !empty($eval['evaluation_triggered']);
                                     ?>
                                         <tr class="hover:bg-slate-50 transition-colors eval-row">
                                             
@@ -252,10 +267,23 @@ if (!function_exists('e')) {
                                                         <span>View Scorecard</span>
                                                         <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
                                                     </a>
-                                                <?php else: ?>
-                                                    <span class="px-3.5 py-1.5 text-xs font-bold text-slate-400 bg-slate-100 rounded-xl border border-slate-200 cursor-not-allowed inline-block select-none">
+                                                <?php elseif ($isTriggered): ?>
+                                                    <span class="px-3.5 py-1.5 text-xs font-bold text-[#0F2854] bg-blue-50 rounded-xl border border-blue-300 cursor-not-allowed inline-block select-none">
+                                                        Awaiting Supervisor
+                                                    </span>
+                                                <?php elseif ($eval['supervisor_name'] === 'Pending Assignment'): ?>
+                                                    <span class="px-3.5 py-1.5 text-xs font-bold text-slate-400 bg-slate-100 rounded-xl border border-slate-200 cursor-not-allowed inline-block select-none" title="Assign a supervisor before triggering evaluation">
                                                         Not Available
                                                     </span>
+                                                <?php else: ?>
+                                                    <form method="POST" action="evaluations.php" class="inline-block" onsubmit="return confirm('Send the final evaluation request to the assigned supervisor?');">
+                                                        <input type="hidden" name="action" value="request_evaluation">
+                                                        <input type="hidden" name="student_id" value="<?= $eval['student_id']; ?>">
+                                                        <button type="submit" class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
+                                                            <span>Request Evaluation</span>
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                                                        </button>
+                                                    </form>
                                                 <?php endif; ?>
                                             </td>
 
@@ -338,10 +366,10 @@ if (!function_exists('e')) {
                     <div class="p-5 bg-blue-50/70 rounded-2xl border border-blue-200 flex items-center justify-between">
                         <div>
                             <span class="block text-[10px] font-black uppercase tracking-wider text-[#0F2854]">Overall Performance Grade</span>
-                            <p class="text-2xl font-black text-[#0F2854] mt-0.5"><?= number_format($activeEval['final_score'] ?? 0, 1); ?>%</p>
+                            <p class="text-xl font-black text-[#0F2854] mt-0.5"><?= number_format($activeEval['final_score'] ?? 0, 1); ?>%</p>
                         </div>
                         <div>
-                            <span class="px-4 py-2 rounded-xl bg-[#0F2854] text-white font-black text-xs shadow-2xs">
+                            <span class="px-4 py-2 rounded-xl bg-[#0F2854] text-white font-black text-[11px] shadow-2xs">
                                 Grade: <?= e($activeEval['grade_equivalent'] ?? '1.0'); ?>
                             </span>
                         </div>

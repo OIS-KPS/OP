@@ -34,6 +34,7 @@ $stmt = $pdo->prepare("
         s.id,
         s.student_number,
         s.program,
+        s.evaluation_triggered,
         u.name,
         u.email,
         u.avatar_url
@@ -47,6 +48,13 @@ $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$student) {
     $_SESSION['review_message'] = "Student not found or not assigned to you.";
+    header("Location: evaluate_interns.php");
+    exit();
+}
+
+// 4. Verify Coordinator Triggered the Evaluation Request
+if (empty($student['evaluation_triggered'])) {
+    $_SESSION['review_message'] = "Final evaluation has not been authorized by the OJT Coordinator yet.";
     header("Location: evaluate_interns.php");
     exit();
 }

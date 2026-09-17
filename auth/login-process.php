@@ -39,7 +39,19 @@ if (!$user) {
 }
 
 // ------------------------------------------------------------------
-// 3. Check if User Has a Password Set
+// 3. Block Archived/Disabled Accounts
+// ------------------------------------------------------------------
+if (strtolower($user['status'] ?? 'active') !== 'active') {
+    //Audit Log: Attempted login on archived/disabled account
+    logActivity($pdo, $user['id'], $user['role'] ?? 'guest', 'LOGIN_FAILED', "Blocked login for account with status '{$user['status']}': {$user['email']}.");
+
+    $_SESSION['login_error'] = 'Your account has been archived or disabled. Please contact the OJT Coordinator.';
+    header("Location: login.php");
+    exit();
+}
+
+// ------------------------------------------------------------------
+// 4. Check if User Has a Password Set
 // ------------------------------------------------------------------
 if ($user['password_hash'] === null) {
     //Audit Log: Attempted login on account without password
@@ -51,7 +63,7 @@ if ($user['password_hash'] === null) {
 }
 
 // ------------------------------------------------------------------
-// 4. Verify Password
+// 5. Verify Password
 // ------------------------------------------------------------------
 if (!password_verify($password, $user['password_hash'])) {
     //Audit Log: Incorrect Password Attempt
@@ -63,7 +75,7 @@ if (!password_verify($password, $user['password_hash'])) {
 }
 
 // ------------------------------------------------------------------
-// 5. Authentication Successful — Build Session
+// 6. Authentication Successful — Build Session
 // ------------------------------------------------------------------
 $userId   = $user['id'];
 $userRole = strtolower($user['role'] ?? 'student');
