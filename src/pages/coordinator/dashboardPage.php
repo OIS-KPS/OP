@@ -294,9 +294,15 @@ $cqiStatusClassView = match ($cqiStatusView) {
                             <h2 id="cqi-heading" class="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-900">
                                 <span aria-hidden="true">▣</span> CQI Summary &amp; Action Plan
                             </h2>
-                            <span class="w-fit rounded-full border px-3 py-1 text-[9px] font-bold <?= htmlspecialchars($cqiStatusClassView, ENT_QUOTES, 'UTF-8'); ?>">
-                                <?= htmlspecialchars($cqiStatusView, ENT_QUOTES, 'UTF-8'); ?>
-                            </span>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="w-fit rounded-full border px-3 py-1 text-[9px] font-bold <?= htmlspecialchars($cqiStatusClassView, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?= htmlspecialchars($cqiStatusView, ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
+                                <a href="export_cqi.php" class="inline-flex items-center gap-1.5 rounded-lg bg-[#0F2854] px-3 py-1.5 text-[9px] font-bold text-white transition-colors hover:bg-blue-900">
+                                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+                                    Export CV
+                                </a>
+                            </div>
                         </div>
                         <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                             <p class="text-[10px] text-slate-500"><?= htmlspecialchars((string) ($cqiSummaryView['period'] ?? 'Current academic records'), ENT_QUOTES, 'UTF-8'); ?></p>
