@@ -2,7 +2,7 @@
 
 ## Stack & runtime
 - Plain PHP (no framework) + MySQL/MariaDB (`nbsc_ojt`), served via XAMPP at `http://localhost/ICS-PORTAL/`. Verify by browser, not CLI; there's no dev server runner.
-- Composer deps: phpmailer, phpdotenv, phpspreadsheet, google/apiclient. `vendor/` is gitignored → run `composer install` after clone. No composer scripts.
+- Composer deps: phpmailer, phpdotenv, phpspreadsheet, google/apiclient, mpdf/mpdf (PDF export). `vendor/` is gitignored → run `composer install` after clone. No composer scripts.
 - Frontend npm deps (tailwind/postcss/autoprefixer) exist but there is NO build script and no Tailwind-compiled output; the app uses hand-written CSS in `public/css/style.css`. Don't assume Tailwind classes render.
 - `python/extract_entities.py` is a standalone spacy/pdfplumber entity-extraction tool with hardcoded localhost DB creds — not part of the PHP app runtime.
 
