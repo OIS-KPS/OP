@@ -759,7 +759,7 @@ if ($userRole === 'coordinator') {
             transform-origin: 0 0;
             border-radius: 3px;
         }
-        .pdf-text-layer span.entity-highlight {
+        .pdf-text-layer .entity-highlight {
             color: transparent;
             background: rgba(250, 204, 21, .68);
             box-shadow: 0 0 0 1px rgba(180, 83, 9, .28);
@@ -1193,42 +1193,204 @@ if ($userRole === 'coordinator') {
     function clearHighlights() {
         document
             .querySelectorAll(
-                '.pdf-text-layer span.entity-highlight'
+                '.pdf-text-layer .entity-highlight'
             )
-            .forEach(span => {
-                span.classList.remove(
-                    'entity-highlight'
+            .forEach(mark => {
+                const parent = mark.parentNode;
+                if (!parent) return;
+                parent.replaceChild(
+                    document.createTextNode(
+                        mark.textContent || ''
+                    ),
+                    mark
                 );
+                parent.normalize();
             });
     }
+
+    function buildSearchIndex(spans) {
+        let raw = '';
+        const starts = [];
+        const ends = [];
+        spans.forEach((span, index) => {
+            if (index > 0) raw += ' ';
+            starts.push(raw.length);
+            raw += span.textContent || '';
+            ends.push(raw.length);
+        });
+
+        let value = '';
+        const map = [];
+        for (let i = 0; i < raw.length; i++) {
+            let character = raw[i]
+                .normalize('NFKC')
+                .toLowerCase();
+            if (
+                character === '\u2018' ||
+                character === '\u2019'
+            ) {
+                character = "'";
+            } else if (
+                character === '\u201C' ||
+                character === '\u201D'
+            ) {
+                character = '"';
+            }
+            if (/\s/.test(character)) {
+                if (
+                    value.length === 0 ||
+                    value[value.length - 1] === ' '
+                ) {
+                    continue;
+                }
+                character = ' ';
+            }
+            value += character;
+            map.push(i);
+        }
+
+        return {
+            raw,
+            value,
+            map,
+            starts,
+            ends
+        };
+    }
+
+    function findMatchRanges(index, target) {
+        const ranges = [];
+        const { raw, value, map } = index;
+        if (!target || !value) return ranges;
+
+        let from = 0;
+        while (from <= value.length - target.length) {
+            const at = value.indexOf(target, from);
+            if (at === -1) break;
+
+            const rawStart = map[at];
+            const rawEnd =
+                map[at + target.length - 1] + 1;
+            const before =
+                rawStart > 0 ? raw[rawStart - 1] : '';
+            const after =
+                rawEnd < raw.length ? raw[rawEnd] : '';
+
+            if (
+                !/[\p{L}\p{N}]/u.test(before) &&
+                !/[\p{L}\p{N}]/u.test(after)
+            ) {
+                ranges.push([rawStart, rawEnd]);
+            }
+
+            from = at + target.length;
+        }
+
+        return ranges;
+    }
+
+    function wrapMatch(span, start, end) {
+        const textNode = span.firstChild;
+        if (
+            !textNode ||
+            textNode.nodeType !== Node.TEXT_NODE
+        ) {
+            return;
+        }
+        const range = document.createRange();
+        range.setStart(textNode, start);
+        range.setEnd(textNode, end);
+        const mark = document.createElement('mark');
+        mark.className = 'entity-highlight';
+        range.surroundContents(mark);
+    }
+
+    function applyMatchRanges(
+        spans,
+        starts,
+        ends,
+        ranges
+    ) {
+        const perSpan = new Map();
+        ranges.forEach(([matchStart, matchEnd]) => {
+            spans.forEach((span, index) => {
+                const spanStart = starts[index];
+                const spanEnd = ends[index];
+                if (spanEnd <= spanStart) return;
+                if (
+                    spanStart < matchEnd &&
+                    spanEnd > matchStart
+                ) {
+                    const localStart =
+                        Math.max(matchStart, spanStart) -
+                        spanStart;
+                    const localEnd =
+                        Math.min(matchEnd, spanEnd) -
+                        spanStart;
+                    if (localEnd > localStart) {
+                        if (!perSpan.has(span)) {
+                            perSpan.set(span, []);
+                        }
+                        perSpan
+                            .get(span)
+                            .push([localStart, localEnd]);
+                    }
+                }
+            });
+        });
+
+        perSpan.forEach((list, span) => {
+            list.sort((a, b) => b[0] - a[0]);
+            list.forEach(([start, end]) => {
+                wrapMatch(span, start, end);
+            });
+        });
+    }
+
     function highlightEntity(entityName) {
         clearHighlights();
         const target = normalize(entityName);
         if (!target) return;
-        const spans =
-            document.querySelectorAll(
-                '.pdf-text-layer span'
-            );
-        spans.forEach(span => {
-            const text = normalize(
-                span.textContent
-            );
- 
-            if (
-                text &&
-                (
-                    text === target ||
-                    (
-                        target.length >= 3 &&
-                        text.includes(target)
-                    )
-                )
-            ) {
-                span.classList.add(
-                    'entity-highlight'
+
+        let found = false;
+        document
+            .querySelectorAll('.pdf-text-layer')
+            .forEach(layer => {
+                const spans = Array.from(
+                    layer.children
+                ).filter(
+                    element =>
+                        element.tagName === 'SPAN'
                 );
-            }
-        });
+                if (!spans.length) return;
+
+                const index = buildSearchIndex(spans);
+                const ranges = findMatchRanges(
+                    index,
+                    target
+                );
+                if (!ranges.length) return;
+
+                found = true;
+                applyMatchRanges(
+                    spans,
+                    index.starts,
+                    index.ends,
+                    ranges
+                );
+            });
+
+        if (!found) return;
+
+        const first = document.querySelector(
+            '.pdf-text-layer .entity-highlight'
+        );
+        if (first) {
+            first.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+        }
     }
 
     async function renderPdf() {

@@ -69,9 +69,6 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
         .pdf-page canvas { display: block; max-width: 100%; height: auto; }
         .pdf-text-layer { position: absolute; inset: 0; overflow: hidden; line-height: 1; user-select: text; }
         .pdf-text-layer span { position: absolute; color: transparent; white-space: pre; transform-origin: 0 0; cursor: text; }
-        .pdf-text-layer span.entity-highlight { color: #713f12; background: #fde68a; border-radius: 2px; box-shadow: 0 0 0 1px rgba(245, 158, 11, .35); }
-        .entity-card { cursor: pointer; transition: all .15s ease; }
-        .entity-card:hover, .entity-card.entity-selected { border-color: #f59e0b; background: #fffbeb; box-shadow: 0 0 0 2px rgba(245, 158, 11, .15); }
     </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
@@ -301,7 +298,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                             <?= count($extractedEntities); ?> Found
                         </span>
                     </div>
-                    <p class="text-[11px] text-slate-500 font-medium mb-3 shrink-0">Click any keyword to find and highlight it in the PDF.</p>
+                    <p class="text-[11px] text-slate-500 font-medium mb-3 shrink-0">Auto-extracted technical keywords found in this report.</p>
 
                     <?php if (!empty($extractedEntities)): ?>
                         <div class="space-y-2 overflow-y-auto pr-1 min-h-0 flex-1">
@@ -311,7 +308,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                 $isTechnical = (($entity['classification'] ?? $entity['activity_type'] ?? 'Technical') === 'Technical' || ($entity['activity_type'] ?? '') === 'Software' || ($entity['activity_type'] ?? '') === 'Hardware');
                                 if (trim((string)$entityName) === '') continue;
                             ?>
-                                <div class="entity-card w-full text-left bg-slate-50 hover:bg-amber-50/50 border border-slate-300 rounded-xl p-2.5" role="button" tabindex="0" data-entity-term="<?= e($entityName); ?>">
+                                <div class="w-full text-left bg-slate-50 border border-slate-300 rounded-xl p-2.5">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-xs font-extrabold text-slate-950"><?= e($entityName); ?></span>
                                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $isTechnical ? 'bg-emerald-100/80 text-emerald-900 border border-emerald-300' : 'bg-slate-200 text-slate-800 border border-slate-300'; ?>">
@@ -410,7 +407,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
 </div>
 <?php endif; ?>
 
-<!-- PDF.js & Entity Highlighter Scripts -->
+<!-- PDF.js Viewer Script -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 (function () {
@@ -445,54 +442,6 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                 "'": '&#039;'
             })[char];
         });
-    }
-
-    function normalizeText(value) {
-        return String(value || '')
-            .toLowerCase()
-            .replace(/[\u2010-\u2015]/g, '-')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
-    function clearHighlights() {
-        viewer.querySelectorAll('.pdf-text-layer span.entity-highlight').forEach(function (span) {
-            span.classList.remove('entity-highlight');
-        });
-    }
-
-    function highlightEntity(term) {
-        clearHighlights();
-
-        const wanted = normalizeText(term);
-        if (!wanted) return;
-
-        let found = false;
-
-        viewer.querySelectorAll('.pdf-text-layer span').forEach(function (span) {
-            const text = normalizeText(span.textContent);
-            if (!text) return;
-
-            if (text.includes(wanted) || wanted.includes(text) && text.length > 1) {
-                span.classList.add('entity-highlight');
-                found = true;
-            }
-        });
-
-        const selectedCards = document.querySelectorAll('.entity-card');
-        selectedCards.forEach(function(card) {
-            card.classList.toggle(
-                'entity-selected',
-                normalizeText(card.getAttribute('data-entity-term')) === wanted
-            );
-        });
-
-        if (found) {
-            const first = viewer.querySelector('.pdf-text-layer span.entity-highlight');
-            if (first) {
-                first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
     }
 
     async function renderPDF() {
@@ -603,20 +552,6 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                     textLayer.appendChild(span);
                 });
             }
-
-            document.querySelectorAll('.entity-card').forEach(function (card) {
-                const handler = function () {
-                    highlightEntity(card.getAttribute('data-entity-term') || '');
-                };
-
-                card.addEventListener('click', handler);
-                card.addEventListener('keydown', function (event) {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        handler();
-                    }
-                });
-            });
 
             window.__reviewPdfLoaded = true;
 
