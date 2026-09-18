@@ -531,3 +531,7 @@ ALTER TABLE report_entities ADD COLUMN is_archived TINYINT(1) DEFAULT 0;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+-- Coordinator triggers final evaluation for the assigned supervisor
+ALTER TABLE `students`
+ADD COLUMN IF NOT EXISTS `evaluation_triggered` TINYINT(1) DEFAULT 0 AFTER `completion_requested`;
