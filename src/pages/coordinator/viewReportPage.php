@@ -280,7 +280,18 @@
 
                 <div class="space-y-1">
                     <label class="font-bold text-slate-700">Category</label>
-                    <input type="text" name="category" placeholder="e.g. Programming, Database, Office" value="Programming" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    <select name="category" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                        <option value="Programming" selected>Programming</option>
+                        <option value="Database">Database</option>
+                        <option value="Development Tool">Development Tool</option>
+                        <option value="Office Software">Office Software</option>
+                        <option value="Design Software">Design Software</option>
+                        <option value="Operating System">Operating System</option>
+                        <option value="Hardware Task">Hardware Task</option>
+                        <option value="Networking">Networking</option>
+                        <option value="Administrative Task">Administrative Task</option>
+                        <option value="Other">Other</option>
+                    </select>
                 </div>
 
                 <div class="space-y-1">
