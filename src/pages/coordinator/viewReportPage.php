@@ -98,34 +98,52 @@
                         <div class="p-4 sm:p-5 border-b border-slate-200/70 flex items-center justify-between bg-slate-50/60 shrink-0">
                             <div>
                                 <h2 class="text-xs font-extrabold text-slate-950 uppercase tracking-wider">WAR Timeline & Document Viewer</h2>
-                                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Select a week below to inspect its PDF and verified entities</p>
+                                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Select a week category below to inspect its PDF</p>
                             </div>
                             <span class="px-2.5 py-1 rounded-md bg-white border border-slate-300 text-[10px] font-bold text-slate-700 shadow-2xs">
                                 <?= count($reportsList); ?> Weeks Total
                             </span>
                         </div>
 
-                        <!-- Week Selector Bar / Timeline Tabs -->
-                        <div class="p-3 bg-slate-100/80 border-b border-slate-200/70 flex flex-wrap gap-2 shrink-0">
-                            <?php foreach ($reportsList as $rep): 
-                                $isActive = $activeReport && (int)$activeReport['id'] === (int)$rep['id'];
-                            ?>
-                                <a href="view_report.php?student_id=<?= $studentId; ?>&report_id=<?= (int)$rep['id']; ?>" class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 <?= $isActive ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'; ?>">
-                                    <span>Week <?= (int)$rep['week_number']; ?></span>
-                                    <span class="w-2 h-2 rounded-full <?= $rep['status'] === 'approved' ? 'bg-emerald-400' : 'bg-amber-400'; ?>"></span>
-                                </a>
-                            <?php endforeach; ?>
+                        <!-- Week Selector Category Dropdown Bar (Clean & Separated) -->
+                        <div class="p-4 bg-slate-100/80 border-b border-slate-200/70 flex items-center gap-3 shrink-0">
+                            <form method="GET" action="view_report.php" class="flex items-center gap-3 w-full text-xs">
+                                <input type="hidden" name="student_id" value="<?= $studentId; ?>">
+                                <div class="flex-1">
+                                    <select name="report_id" onchange="this.form.submit()" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                                        <option value="" disabled selected>-- Select Submitted Week Report --</option>
+                                        <?php foreach ($reportsList as $rep): 
+                                            $isActive = $activeReport && (int)$activeReport['id'] === (int)$rep['id'];
+                                        ?>
+                                            <option value="<?= (int)$rep['id']; ?>" <?= $isActive ? 'selected' : ''; ?>>
+                                                Week <?= (int)$rep['week_number']; ?> [<?= ucfirst($rep['status']); ?>]
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </form>
                         </div>
 
                         <!-- Full-Size Embedded PDF Viewer Stage for Active Report -->
                         <div class="flex-1 min-h-0 bg-[#0F172A] relative flex flex-col">
                             <?php if ($activeReport && !empty($activeReport['file_path'])): ?>
-                                <div class="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-bold text-slate-200 shrink-0">
+                                <div class="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs font-bold text-slate-200 shrink-0 gap-2">
                                     <span class="flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
                                         Week <?= (int)$activeReport['week_number']; ?> Report Document
                                     </span>
-                                    <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim($activeReport['file_path'], '/')); ?>" target="_blank" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] shadow-xs flex items-center gap-1">
+                                    
+                                    <!-- Separated Submission & Approval Timestamp Badges -->
+                                    <div class="flex items-center gap-2 text-[11px] font-medium">
+                                        <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+                                            📥 Sub: <strong class="text-white"><?= !empty($activeReport['submitted_at']) ? date("M d, Y g:i A", strtotime($activeReport['submitted_at'])) : 'N/A'; ?></strong>
+                                        </span>
+                                        <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+                                            ✅ Appr: <strong class="text-emerald-400"><?= !empty($activeReport['approved_at']) ? date("M d, Y g:i A", strtotime($activeReport['approved_at'])) : (!empty($activeReport['updated_at']) && $activeReport['status'] === 'approved' ? date("M d, Y g:i A", strtotime($activeReport['updated_at'])) : 'Pending'); ?></strong>
+                                        </span>
+                                    </div>
+
+                                    <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim($activeReport['file_path'], '/')); ?>" target="_blank" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] shadow-xs flex items-center gap-1 shrink-0">
                                         <span>Open Fullscreen ↗</span>
                                     </a>
                                 </div>
