@@ -111,6 +111,12 @@ if (!function_exists('e')) {
                         </div>
 
                         <div class="flex items-center gap-3 shrink-0">
+                            <!-- Bulk Trigger Button -->
+                            <button type="button" onclick="openTriggerModal()" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-2 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                <span>Bulk Trigger Evaluations</span>
+                            </button>
+
                             <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
                                 <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
                                 <?= count($filteredEvals ?? []); ?> Total <?= count($filteredEvals ?? []) === 1 ? 'Record' : 'Records'; ?>
@@ -260,7 +266,7 @@ if (!function_exists('e')) {
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Action Button -->
+                                            <!-- Action Button (Individual Request with Confirmation Modal Trigger) -->
                                             <td class="py-4 px-6 text-right whitespace-nowrap align-middle">
                                                 <?php if ($isCompleted): ?>
                                                     <a href="evaluations.php?view_id=<?= $eval['eval_id'] ?? $eval['student_id']; ?>" class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer">
@@ -276,14 +282,10 @@ if (!function_exists('e')) {
                                                         Not Available
                                                     </span>
                                                 <?php else: ?>
-                                                    <form method="POST" action="evaluations.php" class="inline-block" onsubmit="return confirm('Send the final evaluation request to the assigned supervisor?');">
-                                                        <input type="hidden" name="action" value="request_evaluation">
-                                                        <input type="hidden" name="student_id" value="<?= $eval['student_id']; ?>">
-                                                        <button type="submit" class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
-                                                            <span>Request Evaluation</span>
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-                                                        </button>
-                                                    </form>
+                                                    <button type="button" onclick="openSingleConfirmModal(<?= $eval['student_id']; ?>, '<?= e($eval['student_name']); ?>')" class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
+                                                        <span>Request Evaluation</span>
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                                                    </button>
                                                 <?php endif; ?>
                                             </td>
 
@@ -305,6 +307,89 @@ if (!function_exists('e')) {
                 </div>
 
             </main>
+        </div>
+    </div>
+
+    <!-- 1. Bulk Trigger Evaluation Modal Component -->
+    <div id="triggerEvalModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-[#0F2854] flex items-center justify-center font-bold">📋</div>
+                    <h3 class="text-xs font-black text-slate-950 uppercase tracking-wider">Bulk Trigger Evaluations</h3>
+                </div>
+                <button type="button" onclick="closeTriggerModal()" class="w-7 h-7 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold flex items-center justify-center cursor-pointer">✕</button>
+            </div>
+            
+            <form method="POST" action="evaluations.php" class="p-6 space-y-4 text-xs flex flex-col flex-1 overflow-hidden">
+                <input type="hidden" name="action" value="request_evaluation">
+                
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <span class="font-bold text-slate-700">Select eligible interns:</span>
+                    <button type="button" onclick="toggleSelectAll()" class="text-[11px] font-bold text-[#0F2854] hover:underline cursor-pointer" id="selectAllBtn">Select All</button>
+                </div>
+
+                <!-- Scrollable Checkbox List Container -->
+                <div class="overflow-y-auto max-h-60 space-y-2 pr-1 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                    <?php if (!empty($eligibleStudents)): ?>
+                        <?php foreach ($eligibleStudents as $es): ?>
+                            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition-all cursor-pointer">
+                                <input type="checkbox" name="student_ids[]" value="<?= $es['id']; ?>" class="student-checkbox w-4 h-4 rounded text-[#0F2854] focus:ring-[#0F2854] border-slate-300">
+                                <div class="min-w-0">
+                                    <p class="font-bold text-slate-900 truncate"><?= e($es['name']); ?></p>
+                                    <p class="text-[10px] text-slate-500">ID: <?= e($es['student_number']); ?> &bull; Sec <?= e($es['section']); ?></p>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="text-center text-slate-400 py-6 italic">No eligible students available (Must have an assigned supervisor)</p>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Professional Warning Notice -->
+                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-2 text-amber-900">
+                    <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <span><strong>Security Notice:</strong> Triggering evaluation will immediately lock out selected students from uploading further Weekly Accomplishment Reports.</span>
+                </div>
+                
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeTriggerModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl cursor-pointer shadow-xs">Confirm &amp; Trigger Selected</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. Individual Single Request Confirmation Modal Component -->
+    <div id="singleConfirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">🔒</div>
+                    <h3 class="text-xs font-black text-slate-950 uppercase tracking-wider">Confirm Final Evaluation</h3>
+                </div>
+                <button type="button" onclick="closeSingleConfirmModal()" class="w-7 h-7 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold flex items-center justify-center cursor-pointer">✕</button>
+            </div>
+
+            <form method="POST" action="evaluations.php" class="p-6 space-y-4 text-xs">
+                <input type="hidden" name="action" value="request_evaluation">
+                <input type="hidden" name="student_ids[]" id="confirmStudentId">
+
+                <p class="text-slate-700 leading-relaxed">
+                    Are you sure you want to request a final evaluation for <strong id="confirmStudentName" class="text-slate-950"></strong>?
+                </p>
+
+                <!-- Professional Warning Notice -->
+                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-2 text-amber-900">
+                    <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <span>This action will lock the student's account from submitting further weekly reports.</span>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeSingleConfirmModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl cursor-pointer shadow-xs">Yes, Request Evaluation</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -411,7 +496,7 @@ if (!function_exists('e')) {
         </div>
     <?php endif; ?>
 
-    <!-- Instant Client-Side Search Script -->
+    <!-- Client-Side Search & Modal Scripts -->
     <script>
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
@@ -430,6 +515,38 @@ if (!function_exists('e')) {
                     }
                 });
             });
+        }
+
+        // Bulk Modal Controls
+        function openTriggerModal() {
+            document.getElementById('triggerEvalModal').classList.remove('hidden');
+            document.getElementById('triggerEvalModal').classList.add('flex');
+        }
+
+        function closeTriggerModal() {
+            document.getElementById('triggerEvalModal').classList.remove('flex');
+            document.getElementById('triggerEvalModal').classList.add('hidden');
+        }
+
+        let selectAllState = false;
+        function toggleSelectAll() {
+            selectAllState = !selectAllState;
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            checkboxes.forEach(cb => cb.checked = selectAllState);
+            document.getElementById('selectAllBtn').textContent = selectAllState ? 'Deselect All' : 'Select All';
+        }
+
+        // Single Confirm Modal Controls
+        function openSingleConfirmModal(studentId, studentName) {
+            document.getElementById('confirmStudentId').value = studentId;
+            document.getElementById('confirmStudentName').textContent = studentName;
+            document.getElementById('singleConfirmModal').classList.remove('hidden');
+            document.getElementById('singleConfirmModal').classList.add('flex');
+        }
+
+        function closeSingleConfirmModal() {
+            document.getElementById('singleConfirmModal').classList.remove('flex');
+            document.getElementById('singleConfirmModal').classList.add('hidden');
         }
     </script>
 </body>

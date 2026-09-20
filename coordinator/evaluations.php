@@ -17,24 +17,30 @@ $flashSuccess = $_SESSION['flash_success'] ?? null;
 $flashError   = $_SESSION['flash_error'] ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// 1.5. Handle Trigger Evaluation POST
+// 1.5. Handle Trigger Evaluation POST (Supports Bulk Selection)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'request_evaluation') {
-    $studentId = isset($_POST['student_id']) ? intval($_POST['student_id']) : 0;
+    $studentIds = $_POST['student_ids'] ?? [];
 
-    if ($studentId > 0) {
-        $stmtTrigger = $pdo->prepare("UPDATE students SET evaluation_triggered = 1 WHERE id = ?");
-        $stmtTrigger->execute([$studentId]);
+    if (!empty($studentIds) && is_array($studentIds)) {
+        $count = 0;
+        foreach ($studentIds as $rawId) {
+            $studentId = intval($rawId);
+            if ($studentId > 0) {
+                $stmtTrigger = $pdo->prepare("UPDATE students SET evaluation_triggered = 1 WHERE id = ?");
+                $stmtTrigger->execute([$studentId]);
 
-        $stmtStud = $pdo->prepare("SELECT u.name, u.email FROM students s JOIN users u ON s.user_id = u.id WHERE s.id = ?");
-        $stmtStud->execute([$studentId]);
-        $stud = $stmtStud->fetch(PDO::FETCH_ASSOC);
+                $stmtStud = $pdo->prepare("SELECT u.name FROM students s JOIN users u ON s.user_id = u.id WHERE s.id = ?");
+                $stmtStud->execute([$studentId]);
+                $stud = $stmtStud->fetch(PDO::FETCH_ASSOC);
 
-        $studName = $stud['name'] ?? "Student #{$studentId}";
-        logActivity($pdo, $_SESSION['user_id'] ?? null, 'coordinator', 'EVAL_TRIGGERED', "Coordinator triggered final evaluation request for student {$studName}.");
-
-        $_SESSION['flash_success'] = "Evaluation request sent to the supervisor for {$studName}.";
+                $studName = $stud['name'] ?? "Student #{$studentId}";
+                logActivity($pdo, $_SESSION['user_id'] ?? null, 'coordinator', 'EVAL_TRIGGERED', "Coordinator triggered final evaluation request for student {$studName}.");
+                $count++;
+            }
+        }
+        $_SESSION['flash_success'] = "Evaluation requests successfully sent for {$count} selected student(s).";
     } else {
-        $_SESSION['flash_error'] = 'Invalid student selected for evaluation request.';
+        $_SESSION['flash_error'] = 'Please select at least one student for evaluation request.';
     }
 
     header("Location: evaluations.php" . (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== '' ? '?' . $_SERVER['QUERY_STRING'] : ''));
@@ -48,13 +54,14 @@ $selectedSection = $_GET['section'] ?? 'all';
 $searchQuery     = trim($_GET['search'] ?? '');
 $viewEvalId      = isset($_GET['view_id']) ? intval($_GET['view_id']) : null;
 
-$filteredEvals  = [];
-$companiesList  = [];
-$activeSections = [];
-$activeEval     = null;
-$totalCount     = 0;
-$completedCount = 0;
-$pendingCount   = 0;
+$filteredEvals    = [];
+$companiesList    = [];
+$activeSections   = [];
+$eligibleStudents = [];
+$activeEval       = null;
+$totalCount       = 0;
+$completedCount   = 0;
+$pendingCount     = 0;
 
 try {
     // Distinct Companies
@@ -136,6 +143,16 @@ try {
     $stmt->execute($params);
     $filteredEvals = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+    // Fetch eligible students for bulk modal checkbox selection (must have supervisor assigned and not yet triggered)
+    $stmtEligible = $pdo->query("
+        SELECT s.id, u.name, s.student_number, s.section 
+        FROM students s 
+        JOIN users u ON s.user_id = u.id 
+        WHERE s.supervisor_id IS NOT NULL AND (s.evaluation_triggered IS NULL OR s.evaluation_triggered = 0)
+        ORDER BY u.name ASC
+    ");
+    $eligibleStudents = $stmtEligible->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
     // 4. Metric Counts
     $stmtTotals = $pdo->query("
         SELECT 
@@ -175,6 +192,7 @@ try {
 } catch (PDOException $e) {
     error_log("Evaluations Error: " . $e->getMessage());
     $filteredEvals = [];
+    $eligibleStudents = [];
 }
 
 require_once __DIR__ . '/../src/pages/coordinator/evaluationsPage.php';
