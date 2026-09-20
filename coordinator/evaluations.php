@@ -114,6 +114,7 @@ try {
             c.id AS company_id,
             COALESCE(c.name, 'Unassigned') AS company_name,
             COALESCE(u_sup.name, 'Pending Assignment') AS supervisor_name,
+            (SELECT COUNT(*) FROM reports r WHERE r.student_id = s.id AND r.status = 'approved') AS approved_reports_count,
             e.id AS eval_id,
             e.technical_score,
             e.work_ethics_score,
@@ -143,7 +144,7 @@ try {
     $stmt->execute($params);
     $filteredEvals = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // Fetch eligible students for bulk modal checkbox selection (must have supervisor assigned and not yet triggered)
+    // Fetch eligible students for bulk modal checkbox selection
     $stmtEligible = $pdo->query("
         SELECT s.id, u.name, s.student_number, s.section 
         FROM students s 
@@ -170,15 +171,12 @@ try {
 
     // 5. Modal Record Loader
     if ($viewEvalId) {
-        // Prefer an exact evaluation ID match (avoids colliding with a student ID)
         foreach ($filteredEvals as $ev) {
             if (intval($ev['eval_id'] ?? 0) === $viewEvalId) {
                 $activeEval = $ev;
                 break;
             }
         }
-
-        // Fallback: match by student ID when no evaluation ID was provided
         if (!$activeEval) {
             foreach ($filteredEvals as $ev) {
                 if (intval($ev['student_id']) === $viewEvalId) {

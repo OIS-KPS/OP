@@ -1,4 +1,5 @@
 <!-- src/pages/coordinator/evaluationsPage.php -->
+<!-- src/pages/coordinator/evaluationsPage.php -->
 <?php
 date_default_timezone_set('Asia/Manila');
 
@@ -142,7 +143,7 @@ if (!function_exists('e')) {
                             </div>
 
                             <!-- Filter Section -->
-                            <div class="w-full md:w-40">
+                            <div class="w-full md:w-36">
                                 <select name="section" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer">
                                     <option value="all" <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>>All Sections</option>
                                     <?php foreach ($activeSections as $sec): ?>
@@ -154,7 +155,7 @@ if (!function_exists('e')) {
                             </div>
 
                             <!-- Filter Company -->
-                            <div class="w-full md:w-56">
+                            <div class="w-full md:w-48">
                                 <select name="company_id" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer">
                                     <option value="all" <?= ($selectedCompany ?? 'all') === 'all' ? 'selected' : ''; ?>>All Companies</option>
                                     <?php foreach ($companiesList as $comp): ?>
@@ -166,7 +167,7 @@ if (!function_exists('e')) {
                             </div>
 
                             <!-- Filter Status -->
-                            <div class="w-full md:w-36">
+                            <div class="w-full md:w-32">
                                 <select name="status" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer">
                                     <option value="all" <?= ($selectedStatus ?? 'all') === 'all' ? 'selected' : ''; ?>>All Statuses</option>
                                     <option value="Completed" <?= ($selectedStatus ?? '') === 'Completed' ? 'selected' : ''; ?>>Completed</option>
@@ -184,107 +185,97 @@ if (!function_exists('e')) {
                         </form>
                     </div>
 
-                    <!-- 3. Submissions Table -->
+                    <!-- 3. Submissions Table (Vertically Scrollable with Fixed Header) -->
                     <?php if (!empty($filteredEvals)): ?>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                        <th class="py-4 px-6">Student Intern</th>
-                                        <th class="py-4 px-6">Section</th>
-                                        <th class="py-4 px-6">Host Company &amp; Supervisor</th>
-                                        <th class="py-4 px-6">Score &amp; Grade</th>
-                                        <th class="py-4 px-6">Status</th>
-                                        <th class="py-4 px-6 text-right">Action</th>
+                        <div class="w-full">
+                            <table class="w-full text-left border-collapse text-xs table-fixed">
+                                <thead class="block w-full">
+                                    <tr class="bg-slate-100/90 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black flex w-full">
+                                        <th class="py-3 px-3 w-[25%]">Student Intern</th>
+                                        <th class="py-3 px-2 w-[10%]">Section</th>
+                                        <th class="py-3 px-3 w-[22%]">Host Company &amp; Supervisor</th>
+                                        <th class="py-3 px-2 w-[13%] text-center">Approved Reports</th>
+                                        <th class="py-3 px-2 w-[15%]">Score &amp; Grade</th>
+                                        <th class="py-3 px-3 w-[15%] text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-200/80 text-slate-800">
+                                <tbody class="divide-y divide-slate-200/80 text-slate-800 block w-full max-h-[480px] overflow-y-auto">
                                     <?php foreach ($filteredEvals as $eval): 
                                         $isCompleted = ($eval['status'] === 'Completed');
                                         $isTriggered = !empty($eval['evaluation_triggered']);
                                     ?>
-                                        <tr class="hover:bg-slate-50 transition-colors eval-row">
+                                        <tr class="hover:bg-slate-50 transition-colors eval-row flex w-full items-center">
                                             
                                             <!-- Student Name & ID -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-black text-xs shrink-0 overflow-hidden border border-slate-300">
+                                            <td class="py-3 px-3 w-[25%] truncate align-middle">
+                                                <div class="flex items-center gap-2.5">
+                                                    <div class="w-8 h-8 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-black text-xs shrink-0 overflow-hidden border border-slate-300">
                                                         <?php if (!empty($eval['student_avatar'])): ?>
                                                             <img src="<?= e($eval['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar">
                                                         <?php else: ?>
                                                             <?= strtoupper(substr($eval['student_name'] ?? 'S', 0, 1)); ?>
                                                         <?php endif; ?>
                                                     </div>
-                                                    <div>
-                                                        <p class="font-extrabold text-slate-950 text-sm intern-name"><?= e($eval['student_name']); ?></p>
-                                                        <p class="text-[11px] text-slate-600 font-semibold intern-id">ID: <?= e($eval['student_number'] ?? 'N/A'); ?> &bull; <?= e($eval['program'] ?? 'BSIT'); ?></p>
+                                                    <div class="min-w-0">
+                                                        <p class="font-extrabold text-slate-950 text-xs truncate intern-name"><?= e($eval['student_name']); ?></p>
+                                                        <p class="text-[10px] text-slate-600 font-semibold truncate intern-id">ID: <?= e($eval['student_number'] ?? 'N/A'); ?> &bull; <?= e($eval['program'] ?? 'BSIT'); ?></p>
                                                     </div>
                                                 </div>
                                             </td>
 
                                             <!-- Section Badge -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
+                                            <td class="py-3 px-2 w-[10%] truncate align-middle">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
                                                     Sec <?= e($eval['section'] ?? 'A'); ?>
                                                 </span>
                                             </td>
 
                                             <!-- Company & Supervisor -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                <p class="font-bold text-slate-900 text-xs"><?= e($eval['company_name'] ?? 'Unassigned'); ?></p>
-                                                <p class="text-[11px] text-slate-600 font-medium mt-0.5">
-                                                    Supervisor: <span class="font-bold text-slate-800"><?= e($eval['supervisor_name'] ?? 'Pending Assignment'); ?></span>
+                                            <td class="py-3 px-3 w-[22%] truncate align-middle">
+                                                <p class="font-bold text-slate-900 text-xs truncate"><?= e($eval['company_name'] ?? 'Unassigned'); ?></p>
+                                                <p class="text-[11px] text-slate-600 font-medium truncate mt-0.5">
+                                                    Sup: <?= e($eval['supervisor_name'] ?? 'Pending Assignment'); ?>
                                                 </p>
                                             </td>
 
+                                            <!-- Approved Reports Column -->
+                                            <td class="py-3 px-2 w-[13%] truncate align-middle text-center">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 font-black text-[11px]">
+                                                    <?= (int)($eval['approved_reports_count'] ?? 0); ?> Approved
+                                                </span>
+                                            </td>
+
                                             <!-- Score & Grade -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                            <td class="py-3 px-2 w-[15%] truncate align-middle">
                                                 <?php if ($isCompleted && isset($eval['final_score'])): ?>
-                                                    <div class="flex items-center gap-2">
+                                                    <div class="flex items-center gap-1.5 truncate">
                                                         <span class="text-xs font-black text-[#0F2854]"><?= number_format($eval['final_score'], 1); ?>%</span>
-                                                        <span class="px-2 py-0.5 rounded-md bg-blue-50 text-[#0F2854] text-[10px] font-black border border-blue-200">
-                                                            Grade: <?= e($eval['grade_equivalent'] ?? '1.0'); ?>
+                                                        <span class="px-1.5 py-0.5 rounded bg-blue-50 text-[#0F2854] text-[10px] font-black border border-blue-200">
+                                                            <?= e($eval['grade_equivalent'] ?? '1.0'); ?>
                                                         </span>
                                                     </div>
                                                 <?php else: ?>
-                                                    <span class="text-slate-500 text-xs font-semibold italic">Pending Appraisal</span>
+                                                    <span class="text-slate-500 text-xs font-semibold italic">Pending</span>
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Status Badge -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                            <!-- Action Button -->
+                                            <td class="py-3 px-3 w-[15%] text-right truncate align-middle">
                                                 <?php if ($isCompleted): ?>
-                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                                                        Signed
-                                                    </span>
-                                                <?php else: ?>
-                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                                        Pending
-                                                    </span>
-                                                <?php endif; ?>
-                                            </td>
-
-                                            <!-- Action Button (Individual Request with Confirmation Modal Trigger) -->
-                                            <td class="py-4 px-6 text-right whitespace-nowrap align-middle">
-                                                <?php if ($isCompleted): ?>
-                                                    <a href="evaluations.php?view_id=<?= $eval['eval_id'] ?? $eval['student_id']; ?>" class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer">
-                                                        <span>View Scorecard</span>
-                                                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                                                    <a href="evaluations.php?view_id=<?= $eval['eval_id'] ?? $eval['student_id']; ?>" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1">
+                                                        <span>View</span>
                                                     </a>
                                                 <?php elseif ($isTriggered): ?>
-                                                    <span class="px-3.5 py-1.5 text-xs font-bold text-[#0F2854] bg-blue-50 rounded-xl border border-blue-300 cursor-not-allowed inline-block select-none">
-                                                        Awaiting Supervisor
+                                                    <span class="px-2.5 py-1 text-[11px] font-bold text-[#0F2854] bg-blue-50 rounded-xl border border-blue-300 inline-block">
+                                                        Awaiting
                                                     </span>
                                                 <?php elseif ($eval['supervisor_name'] === 'Pending Assignment'): ?>
-                                                    <span class="px-3.5 py-1.5 text-xs font-bold text-slate-400 bg-slate-100 rounded-xl border border-slate-200 cursor-not-allowed inline-block select-none" title="Assign a supervisor before triggering evaluation">
-                                                        Not Available
+                                                    <span class="px-2.5 py-1 text-[11px] font-bold text-slate-400 bg-slate-100 rounded-xl border border-slate-200 inline-block" title="Assign a supervisor first">
+                                                        N/A
                                                     </span>
                                                 <?php else: ?>
-                                                    <button type="button" onclick="openSingleConfirmModal(<?= $eval['student_id']; ?>, '<?= e($eval['student_name']); ?>')" class="px-3.5 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
-                                                        <span>Request Evaluation</span>
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                                                    <button type="button" onclick="openSingleConfirmModal(<?= $eval['student_id']; ?>, '<?= e($eval['student_name']); ?>')" class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer">
+                                                        <span>Evaluate</span>
                                                     </button>
                                                 <?php endif; ?>
                                             </td>
