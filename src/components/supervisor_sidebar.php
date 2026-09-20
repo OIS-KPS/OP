@@ -22,6 +22,27 @@ if (!isset($pendingCount)) {
         $pendingCount = 0;
     }
 }
+
+// Dynamic Database Fetch for Pending Evaluation Requests Badge
+if (!isset($pendingEvalBadgeCount)) {
+    if (isset($pdo) && isset($_SESSION['user_id'])) {
+        try {
+            $stmtEvalBadge = $pdo->prepare("
+                SELECT COUNT(s.id) 
+                FROM students s
+                JOIN supervisors sup ON s.supervisor_id = sup.id
+                LEFT JOIN evaluations e ON s.id = e.student_id AND e.supervisor_id = s.supervisor_id
+                WHERE sup.user_id = ? AND s.evaluation_triggered = 1 AND e.id IS NULL
+            ");
+            $stmtEvalBadge->execute([$_SESSION['user_id']]);
+            $pendingEvalBadgeCount = (int)$stmtEvalBadge->fetchColumn();
+        } catch (Exception $e) {
+            $pendingEvalBadgeCount = 0;
+        }
+    } else {
+        $pendingEvalBadgeCount = 0;
+    }
+}
 ?>
 
 <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-20">
@@ -86,13 +107,22 @@ if (!isset($pendingCount)) {
                         <?php endif; ?>
                     </a>
 
-                    <!-- Evaluate Students Link -->
+                    <!-- Evaluate Students Link with Solid Pending Request Notification Badge -->
                     <?php $isEvaluate = ($currentPage === 'evaluate_interns.php' || $currentPage === 'evaluate_form.php'); ?>
-                    <a href="evaluate_interns.php" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm <?= $isEvaluate ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
-                        <svg class="w-5 h-5 <?= $isEvaluate ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
-                        </svg>
-                        <span>Evaluate Students</span>
+                    <a href="evaluate_interns.php" class="flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm <?= $isEvaluate ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <svg class="w-5 h-5 <?= $isEvaluate ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                            </svg>
+                            <span class="truncate">Evaluate Students</span>
+                        </div>
+
+                        <!-- Solid Evaluation Request Badge -->
+                        <?php if ($pendingEvalBadgeCount > 0): ?>
+                            <span class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-bold text-xs shrink-0 shadow-2xs">
+                                <?= $pendingEvalBadgeCount; ?>
+                            </span>
+                        <?php endif; ?>
                     </a>
                 </div>
             </div>
