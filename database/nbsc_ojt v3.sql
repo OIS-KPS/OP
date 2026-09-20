@@ -535,3 +535,5 @@ ALTER TABLE report_entities ADD COLUMN is_archived TINYINT(1) DEFAULT 0;
 -- Coordinator triggers final evaluation for the assigned supervisor
 ALTER TABLE `students`
 ADD COLUMN IF NOT EXISTS `evaluation_triggered` TINYINT(1) DEFAULT 0 AFTER `completion_requested`;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_consent TINYINT(1) DEFAULT 0;
