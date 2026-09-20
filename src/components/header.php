@@ -1,4 +1,3 @@
-<!-- src/components/header.php -->
 <?php
 // Resolve logged in user's role dynamically
 $userRole = strtolower($_SESSION['role'] ?? 'student');
@@ -124,7 +123,7 @@ $displayEmail = $_SESSION['email'] ?? '';
     </div>
 </header>
 
-<!-- Profile Dropdown Script -->
+<!-- Profile Dropdown & Global Auto-Dismiss Script -->
 <script>
     function toggleProfileDropdown() {
         const menu = document.getElementById('profile-dropdown-menu');
@@ -160,6 +159,28 @@ $displayEmail = $_SESSION['email'] ?? '';
         if (e.key === 'logout_event') {
             window.location.href = '/ICS-PORTAL/auth/login.php';
         }
+    });
+
+    // Global Auto-Dismiss for Flash Notification Banners
+    document.addEventListener("DOMContentLoaded", function () {
+        const flashAlerts = document.querySelectorAll('.bg-emerald-50, .bg-rose-50, .bg-blue-50, .bg-amber-50'); 
+        
+        flashAlerts.forEach(alert => {
+            const dismissTrigger = alert.querySelector('a, button');
+            if (dismissTrigger && (dismissTrigger.textContent.includes('Dismiss') || dismissTrigger.textContent.includes('×') || dismissTrigger.textContent.includes('dismiss'))) {
+                
+                setTimeout(() => {
+                    alert.style.transition = "all 0.5s ease-in-out";
+                    alert.style.opacity = "0";
+                    alert.style.transform = "translateY(-10px)";
+                    alert.style.marginBottom = "-" + alert.offsetHeight + "px"; 
+                    
+                    setTimeout(() => {
+                        alert.remove();
+                    }, 500);
+                }, 4000); // 4 seconds delay before auto-dismissal
+            }
+        });
     });
 </script>
 
