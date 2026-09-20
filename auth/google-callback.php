@@ -7,8 +7,7 @@ require_once __DIR__ . '/../config/db.php';
 
 // Load .env variables safely
 if (class_exists('Dotenv\Dotenv') && file_exists(__DIR__ . '/../.env')) {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-    $dotenv->safeLoad();
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');$dotenv->safeLoad();
 }
 
 $client = new Google\Client();
@@ -29,11 +28,11 @@ if (isset($_GET['code'])) {
 
         // Fetch user profile information from Google OAuth
         $googleOAuth = new Google\Service\Oauth2($client);
-        $userInfo    = $googleOAuth->userinfo->get();
+        $userInfo    =$googleOAuth->userinfo->get();
 
         $email   = strtolower(trim($userInfo->email));
-        $name    = $userInfo->name;
-        $picture = $userInfo->picture ?? null;
+        $name    =$userInfo->name;
+        $picture =$userInfo->picture ?? null;
 
         // Extract default Student ID from institutional email (e.g., "20231053" from "20231053@nbsc.edu.ph")
         $extractedId = str_contains($email, '@') ? explode('@', $email)[0] : 'N/A';
@@ -41,9 +40,9 @@ if (isset($_GET['code'])) {
         // -------------------------------------------------------------
         // STEP 1: Query Master `users` Table
         // -------------------------------------------------------------
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(email) = ?");
+        $stmt =$pdo->prepare("SELECT * FROM users WHERE LOWER(email) = ?");
         $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user =$stmt->fetch(PDO::FETCH_ASSOC);
 
         // -------------------------------------------------------------
         // STEP 2: Registered-Only Access Check
@@ -59,31 +58,32 @@ if (isset($_GET['code'])) {
 
         // Block archived/disabled accounts
         if (strtolower($user['status'] ?? 'active') !== 'active') {
-            logActivity($pdo, $user['id'], $user['role'] ?? 'guest', 'LOGIN_FAILED', "Blocked Google login for account with status '{$user['status']}': {$user['email']}");
+            logActivity($pdo, $user['id'],$user['role'] ?? 'guest', 'LOGIN_FAILED', "Blocked Google login for account with status '{$user['status']}': {$user['email']}");
 
             $_SESSION['login_error'] = 'Your account has been archived or disabled. Please contact the OJT Coordinator.';
             header("Location: login.php");
             exit();
         }
 
-        $userId   = $user['id'];
+        $userId   =$user['id'];
         $userRole = strtolower($user['role'] ?? 'student');
+        $hasConsented = (int)($user['privacy_consent'] ?? 0);
 
         // Sync latest Google avatar picture if updated
-        if ($picture && ($user['avatar_url'] ?? '') !== $picture) {
-            $updateAvatar = $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
-            $updateAvatar->execute([$picture, $userId]);
+        if ($picture && ($user['avatar_url'] ?? '') !==$picture) {
+            $updateAvatar =$pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
+            $updateAvatar->execute([$picture,$userId]);
         }
 
         // Audit Log: Successful Google OAuth Login
-        logActivity($pdo, $userId, $userRole, 'GOOGLE_LOGIN', "User {$name} ({$email}) logged in via Google OAuth.");
+        logActivity($pdo, $userId,$userRole, 'GOOGLE_LOGIN', "User {$name} ({$email}) logged in via Google OAuth.");
 
         // Establish Core Base Sessions
-        $_SESSION['user_id']      = $userId;
+        $_SESSION['user_id']      =$userId;
         $_SESSION['user_name']    = $user['name'] ?? $name;
-        $_SESSION['email']        = $email;
-        $_SESSION['user_picture'] = $picture;
-        $_SESSION['role']         = $userRole;
+        $_SESSION['email']        =$email;
+        $_SESSION['user_picture'] =$picture;
+        $_SESSION['role']         =$userRole;
 
         // -------------------------------------------------------------
         // STEP 3: Student Extension Check / Auto-Linking
@@ -114,36 +114,47 @@ if (isset($_GET['code'])) {
             }
 
             $_SESSION['student_id'] =$studentId;
-            header("Location: ../dashboard.php");
-            exit();
-            
         } elseif ($userRole === 'supervisor') {
             // Find or link supervisor profile
-            $stmtSupervisor = $pdo->prepare("SELECT * FROM supervisors WHERE user_id = ?");
+            $stmtSupervisor =$pdo->prepare("SELECT * FROM supervisors WHERE user_id = ?");
             $stmtSupervisor->execute([$userId]);
-            $supervisor = $stmtSupervisor->fetch(PDO::FETCH_ASSOC);
+            $supervisor =$stmtSupervisor->fetch(PDO::FETCH_ASSOC);
 
             if (!$supervisor) {
-                // Auto-create supervisor extension if missing
-                $insertSupervisor = $pdo->prepare("INSERT INTO supervisors (user_id) VALUES (?)");
+                $insertSupervisor =$pdo->prepare("INSERT INTO supervisors (user_id) VALUES (?)");
                 $insertSupervisor->execute([$userId]);
-                $supervisorId = $pdo->lastInsertId();
+                $supervisorId =$pdo->lastInsertId();
             } else {
-                $supervisorId = $supervisor['id'];
+                $supervisorId =$supervisor['id'];
             }
 
-            $_SESSION['supervisor_id'] = $supervisorId;
+            $_SESSION['supervisor_id'] =$supervisorId;
+        }
+
+        // -------------------------------------------------------------
+        // STEP 4: Privacy Consent Check Gate
+        // -------------------------------------------------------------
+        if ($hasConsented === 0) {
+            // First time logging in: redirect to data privacy consent page inside auth/
+            header("Location: privacy_consent.php");
+            exit();
+        }
+
+        // -------------------------------------------------------------
+        // STEP 5: Role-Based Dashboard Redirection
+        // -------------------------------------------------------------
+        if ($userRole === 'student') {
+            header("Location: ../reports.php");
+            exit();
+        } elseif ($userRole === 'supervisor') {
             header("Location: ../supervisor/dashboard.php");
             exit();
-
         } elseif ($userRole === 'coordinator') {
             header("Location: ../coordinator/dashboard.php");
             exit();
-
         } elseif ($userRole === 'admin') {
             header("Location: ../admin/dashboard.php");
             exit();
-
         } else {
             header("Location: ../dashboard.php");
             exit();
