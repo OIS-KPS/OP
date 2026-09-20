@@ -48,7 +48,7 @@
                     <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs space-y-1">
                         <p class="font-bold">Submission error:</p>
                         <ul class="list-disc list-inside space-y-0.5">
-                            <?php foreach ($errors as $error): ?>
+                            <?php foreach ($errors as$error): ?>
                                 <li><?= htmlspecialchars($error); ?></li>
                             <?php endforeach; ?>
                         </ul>
@@ -85,6 +85,28 @@
             </main>
         </div>
     </div>
+
+    <!-- Coordinator Evaluation Notice Modal (ONLY shows when explicitly triggered by Coordinator) -->
+    <?php if (!empty($isLocked)): ?>
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 text-center">
+                <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto text-xl font-black">
+                    🔒
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-extrabold text-sm text-slate-950">Final Evaluation Requested</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        The OJT Coordinator has requested your final evaluation from your industry supervisor. Weekly report submissions are now locked and closed.
+                    </p>
+                </div>
+                <div class="pt-2">
+                    <a href="reports.php" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all inline-block shadow-xs">
+                        Return to Reports Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <!-- Drag & Drop Visual Script -->
     <script>
