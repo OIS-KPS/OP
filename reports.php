@@ -20,6 +20,7 @@ try {
             s.student_number, 
             s.program, 
             s.completion_requested,
+            s.evaluation_triggered, 
             e.id AS evaluation_id,
             e.final_score
         FROM students s

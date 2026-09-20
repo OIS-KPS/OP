@@ -12,12 +12,13 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
 
 $sessionUserId = (int)$_SESSION['user_id'];
 
-// Resolve student profile and check evaluation state (Joining users for name)
+// Resolve student profile and check evaluation trigger flag
 $stmtStudent = $pdo->prepare("
     SELECT 
         s.id, 
         u.name, 
         s.student_number, 
+        s.evaluation_triggered,
         e.id AS evaluation_id 
     FROM students s 
     INNER JOIN users u ON s.user_id = u.id
@@ -34,12 +35,8 @@ if (!$studentRow) {
     exit();
 }
 
-// Lock reports if already evaluated
-if (!empty($studentRow['evaluation_id'])) {
-    $_SESSION['error_message'] = "Your final evaluation has already been completed. No further report modifications are allowed.";
-    header("Location: reports.php");
-    exit();
-}
+// ONLY lock if the coordinator specifically triggered the evaluation
+$isLocked = !empty($studentRow['evaluation_triggered']) && (int)$studentRow['evaluation_triggered'] === 1;
 
 $student_id  = (int)$studentRow['id'];
 $studentName = $studentRow['name'] ?? 'Student';
@@ -58,6 +55,12 @@ if ($existingStatus === 'approved') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($isLocked) {
+        $_SESSION['error_message'] = "Account locked for final evaluation.";
+        header("Location: reports.php");
+        exit();
+    }
+
     $filePath = null;
 
     if (isset($_FILES['report_file']) && $_FILES['report_file']['error'] === UPLOAD_ERR_OK) {
@@ -88,13 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         try {
-            // Check existing report for re-upload tracking
             $stmtCheckRow = $pdo->prepare("SELECT id, file_path, previous_file_path FROM reports WHERE student_id = ? AND week_number = ?");
             $stmtCheckRow->execute([$student_id, $weekNumber]);
             $existingReport = $stmtCheckRow->fetch(PDO::FETCH_ASSOC);
 
             if ($existingReport) {
-                // Archive current file to previous_file_path so the flagged version remains trackable
                 $archivedOldFile = !empty($existingReport['file_path']) ? $existingReport['file_path'] : $existingReport['previous_file_path'];
 
                 $stmtUpdate = $pdo->prepare("
@@ -108,7 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $stmtUpdate->execute([$archivedOldFile, $filePath, $existingReport['id']]);
 
-                // Direct insert to audit_logs (aligned with nbsc_ojt schema)
                 $logDesc = "Student {$studentName} submitted revised Week {$weekNumber} accomplishment report.";
                 $stmtLog = $pdo->prepare("
                     INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
@@ -127,7 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $stmtInsert->execute([$student_id, $weekNumber, $filePath]);
 
-                // Direct insert to audit_logs
                 $logDesc = "Student {$studentName} submitted Week {$weekNumber} accomplishment report.";
                 $stmtLog = $pdo->prepare("
                     INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
