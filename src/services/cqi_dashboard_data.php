@@ -92,6 +92,10 @@ try {
     // Companies with no verified evaluations remain visible with 0.0.
     // 6. Company evaluation performance and entity activity are aggregated
     // separately so multiple report entities cannot duplicate evaluation scores.
+    // `final_score` is stored on the OJT form's 1-5 scale; the older 1-100 rows
+    // are still in the table, so the scale is inferred per row: a value that
+    // fits inside 1-5 is rescaled to a percentage, anything larger is already
+    // a percentage. A legacy 0.00 rescale stays 0.00 either way.
     $companyEvaluationRows = [];
     $stmt = $pdo->query(
         "SELECT
@@ -99,7 +103,7 @@ try {
             COUNT(DISTINCT s.id) AS student_count,
             COUNT(DISTINCT CASE WHEN e.otp_verified = 1 THEN e.student_id END) AS verified_evaluations,
             COUNT(DISTINCT CASE WHEN e.otp_verified = 1 AND e.final_score IS NOT NULL THEN e.student_id END) AS scored_evaluations,
-            COALESCE(ROUND(AVG(CASE WHEN e.otp_verified = 1 THEN e.final_score END), 1), 0) AS percentage
+            COALESCE(ROUND(AVG(CASE WHEN e.otp_verified = 1 THEN CASE WHEN e.final_score <= 5 THEN e.final_score * 20 ELSE e.final_score END END), 1), 0) AS percentage
          FROM students s
          LEFT JOIN evaluations e ON e.student_id = s.id
          GROUP BY s.company_id"

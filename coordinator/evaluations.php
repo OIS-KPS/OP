@@ -3,6 +3,7 @@
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/evaluation_criteria.php';
 
 // 1. Authorization Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
@@ -120,6 +121,7 @@ try {
             e.work_ethics_score,
             e.communication_score,
             e.punctuality_score,
+            e.criteria_ratings,
             e.final_score,
             e.grade_equivalent,
             e.feedback,

@@ -123,6 +123,7 @@ CREATE TABLE `evaluations` (
   `work_ethics_score` decimal(5,2) DEFAULT 0.00,
   `communication_score` decimal(5,2) DEFAULT 0.00,
   `punctuality_score` decimal(5,2) DEFAULT 0.00,
+  `criteria_ratings` text DEFAULT NULL,
   `final_score` decimal(5,2) DEFAULT 0.00,
   `grade_equivalent` varchar(50) DEFAULT NULL,
   `feedback` text DEFAULT NULL,
