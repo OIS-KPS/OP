@@ -1,25 +1,29 @@
 <?php
-// supervisor/evaluate_view.php
+// coordinator/evaluation_view.php
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/evaluation_criteria.php';
 
 // Auth Guard
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') {
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
     header("Location: ../auth/login.php");
     exit();
 }
 
 $evaluation_id = isset($_GET['id']) ? intval($_GET['id']) : null;
-$student_id    = isset($_GET['student_id']) ? intval($_GET['student_id']) : null;
+
+if (!$evaluation_id) {
+    $_SESSION['review_message'] = "Evaluation report not found.";
+    header("Location: evaluations.php");
+    exit();
+}
 
 $evaluation = null;
 
 try {
-    // Exact schema query for evaluations, students, users, supervisors, and companies
     $sql = "
-        SELECT 
+        SELECT
             e.id AS evaluation_id,
             e.student_id,
             e.supervisor_id,
@@ -35,14 +39,14 @@ try {
             e.otp_signed_at,
             e.otp_ip_address,
             e.created_at AS evaluated_at,
-            
+
             -- Student Information
             u_std.name AS student_name,
             u_std.email AS student_email,
             u_std.avatar_url AS student_avatar,
             s.student_number,
             s.program,
-            
+
             -- Supervisor & Company Information
             u_sup.name AS supervisor_name,
             u_sup.email AS supervisor_email,
@@ -55,22 +59,23 @@ try {
         JOIN supervisors sup ON e.supervisor_id = sup.id
         JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN companies c ON sup.company_id = c.id
-        WHERE " . ($evaluation_id ? "e.id = ?" : "e.student_id = ?") . "
+        WHERE e.id = ?
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$evaluation_id ?: $student_id]);
+    $stmt->execute([$evaluation_id]);
     $evaluation = $stmt->fetch(PDO::FETCH_ASSOC);
 
 } catch (Exception $e) {
-    error_log("Database Error in evaluate_view.php: " . $e->getMessage());
+    error_log("Database Error in coordinator/evaluation_view.php: " . $e->getMessage());
 }
 
 if (!$evaluation) {
     $_SESSION['review_message'] = "Evaluation report not found.";
-    header("Location: evaluate_interns.php");
+    header("Location: evaluations.php");
     exit();
 }
 
-require_once __DIR__ . '/../src/pages/supervisor/evaluateViewPage.php';
+// Render Evaluation View
+require_once __DIR__ . '/../src/pages/coordinator/evaluationViewPage.php';

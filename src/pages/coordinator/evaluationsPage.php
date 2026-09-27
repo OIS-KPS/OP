@@ -245,13 +245,13 @@ if (!function_exists('e')) {
                                                 </span>
                                             </td>
 
-                                            <!-- Score & Grade -->
+                                            <!-- Score & Rating -->
                                             <td class="py-3 px-2 w-[15%] truncate align-middle">
                                                 <?php if ($isCompleted && isset($eval['final_score'])): ?>
                                                     <div class="flex items-center gap-1.5 truncate">
-                                                        <span class="text-xs font-black text-[#0F2854]"><?= number_format($eval['final_score'], 1); ?>%</span>
+                                                        <span class="text-xs font-black text-[#0F2854]"><?= number_format($eval['final_score'], 2); ?><span class="text-[9px] text-slate-400 font-bold">/5</span></span>
                                                         <span class="px-1.5 py-0.5 rounded bg-blue-50 text-[#0F2854] text-[10px] font-black border border-blue-200">
-                                                            <?= e($eval['grade_equivalent'] ?? '1.0'); ?>
+                                                            <?= e($eval['grade_equivalent'] ?? ojtRatingLabel($eval['final_score'])); ?>
                                                         </span>
                                                     </div>
                                                 <?php else: ?>
@@ -262,7 +262,7 @@ if (!function_exists('e')) {
                                             <!-- Action Button -->
                                             <td class="py-3 px-3 w-[15%] text-right truncate align-middle">
                                                 <?php if ($isCompleted): ?>
-                                                    <a href="evaluations.php?view_id=<?= $eval['eval_id'] ?? $eval['student_id']; ?>" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1">
+                                                    <a href="evaluation_view.php?id=<?= (int)($eval['eval_id'] ?? 0); ?>" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1">
                                                         <span>View</span>
                                                     </a>
                                                 <?php elseif ($isTriggered): ?>
@@ -385,12 +385,14 @@ if (!function_exists('e')) {
     </div>
 
     <!-- Evaluation Detail Scorecard Modal -->
-    <?php if ($activeEval): ?>
+    <?php if ($activeEval):
+        $scorecardVariant = 'full';
+    ?>
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
                 
                 <!-- Modal Top Header -->
-                <div class="p-6 border-b border-slate-200/70 flex items-center justify-between bg-slate-50/60">
+                <div class="p-6 border-b border-slate-200/70 flex items-center justify-between bg-slate-50/60 shrink-0">
                     <div>
                         <h3 class="text-xs font-black text-slate-950 uppercase tracking-wider">Final Evaluation Scorecard</h3>
                         <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Signed by <?= e($activeEval['supervisor_name'] ?? 'Supervisor'); ?></p>
@@ -415,48 +417,15 @@ if (!function_exists('e')) {
                         </div>
                     </div>
 
-                    <!-- Category Breakdown -->
-                    <div class="space-y-2">
-                        <span class="block text-[10px] font-black uppercase tracking-wider text-slate-500">Competency Breakdown</span>
-                        <div class="grid grid-cols-2 gap-2.5">
-                            <div class="p-3.5 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-2xs">
-                                <span class="text-slate-700 font-bold">Technical Competency:</span>
-                                <span class="font-black text-[#0F2854] text-xs"><?= number_format($activeEval['technical_score'] ?? 0, 1); ?>%</span>
-                            </div>
-                            <div class="p-3.5 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-2xs">
-                                <span class="text-slate-700 font-bold">Work Ethics &amp; Discipline:</span>
-                                <span class="font-black text-[#0F2854] text-xs"><?= number_format($activeEval['work_ethics_score'] ?? 0, 1); ?>%</span>
-                            </div>
-                            <div class="p-3.5 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-2xs">
-                                <span class="text-slate-700 font-bold">Communication Skills:</span>
-                                <span class="font-black text-[#0F2854] text-xs"><?= number_format($activeEval['communication_score'] ?? 0, 1); ?>%</span>
-                            </div>
-                            <div class="p-3.5 bg-white rounded-xl border border-slate-200 flex justify-between items-center shadow-2xs">
-                                <span class="text-slate-700 font-bold">Punctuality &amp; Attendance:</span>
-                                <span class="font-black text-[#0F2854] text-xs"><?= number_format($activeEval['punctuality_score'] ?? 0, 1); ?>%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Final Score Banner -->
-                    <div class="p-5 bg-blue-50/70 rounded-2xl border border-blue-200 flex items-center justify-between">
-                        <div>
-                            <span class="block text-[10px] font-black uppercase tracking-wider text-[#0F2854]">Overall Performance Grade</span>
-                            <p class="text-xl font-black text-[#0F2854] mt-0.5"><?= number_format($activeEval['final_score'] ?? 0, 1); ?>%</p>
-                        </div>
-                        <div>
-                            <span class="px-4 py-2 rounded-xl bg-[#0F2854] text-white font-black text-[11px] shadow-2xs">
-                                Grade: <?= e($activeEval['grade_equivalent'] ?? '1.0'); ?>
-                            </span>
-                        </div>
-                    </div>
+                    <!-- 12-Competency Scorecard (shared component) -->
+                    <?php require __DIR__ . '/../../components/evaluation_scorecard.php'; ?>
 
                     <!-- Supervisor Remarks -->
                     <?php if (!empty($activeEval['feedback'])): ?>
                         <div class="space-y-1">
-                            <span class="block text-[10px] font-black uppercase tracking-wider text-slate-500">Supervisor Remarks</span>
+                            <span class="block text-[10px] font-black uppercase tracking-wider text-slate-500">Comments / Remarks</span>
                             <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-slate-800 font-medium leading-relaxed italic">
-                                "&rlm;<?= e($activeEval['feedback']); ?>&rlm;"
+                                "&ldquo;<?= e($activeEval['feedback']); ?>&rdquo;"
                             </div>
                         </div>
                     <?php endif; ?>

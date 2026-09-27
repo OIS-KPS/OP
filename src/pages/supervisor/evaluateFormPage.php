@@ -1,4 +1,13 @@
 <!-- src/pages/supervisor/evaluateFormPage.php -->
+<?php
+$ojtCriteria  = ojtEvaluationCriteria();
+$ojtScale     = ojtRatingScale();
+$ojtScaleKeys = array_keys($ojtScale);
+$ojtTotal     = count($ojtCriteria);
+// HEX_TAG/HEX_AMP keep the JSON safe to inline inside a <script> block.
+$ojtJsonFlags      = JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+$ojtClientCriteria = json_encode(ojtCriteriaForClient(), $ojtJsonFlags);
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,11 +20,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <style>
+        /* Whole-cell hover/selected affordance for the 1-5 radio columns. */
+        .rating-option:hover { background-color: rgba(15, 40, 84, 0.05); }
+    </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
     <div class="flex min-h-screen">
-        
+
         <!-- Sidebar Component -->
         <?php include __DIR__ . '/../../components/supervisor_sidebar.php'; ?>
 
@@ -24,7 +37,7 @@
             <!-- Top Header Component -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
-            <main class="p-8 max-w-4xl w-full mx-auto space-y-6 flex-1 relative">
+            <main class="p-8 max-w-5xl w-full mx-auto space-y-5 flex-1 relative">
 
                 <!-- Navigation -->
                 <div>
@@ -34,66 +47,168 @@
                     </a>
                 </div>
 
-                <!-- Student Info Card -->
-                <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex items-center justify-between gap-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-13 h-13 rounded-2xl bg-blue-50 text-[#0F2854] flex items-center justify-center font-black text-base border border-blue-200 shrink-0">
-                            <?= strtoupper(substr($student['name'] ?? 'S', 0, 1)); ?>
-                        </div>
-                        <div>
-                            <h1 class="text-base font-extrabold text-slate-950 leading-snug tracking-tight"><?= htmlspecialchars($student['name'] ?? 'Student'); ?></h1>
-                            <p class="text-xs text-slate-600 font-semibold mt-0.5">ID: <strong class="text-slate-900"><?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?></strong> &bull; Program: <strong class="text-slate-900"><?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></strong></p>
-                        </div>
-                    </div>
-                    <span class="px-3.5 py-1.5 bg-emerald-100/80 text-emerald-900 text-xs font-bold rounded-full border border-emerald-300 shadow-2xs">
-                        12 Weeks Verified
-                    </span>
+                <!-- Evaluator Instruction Banner (docx wording) -->
+                <div class="bg-blue-50/70 border border-blue-200 rounded-2xl p-5 flex items-start gap-3">
+                    <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
+                    <p class="text-xs text-blue-900 font-medium leading-relaxed">
+                        <strong class="font-extrabold">To the Evaluator:</strong> Thank you for taking time out of your hectic schedule. Your honest opinion of our
+                        student's training performance will greatly aid us in our evaluation. Please check the box that corresponds to the answer that
+                        best describes the performance of the trainee.
+                    </p>
                 </div>
 
                 <!-- Evaluation Form -->
-                <form id="evaluationForm" onsubmit="handleEvaluationSubmit(event)" class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-7 space-y-6">
+                <form id="evaluationForm" onsubmit="handleEvaluationSubmit(event)" class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
                     <input type="hidden" id="eval_student_id" value="<?= (int)($student['id'] ?? 0); ?>">
 
-                    <div class="border-b border-slate-200/70 pb-3">
-                        <h2 class="text-xs font-black text-slate-900 uppercase tracking-wider">Performance Criteria Rating (1 - 100)</h2>
-                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Rate each competency category based on the intern's actual work output.</p>
-                    </div>
+                    <!-- ============================================================
+                         1. TRAINEE & HOST DETAILS (docx header block)
+                         ============================================================ -->
+                    <section class="p-7 space-y-3 border-b border-slate-200/70">
+                        <h2 class="text-xs font-black text-slate-900 uppercase tracking-wider">Trainee &amp; Host Details</h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Name of Student-Trainee</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($student['name'] ?? 'N/A'); ?></p>
+                            </div>
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Course</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($student['program'] ?? 'N/A'); ?><?= !empty($student['section']) ? ' &bull; Sec ' . htmlspecialchars($student['section']) : ''; ?></p>
+                            </div>
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Inclusive Dates of Training</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($trainingPeriod ?? 'N/A'); ?></p>
+                            </div>
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Name of HTE</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($student['company_name'] ?? 'Unassigned'); ?></p>
+                            </div>
+                        </div>
+                    </section>
 
-                    <!-- Rating Fields -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
-                        <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">Technical Competence (40%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="tech_score" required placeholder="e.g., 90.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
+                    <!-- ============================================================
+                         2. COMPETENCY TABLE (all 12 questions, 1-5 scale beside)
+                         ============================================================ -->
+                    <section class="p-7 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-xs font-black text-slate-900 uppercase tracking-wider">Competency Rating</h2>
+                                <p class="text-[11px] font-semibold text-slate-600 mt-0.5">All <?= $ojtTotal; ?> competencies must be rated before this form can be signed.</p>
+                            </div>
+                            <span id="ratedPill" class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-black border border-slate-300 transition-colors">
+                                <span id="ratedCount">0</span>/<?= $ojtTotal; ?> answered
+                            </span>
                         </div>
-                        <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">Work Ethics & Professionalism (25%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="ethics_score" required placeholder="e.g., 92.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">Communication Skills (20%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="comm_score" required placeholder="e.g., 88.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">Punctuality & Attendance (15%)</label>
-                            <input type="number" step="0.1" min="50" max="100" id="punct_score" required placeholder="e.g., 95.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-[#0F2854] font-semibold text-slate-900">
-                        </div>
-                    </div>
 
-                    <!-- Feedback Field -->
-                    <div>
-                        <label class="block font-bold text-slate-800 mb-1.5 text-xs">Supervisor Comments & Recommendation</label>
+                        <div id="ojtTableTop" class="overflow-x-auto rounded-xl border border-slate-200">
+                            <table class="w-full border-collapse min-w-[680px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200">
+                                        <th class="text-left text-[10px] font-black uppercase tracking-wider text-slate-500 px-4 py-3 w-[60%]">Competency</th>
+                                        <?php foreach ($ojtScaleKeys as $value): ?>
+                                            <th class="px-2 py-3 text-center w-[8%]">
+                                                <span class="block text-sm font-black text-slate-900"><?= $value; ?></span>
+                                                <span class="block text-[9px] font-bold text-slate-400 mt-0.5"><?= htmlspecialchars($ojtScale[$value]); ?></span>
+                                            </th>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <?php foreach ($ojtCriteria as $index => $criterion): ?>
+                                        <tr class="hover:bg-slate-50/70 transition-colors">
+                                            <td class="px-4 py-3 align-top">
+                                                <div class="flex items-start gap-2.5">
+                                                    <span class="w-5 h-5 rounded-md bg-[#0F2854] text-white flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5"><?= $index + 1; ?></span>
+                                                    <span class="text-xs font-semibold text-slate-800 leading-relaxed"><?= htmlspecialchars($criterion['text']); ?></span>
+                                                </div>
+                                            </td>
+                                            <?php foreach ($ojtScaleKeys as $value): ?>
+                                                <td class="p-0 align-middle">
+                                                    <label class="rating-option flex items-center justify-center h-full w-full py-3 cursor-pointer transition-colors">
+                                                        <input
+                                                            type="radio"
+                                                            name="criteria[<?= htmlspecialchars($criterion['key']); ?>]"
+                                                            value="<?= $value; ?>"
+                                                            data-criterion="<?= htmlspecialchars($criterion['key']); ?>"
+                                                            data-group="<?= htmlspecialchars($criterion['group']); ?>"
+                                                            required
+                                                            class="rating-input w-4 h-4 rounded border-slate-300 text-[#0F2854] focus:ring-[#0F2854] cursor-pointer"
+                                                        >
+                                                    </label>
+                                                </td>
+                                            <?php endforeach; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Legend (docx places it directly under the competency table) -->
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Legend</span>
+                            <?php foreach ($ojtScaleKeys as $value): ?>
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                                    <span class="w-5 h-5 rounded-md bg-slate-100 border border-slate-300 flex items-center justify-center font-black text-slate-600 text-[10px]"><?= $value; ?></span>
+                                    <?= htmlspecialchars($ojtScale[$value]); ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <p id="ratingError" class="text-rose-600 text-xs font-bold hidden"></p>
+                    </section>
+
+                    <div class="border-t border-slate-200/70"></div>
+
+                    <!-- ============================================================
+                         3. COMMENTS / REMARKS
+                         ============================================================ -->
+                    <section class="p-7 space-y-2">
+                        <label class="block font-bold text-slate-800 text-xs" for="feedback">Comments / Remarks</label>
                         <textarea id="feedback" rows="4" placeholder="Write qualitative remarks regarding the student's performance and career readiness..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs focus:outline-none focus:border-[#0F2854] font-medium text-slate-900"></textarea>
-                    </div>
+                    </section>
+
+                    <!-- ============================================================
+                         4. EVALUATOR SIGNATURE BLOCK
+                         ============================================================ -->
+                    <section class="p-7 space-y-3 border-t border-slate-200/70">
+                        <h2 class="text-xs font-black text-slate-900 uppercase tracking-wider">Evaluator Details</h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Evaluator's Signature over Printed Name</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($supervisor['name'] ?? 'N/A'); ?></p>
+                            </div>
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Position / Designation</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= !empty($supervisor['company_department']) ? htmlspecialchars($supervisor['company_department']) : 'OJT Supervisor'; ?></p>
+                            </div>
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Office / Division Name</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($supervisor['company_name'] ?? 'N/A'); ?></p>
+                            </div>
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Date Signed</span>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1">Recorded on OTP verification</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ============================================================
+                         5. SIGN-OFF NOTE
+                         The overall rating and the per-group breakdown are deliberately
+                         NOT rendered here: they are coordinator-only.
+                         ============================================================ -->
+                   
 
                     <!-- Form Action Button -->
-                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200/70">
-                        <a href="evaluate.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all">Cancel</a>
+                    <div class="px-7 py-5 border-t border-slate-200/70 bg-white flex items-center justify-end gap-3">
+                        <a href="evaluate_interns.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all">Cancel</a>
                         <button type="submit" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer">
-                            <span>Sign & Submit Evaluation</span>
+                            <span>Sign &amp; Submit Evaluation</span>
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
                         </button>
                     </div>
                 </form>
+
 
             </main>
         </div>
@@ -104,7 +219,7 @@
          ============================================================ -->
     <div id="otpModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-3xl border border-slate-300 shadow-2xl max-w-md w-full p-7 relative space-y-5 animate-in fade-in zoom-in duration-200">
-            
+
             <!-- Modal Header -->
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-900 tracking-tight">OTP Verification</h3>
@@ -122,6 +237,12 @@
                 <p class="text-xs text-slate-600 font-medium">
                     Enter the 6-digit OTP sent to <strong id="otpEmailTarget" class="text-slate-950 font-extrabold">your email</strong>
                 </p>
+            </div>
+
+            <!-- Ratings-to-sign recap: counts only, never the overall score -->
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Competencies Rated to Sign</span>
+                <span class="text-sm font-black text-[#0F2854]"><span id="otpRatedRecap">0</span><span class="text-[10px] text-slate-400 font-bold">/12</span></span>
             </div>
 
             <!-- 6-Box Form -->
@@ -149,7 +270,7 @@
                         Cancel
                     </button>
                     <button type="submit" id="verifyBtn" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
-                        Verify & Submit
+                        Verify &amp; Submit
                     </button>
                 </div>
             </form>
@@ -157,10 +278,68 @@
     </div>
 
     <script>
+        // Descriptor metadata only (no competency wording) so the browser can
+        // recompute averages without referencing the web-blocked config/ path.
+        const OJT_CRITERIA = <?= $ojtClientCriteria; ?>;
+        const OJT_TOTAL = <?= $ojtTotal; ?>;
+
         let countdownTimer = null;
+        let pendingRatings = null;
+
+        function collectRatings() {
+            const ratings = {};
+            document.querySelectorAll('.rating-input:checked').forEach(input => {
+                ratings[input.dataset.criterion] = parseInt(input.value, 10);
+            });
+            return ratings;
+        }
+
+        // Counts answered competencies only. The overall rating and the group
+        // averages are deliberately NOT computed on the supervisor side; the
+        // server derives them on submit and only the coordinator sees them.
+        function computeSummary(ratings) {
+            return {
+                ratedCount: OJT_CRITERIA.filter(c => ratings[c.key] > 0).length
+            };
+        }
+
+        function refreshSummary() {
+            const ratings = collectRatings();
+            const summary = computeSummary(ratings);
+
+            document.getElementById('ratedCount').innerText = summary.ratedCount;
+            document.getElementById('otpRatedRecap').innerText = summary.ratedCount;
+
+            const pill = document.getElementById('ratedPill');
+            const complete = summary.ratedCount === OJT_TOTAL;
+            pill.classList.toggle('bg-emerald-50', complete);
+            pill.classList.toggle('text-emerald-800', complete);
+            pill.classList.toggle('border-emerald-300', complete);
+            pill.classList.toggle('bg-slate-100', !complete);
+            pill.classList.toggle('text-slate-700', !complete);
+            pill.classList.toggle('border-slate-300', !complete);
+
+            // NOTE: the overall rating and the per-group averages are intentionally
+            // not displayed here. They are coordinator-only.
+
+            return summary;
+        }
 
         function handleEvaluationSubmit(e) {
             e.preventDefault();
+
+            const summary = refreshSummary();
+            if (summary.ratedCount < OJT_TOTAL) {
+                const err = document.getElementById('ratingError');
+                err.innerText = 'Please rate all ' + OJT_TOTAL + ' competencies before signing. ' +
+                    (OJT_TOTAL - summary.ratedCount) + ' remaining.';
+                err.classList.remove('hidden');
+                document.getElementById('ojtTableTop').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
+            document.getElementById('ratingError').classList.add('hidden');
+            pendingRatings = collectRatings();
             document.getElementById('otpModal').classList.remove('hidden');
             clearOtpInputs();
             requestOtpCode();
@@ -177,7 +356,6 @@
         }
 
         async function requestOtpCode() {
-            const studentId = document.getElementById('eval_student_id').value;
             document.getElementById('otpErrorMsg').classList.add('hidden');
             document.getElementById('resendOtpBtn').classList.add('hidden');
             document.getElementById('resendTimerText').classList.remove('hidden');
@@ -186,7 +364,7 @@
                 const res = await fetch('/ICS-PORTAL/supervisor/api/evaluation_otp.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'request_otp', student_id: studentId })
+                    body: JSON.stringify({ action: 'request_otp', student_id: document.getElementById('eval_student_id').value })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -245,10 +423,7 @@
             const payload = {
                 action: 'verify_and_submit_evaluation',
                 student_id: document.getElementById('eval_student_id').value,
-                technical_score: document.getElementById('tech_score').value,
-                work_ethics_score: document.getElementById('ethics_score').value,
-                communication_score: document.getElementById('comm_score').value,
-                punctuality_score: document.getElementById('punct_score').value,
+                criteria_ratings: pendingRatings || collectRatings(),
                 feedback: document.getElementById('feedback').value,
                 otp: code
             };
@@ -286,6 +461,20 @@
                 }
             });
         });
+
+        // Tint the whole cell of the chosen option, and keep the counter in sync.
+        document.querySelectorAll('.rating-input').forEach(input => {
+            input.addEventListener('change', () => {
+                document.querySelectorAll('.rating-option').forEach(opt => {
+                    const radio = opt.querySelector('.rating-input');
+                    opt.style.backgroundColor = (radio && radio.checked) ? 'rgba(15, 40, 84, 0.10)' : '';
+                });
+                refreshSummary();
+                document.getElementById('ratingError').classList.add('hidden');
+            });
+        });
+
+        refreshSummary();
     </script>
 </body>
 </html>

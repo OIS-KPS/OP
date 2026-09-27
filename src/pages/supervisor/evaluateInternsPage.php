@@ -86,7 +86,7 @@ if (!function_exists('e')) {
                                         <th class="py-4 px-6">Student</th>
                                         <th class="py-4 px-6">Completed Reports</th>
                                         <th class="py-4 px-6">Evaluation Status</th>
-                                        <th class="py-4 px-6">Final Rating</th>
+                                        <th class="py-4 px-6">Evaluation</th>
                                         <th class="py-4 px-6 text-right">Action</th>
                                     </tr>
                                 </thead>
@@ -161,15 +161,23 @@ if (!function_exists('e')) {
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Final Rating Only -->
-                                            <td class="py-4 px-6 font-extrabold text-slate-950 whitespace-nowrap">
-                                                <?= !empty($student['final_score']) ? number_format($student['final_score'], 1) . '%' : '—'; ?>
+                                            <!-- Evaluation status. The overall rating is
+                                                 coordinator-only, so no score is shown here. -->
+                                            <td class="py-4 px-6 whitespace-nowrap">
+                                                <?php if ($isEvaluated): ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-black">
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        Submitted
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="text-slate-400 text-xs font-semibold">&mdash;</span>
+                                                <?php endif; ?>
                                             </td>
 
                                             <!-- Action Button -->
                                             <td class="py-4 px-6 text-right whitespace-nowrap">
                                                 <?php if ($isEvaluated): ?>
-                                                    <a href="evaluate_view.php?id=<?= $student['evaluation_id']; ?>" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all inline-block cursor-pointer">
+                                                    <a href="evaluate_view.php?id=<?= (int)$student['evaluation_id']; ?>" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all inline-block cursor-pointer">
                                                         View Result
                                                     </a>
                                                 <?php elseif ($isTriggered): ?>
@@ -206,6 +214,77 @@ if (!function_exists('e')) {
             </main>
         </div>
     </div>
+
+    <!-- ============================================================
+         EVALUATION SCORECARD PREVIEW MODAL
+         ============================================================ -->
+    <?php if ($activeEval):
+        $scorecardVariant = 'compact';
+    ?>
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+
+                <!-- Modal Header -->
+                <div class="p-6 border-b border-slate-200/70 flex items-center justify-between bg-slate-50/60 shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 text-[#0F2854] flex items-center justify-center font-black text-sm border border-blue-200 shrink-0 overflow-hidden">
+                            <?php if (!empty($activeEval['student_avatar'])): ?>
+                                <img src="<?= e($activeEval['student_avatar']); ?>" class="w-full h-full object-cover" alt="Avatar">
+                            <?php else: ?>
+                                <?= e(strtoupper(substr($activeEval['student_name'] ?? 'S', 0, 1))); ?>
+                            <?php endif; ?>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-black text-slate-950 uppercase tracking-wider">Evaluation Scorecard</h3>
+                            <p class="text-[11px] font-semibold text-slate-500 mt-0.5">
+                                <?= e($activeEval['student_name']); ?> &bull; ID <?= e($activeEval['student_number'] ?? 'N/A'); ?>
+                            </p>
+                        </div>
+                    </div>
+                    <a href="evaluate_interns.php" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black text-xs border border-slate-300 transition-colors">✕</a>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6 space-y-5 overflow-y-auto text-xs">
+                    <?php require __DIR__ . '/../../components/evaluation_scorecard.php'; ?>
+
+                    <!-- Supervisor Remarks -->
+                    <?php if (!empty($activeEval['feedback'])): ?>
+                        <div class="space-y-1.5">
+                            <span class="block text-[10px] font-black uppercase tracking-wider text-slate-500">Comments / Remarks</span>
+                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-slate-800 font-medium leading-relaxed italic">
+                                "&ldquo;<?= e($activeEval['feedback']); ?>&rdquo;"
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- OTP Signed Badge -->
+                    <div class="p-3.5 bg-emerald-50 rounded-xl border border-emerald-300 flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2 text-emerald-900 font-black">
+                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-2.18-8.204a2.25 2.25 0 00-2.14 0L4.78 4.39A2.25 2.25 0 003.5 6.36v7.38c0 4.26 3.27 8.04 7.5 9.26 4.23-1.22 7.5-5 7.5-9.26V6.36a2.25 2.25 0 00-1.28-1.97l-4.15-2.04z" />
+                            </svg>
+                            <span>OTP Signed &amp; Verified</span>
+                        </div>
+                        <span class="text-slate-600 font-bold text-[11px]">
+                            <?= !empty($activeEval['otp_signed_at']) ? date("M d, Y \a\\t g:i A", strtotime($activeEval['otp_signed_at'])) : 'Verified Record'; ?>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="p-4 border-t border-slate-200/70 bg-slate-50/60 flex justify-between gap-2 shrink-0">
+                    <a href="evaluate_interns.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs border border-slate-300 transition-colors">
+                        Close
+                    </a>
+                    <a href="evaluate_view.php?id=<?= (int)$activeEval['evaluation_id']; ?>" class="px-5 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs shadow-xs transition-colors">
+                        Open Full Report
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    <?php endif; ?>
 
 </body>
 </html>

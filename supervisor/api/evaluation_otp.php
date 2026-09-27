@@ -4,6 +4,7 @@ session_start();
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../config/evaluation_criteria.php';
 require_once __DIR__ . '/../../src/services/MailerService.php';
 
 use services\MailerService;
@@ -98,16 +99,34 @@ if ($action === 'request_otp') {
 if ($action === 'verify_and_submit_evaluation') {
     $studentId   = (int)($input['student_id'] ?? 0);
     $otpEntered  = trim($input['otp'] ?? '');
-
-    $techScore   = floatval($input['technical_score'] ?? 0);
-    $ethicsScore = floatval($input['work_ethics_score'] ?? 0);
-    $commScore   = floatval($input['communication_score'] ?? 0);
-    $punctScore  = floatval($input['punctuality_score'] ?? 0);
     $feedback    = trim($input['feedback'] ?? '');
 
     if ($studentId <= 0 || strlen($otpEntered) !== 6) {
         echo json_encode(['success' => false, 'error' => 'Please provide a valid 6-digit OTP code.']);
         exit();
+    }
+
+    // Validate every competency on the OJT form is rated 1-5 before anything is stored.
+    $submitted = $input['criteria_ratings'] ?? null;
+    if (!is_array($submitted)) {
+        echo json_encode(['success' => false, 'error' => 'No competency ratings were received. Please rate all 12 items.']);
+        exit();
+    }
+
+    $bounds = ojtRatingBounds();
+    $ratings = [];
+    foreach (ojtEvaluationCriteria() as $criterion) {
+        $raw = $submitted[$criterion['key']] ?? null;
+        if ($raw === null || !is_numeric($raw)) {
+            echo json_encode(['success' => false, 'error' => 'Please rate all 12 competencies before submitting.']);
+            exit();
+        }
+        $value = (int) round((float) $raw);
+        if ($value < $bounds['min'] || $value > $bounds['max']) {
+            echo json_encode(['success' => false, 'error' => 'Invalid rating received. Each competency must be rated ' . $bounds['min'] . ' to ' . $bounds['max'] . '.']);
+            exit();
+        }
+        $ratings[$criterion['key']] = $value;
     }
 
     // Ensure the coordinator has authorized this evaluation
@@ -145,8 +164,13 @@ if ($action === 'verify_and_submit_evaluation') {
         exit();
     }
 
-    // Calculate final weighted score
-    $finalScore = ($techScore * 0.40) + ($ethicsScore * 0.25) + ($commScore * 0.20) + ($punctScore * 0.15);
+    // Scores stay on the docx's raw 1-5 scale: the overall rating is the simple
+    // average of all 12 competencies, and each group column is its own average.
+    $finalScore  = ojtOverallRating($ratings);
+    $groupScores = ojtGroupAverages($ratings);
+    $columnMap   = ojtGroupColumnMap();
+    $gradeLabel  = ojtRatingLabel($finalScore);
+    $criteriaJson = json_encode($ratings);
 
     // Capture Client IP Address
     $clientIp = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
@@ -159,15 +183,17 @@ if ($action === 'verify_and_submit_evaluation') {
         $pdo->beginTransaction();
 
         $stmtSave = $pdo->prepare("
-            INSERT INTO evaluations 
-            (student_id, supervisor_id, technical_score, work_ethics_score, communication_score, punctuality_score, final_score, feedback, otp_verified, otp_signed_at, otp_ip_address)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)
-            ON DUPLICATE KEY UPDATE 
+            INSERT INTO evaluations
+            (student_id, supervisor_id, technical_score, work_ethics_score, communication_score, punctuality_score, criteria_ratings, final_score, grade_equivalent, feedback, otp_verified, otp_signed_at, otp_ip_address)
+            VALUES (?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, 1, NOW(), ?)
+            ON DUPLICATE KEY UPDATE
                 technical_score = VALUES(technical_score),
                 work_ethics_score = VALUES(work_ethics_score),
                 communication_score = VALUES(communication_score),
-                punctuality_score = VALUES(punctuality_score),
+                punctuality_score = 0.00,
+                criteria_ratings = VALUES(criteria_ratings),
                 final_score = VALUES(final_score),
+                grade_equivalent = VALUES(grade_equivalent),
                 feedback = VALUES(feedback),
                 otp_verified = 1,
                 otp_signed_at = NOW(),
@@ -176,11 +202,12 @@ if ($action === 'verify_and_submit_evaluation') {
         $stmtSave->execute([
             $studentId,
             $supervisorId,
-            $techScore,
-            $ethicsScore,
-            $commScore,
-            $punctScore,
+            $groupScores['technical'] ?? 0,
+            $groupScores['ethics'] ?? 0,
+            $groupScores['communication'] ?? 0,
+            $criteriaJson,
             $finalScore,
+            $gradeLabel,
             $feedback,
             $clientIp
         ]);

@@ -3,6 +3,7 @@
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/evaluation_criteria.php';
 
 // 1. Auth Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') {
@@ -19,7 +20,14 @@ if (!$student_id) {
 }
 
 // 2. Fetch Supervisor Record
-$stmtSup = $pdo->prepare("SELECT id FROM supervisors WHERE user_id = ? LIMIT 1");
+$stmtSup = $pdo->prepare("
+    SELECT sup.id, u.name, u.email, c.name AS company_name, c.department AS company_department
+    FROM supervisors sup
+    JOIN users u ON sup.user_id = u.id
+    LEFT JOIN companies c ON sup.company_id = c.id
+    WHERE sup.user_id = ?
+    LIMIT 1
+");
 $stmtSup->execute([$userId]);
 $supervisor = $stmtSup->fetch(PDO::FETCH_ASSOC);
 
@@ -34,12 +42,15 @@ $stmt = $pdo->prepare("
         s.id,
         s.student_number,
         s.program,
+        s.section,
         s.evaluation_triggered,
         u.name,
         u.email,
-        u.avatar_url
+        u.avatar_url,
+        c.name AS company_name
     FROM students s
     JOIN users u ON s.user_id = u.id
+    LEFT JOIN companies c ON s.company_id = c.id
     WHERE s.id = ? AND s.supervisor_id = ?
     LIMIT 1
 ");
@@ -52,7 +63,29 @@ if (!$student) {
     exit();
 }
 
-// 4. Verify Coordinator Triggered the Evaluation Request
+// 4. Inclusive dates of training, derived from the approved WAR window
+$stmtDates = $pdo->prepare("
+    SELECT
+        MIN(COALESCE(approved_at, submitted_at)) AS training_start,
+        MAX(COALESCE(approved_at, submitted_at)) AS training_end
+    FROM reports
+    WHERE student_id = ? AND status = 'approved'
+");
+$stmtDates->execute([$student_id]);
+$trainingWindow = $stmtDates->fetch(PDO::FETCH_ASSOC) ?: [];
+
+$trainingStart = !empty($trainingWindow['training_start']) ? strtotime($trainingWindow['training_start']) : null;
+$trainingEnd   = !empty($trainingWindow['training_end']) ? strtotime($trainingWindow['training_end']) : null;
+
+if ($trainingStart && $trainingEnd) {
+    $trainingPeriod = date('F d, Y', $trainingStart) . ' - ' . date('F d, Y', $trainingEnd);
+} elseif ($trainingStart) {
+    $trainingPeriod = date('F d, Y', $trainingStart) . ' - Present';
+} else {
+    $trainingPeriod = 'No approved reports yet';
+}
+
+// 5. Verify Coordinator Triggered the Evaluation Request
 if (empty($student['evaluation_triggered'])) {
     $_SESSION['review_message'] = "Final evaluation has not been authorized by the OJT Coordinator yet.";
     header("Location: evaluate_interns.php");

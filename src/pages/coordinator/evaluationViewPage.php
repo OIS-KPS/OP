@@ -1,8 +1,12 @@
-<!-- src/pages/supervisor/evaluateViewPage.php -->
+<!-- src/pages/coordinator/evaluationViewPage.php -->
 <?php
 date_default_timezone_set('Asia/Manila');
-$signedTime = !empty($evaluation['otp_signed_at']) ? strtotime($evaluation['otp_signed_at']) : (!empty($evaluation['evaluated_at']) ? strtotime($evaluation['evaluated_at']) : time());
-$scorecardVariant = 'compact';
+$signedTime = !empty($evaluation['otp_signed_at'])
+    ? strtotime($evaluation['otp_signed_at'])
+    : (!empty($evaluation['evaluated_at']) ? strtotime($evaluation['evaluated_at']) : time());
+// Coordinator sees the overall rating and the per-group breakdown,
+// with every rating in a single colour (no traffic-light coding).
+$scorecardVariant = 'uniform';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,27 +20,24 @@ $scorecardVariant = 'compact';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
-
 </head>
 <body class="bg-slate-50 text-slate-800 subpixel-antialiased">
 
     <div class="flex min-h-screen">
 
         <!-- Sidebar Component -->
-        <?php include __DIR__ . '/../../components/supervisor_sidebar.php'; ?>
+        <?php include __DIR__ . '/../../components/coordinator_sidebar.php'; ?>
 
-        <!-- Right Side Main Content -->
         <div class="flex-1 flex flex-col min-w-0">
 
             <!-- Shared Top Header -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
-            <!-- Main Page Scroll Area -->
             <main class="p-8 max-w-4xl w-full mx-auto space-y-6 flex-1 relative">
 
                 <!-- Navigation Top Bar -->
                 <div class="flex items-center justify-between no-print">
-                    <a href="evaluate_interns.php" class="inline-flex items-center gap-2 text-xs font-bold text-[#0F2854] hover:text-blue-900 bg-white px-4 py-2 rounded-xl border border-slate-200/80 shadow-2xs transition-all hover:bg-slate-50">
+                    <a href="evaluations.php" class="inline-flex items-center gap-2 text-xs font-bold text-[#0F2854] hover:text-blue-900 bg-white px-4 py-2 rounded-xl border border-slate-200/80 shadow-2xs transition-all hover:bg-slate-50">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
                         <span>Back to Evaluation List</span>
                     </a>
@@ -82,7 +83,7 @@ $scorecardVariant = 'compact';
                         </div>
                     </div>
 
-                    <!-- Competency Scorecard (12 competencies, 1-5 scale) -->
+                    <!-- Competency Scorecard (12 competencies, 1-5 scale + overall) -->
                     <div class="space-y-4">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Competency Rating</h3>
                         <?php

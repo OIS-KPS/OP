@@ -3,6 +3,7 @@
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/evaluation_criteria.php';
 
 // -------------------------------------------------------------
 // 1. Authorization Guard
@@ -19,6 +20,8 @@ $supervisor = [
     'company_name' => 'Host Company'
 ];
 $students = [];
+$activeEval = null;
+$previewId = isset($_GET['preview']) ? intval($_GET['preview']) : 0;
 
 try {
     // -------------------------------------------------------------
@@ -97,6 +100,39 @@ try {
     $stmtStudents = $pdo->prepare($studentsSql);
     $stmtStudents->execute([$supervisorId]);
     $students = $stmtStudents->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // -------------------------------------------------------------
+    // 4. Load a single signed evaluation for the scorecard preview modal.
+    //    Scoped to this supervisor so the id cannot be used to read
+    //    another supervisor's intern.
+    // -------------------------------------------------------------
+    if ($previewId > 0) {
+        $stmtPreview = $pdo->prepare("
+            SELECT
+                e.id AS evaluation_id,
+                e.criteria_ratings,
+                e.technical_score,
+                e.work_ethics_score,
+                e.communication_score,
+                e.final_score,
+                e.grade_equivalent,
+                e.feedback,
+                e.otp_verified,
+                e.otp_signed_at,
+                u_std.name AS student_name,
+                u_std.avatar_url AS student_avatar,
+                s.student_number,
+                s.program,
+                s.section
+            FROM evaluations e
+            JOIN students s ON e.student_id = s.id
+            JOIN users u_std ON s.user_id = u_std.id
+            WHERE e.id = ? AND s.supervisor_id = ?
+            LIMIT 1
+        ");
+        $stmtPreview->execute([$previewId, $supervisorId]);
+        $activeEval = $stmtPreview->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
 
 } catch (Exception $e) {
     error_log("Database Error in supervisor/evaluate_interns.php: " . $e->getMessage());
