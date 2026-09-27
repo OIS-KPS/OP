@@ -366,7 +366,7 @@ try {
     $stmtReports = $pdo->prepare(
         'SELECT id, week_number, file_path, status, submitted_at, approved_at, updated_at
          FROM reports
-         WHERE student_id = ?
+         WHERE student_id = ? AND status = \'approved\'
          ORDER BY week_number ASC'
     );
     $stmtReports->execute([$studentId]);

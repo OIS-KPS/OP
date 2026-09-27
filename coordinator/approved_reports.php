@@ -72,10 +72,11 @@ try {
         LEFT JOIN companies c ON s.company_id = c.id
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
-        LEFT JOIN reports r ON r.student_id = s.id
+        LEFT JOIN reports r ON r.student_id = s.id AND r.status = 'approved'
         LEFT JOIN report_entities re ON re.report_id = r.id
         {$whereSql}
         GROUP BY s.id
+        HAVING approved_reports_count > 0
         ORDER BY s.section ASC, SUBSTRING_INDEX(u.name, ' ', -1) ASC, u.name ASC
     ";
 
