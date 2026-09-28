@@ -724,25 +724,189 @@ if ($userRole === 'coordinator') {
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
+        /* Keep both panels at a fixed height so each panel
+           handles its own vertical scrolling while the page
+           itself scrolls normally. */
+        .review-grid {
+            min-height: 0;
+            height: auto;
+        }
+
+        .pdf-panel,
+        .entity-panel {
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* PDF viewer: styled to resemble a browser PDF viewer */
+        .pdf-panel {
+            background: #323232;
+            height: 68vh;
+            min-height: 420px;
+            overflow: hidden;
+        }
+
+        .entity-panel {
+            height: 68vh;
+            min-height: 420px;
+        }
+
+        .pdf-toolbar {
+            height: 54px;
+            min-height: 54px;
+            background: #323232;
+            color: #fff;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            box-sizing: border-box;
+        }
+
+        .pdf-toolbar-btn {
+            width: 32px;
+            height: 32px;
+            border: 0;
+            border-radius: 4px;
+            background: transparent;
+            color: #e8e8e8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .pdf-toolbar-btn:hover {
+            background: rgba(255,255,255,.10);
+        }
+
+        .pdf-toolbar-btn:disabled {
+            opacity: .45;
+            cursor: default;
+        }
+
+        .pdf-toolbar-separator {
+            width: 1px;
+            height: 28px;
+            background: rgba(255,255,255,.18);
+            margin: 0 2px;
+        }
+
+        .pdf-toolbar-title {
+            min-width: 0;
+            flex: 1;
+            font-size: 12px;
+            font-weight: 600;
+            color: #f2f2f2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pdf-page-indicator {
+            min-width: 62px;
+            height: 30px;
+            padding: 0 7px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #f2f2f2;
+            white-space: nowrap;
+        }
+
+        .pdf-page-current {
+            min-width: 24px;
+            height: 22px;
+            padding: 0 5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #202020;
+            border-radius: 2px;
+        }
+
         .pdf-stage {
-            background: #e8edf4;
-            overflow-y: auto;
+            background: #525252;
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow-y: scroll;
             overflow-x: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable both-edges;
+            -webkit-overflow-scrolling: touch;
+            padding: 18px 18px 32px;
+            box-sizing: border-box;
+        }
+
+        .pdf-pages {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            width: max-content;
+            min-width: 100%;
+            min-height: max-content;
+            padding-bottom: 8px;
+        }
+
+        .pdf-stage::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        .pdf-stage::-webkit-scrollbar-track {
+            background: #3f3f3f;
+        }
+
+        .pdf-stage::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 8px;
+            border: 3px solid #3f3f3f;
+        }
+
+        .pdf-stage::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+
+        .entity-scroll {
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            overflow-x: hidden;
             overscroll-behavior: contain;
             scrollbar-gutter: stable;
         }
+
+        @media (max-width: 1279px) {
+            .pdf-toolbar {
+                padding: 0 10px;
+            }
+
+            .pdf-toolbar-title {
+                display: none;
+            }
+
+            .pdf-panel,
+            .entity-panel {
+                height: 60vh;
+                min-height: 420px;
+            }
+
+            .pdf-stage {
+                padding: 12px 10px 24px;
+            }
+        }
         .pdf-page {
             position: relative;
-            margin: 0 auto 1.25rem;
-            width: fit-content;
-            max-width: 100%;
-            background: white;
-            box-shadow: 0 8px 24px rgba(15, 40, 84, .12);
+            flex: 0 0 auto;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,.35);
         }
         .pdf-page canvas {
             display: block;
-            max-width: 100%;
-            height: auto;
         }
         .pdf-text-layer {
             position: absolute;
@@ -772,9 +936,6 @@ if ($userRole === 'coordinator') {
         .thin-scrollbar::-webkit-scrollbar { width: 7px; height: 7px; }
         .thin-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
         .pdf-loading { min-height: 300px; }
-        @media (max-width: 1279px) {
-            .pdf-stage { min-height: 55vh; }
-        }
     </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-800 antialiased">
@@ -810,9 +971,9 @@ if ($userRole === 'coordinator') {
         rr_include_component('sidebar.php');
     }
     ?>
-    <div class="flex-1 flex flex-col min-w-0">
+<div class="flex-1 flex flex-col min-w-0">
         <?php rr_include_component('header.php'); ?>
-        <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 flex-1">
+        <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5">
 
             <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                 <div class="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -873,61 +1034,110 @@ if ($userRole === 'coordinator') {
             </div>
 
             <div
-                class="grid min-h-0 grid-cols-1
+                class="review-grid grid min-h-0 flex-1
+                       grid-cols-1
                        xl:grid-cols-[minmax(0,1.55fr)_minmax(330px,.7fr)]
                        rounded-2xl border border-slate-200/80
                        bg-white shadow-xs overflow-hidden
-                       xl:h-[calc(100vh-230px)]
-                       xl:max-h-[calc(100vh-230px)]"
+                       xl:min-h-[420px]"
             >
-                <!-- LEFT: PDF -->
-                <section class="min-w-0 min-h-0 border-b xl:border-b-0 xl:border-r border-slate-200">
-                    <div class="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
-                        <div class="min-w-0">
-                            <h2 class="text-xs font-bold text-slate-900">PDF Content</h2>
-                            <p class="mt-1 text-[11px] text-slate-500">Original report document</p>
+                <!-- LEFT: PDF VIEWER -->
+                <section class="pdf-panel flex min-w-0 min-h-0 flex-col border-b xl:border-b-0 xl:border-r border-slate-700">
+                    <div class="pdf-toolbar shrink-0">
+                        <button
+                            type="button"
+                            class="pdf-toolbar-btn"
+                            aria-label="PDF viewer menu"
+                            title="PDF viewer menu"
+                        >
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 7h16M4 12h16M4 17h16"/>
+                            </svg>
+                        </button>
+
+                        <div class="pdf-toolbar-separator"></div>
+
+                        <div id="pdfFileName" class="pdf-toolbar-title">
+                            <?= rr_e(basename((string)($report['file_path'] ?? 'Report.pdf'))); ?>
                         </div>
-                        <div class="flex shrink-0 items-center gap-2">
-                            <button
-                                type="button"
-                                id="zoomOut"
-                                class="h-8 w-8 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
-                                aria-label="Zoom out"
-                            >
-                                −
-                            </button>
-                            <span id="zoomValue" class="w-12 text-center text-[11px] font-semibold text-slate-500">
-                                100%
-                            </span>
-                            <button
-                                type="button"
-                                id="zoomIn"
-                                class="h-8 w-8 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
-                                aria-label="Zoom in"
-                            >
-                                +
-                            </button>
+
+                        <div class="pdf-page-indicator" title="Current page">
+                            <span id="pdfCurrentPage" class="pdf-page-current">1</span>
+                            <span>/</span>
+                            <span id="pdfTotalPages">1</span>
                         </div>
+
+                        <div class="pdf-toolbar-separator"></div>
+
+                        <button
+                            type="button"
+                            id="zoomOut"
+                            class="pdf-toolbar-btn"
+                            aria-label="Zoom out"
+                            title="Zoom out"
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14"/>
+                            </svg>
+                        </button>
+
+                        <span id="zoomValue" class="min-w-[42px] text-center text-[12px] font-medium text-slate-100">100%</span>
+
+                        <button
+                            type="button"
+                            id="zoomIn"
+                            class="pdf-toolbar-btn"
+                            aria-label="Zoom in"
+                            title="Zoom in"
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                        </button>
+
+                        <div class="pdf-toolbar-separator"></div>
+
+                        <a
+                            id="pdfDownload"
+                            href="<?= rr_e($pdfUrl); ?>"
+                            target="_blank"
+                            rel="noopener"
+                            class="pdf-toolbar-btn"
+                            aria-label="Download PDF"
+                            title="Download"
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>
+                            </svg>
+                        </a>
+
+                        <button
+                            type="button"
+                            id="pdfPrint"
+                            class="pdf-toolbar-btn"
+                            aria-label="Print PDF"
+                            title="Print"
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/>
+                            </svg>
+                        </button>
                     </div>
+
                     <div
                         id="pdfStage"
-                        class="pdf-stage thin-scrollbar
-                               h-[calc(100vh-230px)]
-                               min-h-[500px]
-                               max-h-[calc(100vh-230px)]
-                               overflow-y-auto overflow-x-auto
-                               overscroll-contain p-3 sm:p-5"
+                        class="pdf-stage thin-scrollbar flex-1 min-h-0"
                     >
-                        <div id="pdfLoading" class="pdf-loading flex items-center justify-center text-xs text-slate-500">
+                        <div id="pdfLoading" class="pdf-loading flex items-center justify-center text-xs text-slate-200">
                             Loading PDF…
                         </div>
-                        <div id="pdfPages" class="space-y-5"></div>
+                        <div id="pdfPages" class="pdf-pages"></div>
                     </div>
                 </section>
 
                 <!-- RIGHT: EXTRACTED ENTITIES -->
-                <aside class="flex min-h-0 min-w-0 flex-col bg-white xl:h-full">
-                    <div class="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
+                <aside class="entity-panel flex min-h-0 min-w-0 flex-col bg-white xl:h-full">
+                    <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
                         <div>
                             <h2 class="text-xs font-bold text-slate-900">Extracted Entities</h2>
                             <p class="mt-1 text-[11px] text-slate-500">
@@ -943,10 +1153,8 @@ if ($userRole === 'coordinator') {
                     </div>
                     <div
                         id="entityList"
-                        class="thin-scrollbar min-h-0 flex-1
-                               h-[420px] max-h-[55vh]
-                               overflow-y-auto overscroll-contain p-4 space-y-2
-                               xl:h-auto xl:max-h-none"
+                        class="entity-scroll thin-scrollbar min-h-0 flex-1
+                               overflow-y-auto overscroll-contain p-4 space-y-2"
                     ></div>
                 </aside>
             </div>
@@ -1008,6 +1216,9 @@ if ($userRole === 'coordinator') {
     const zoomIn = document.getElementById('zoomIn');
     const zoomOut = document.getElementById('zoomOut');
     const zoomValue = document.getElementById('zoomValue');
+    const pdfCurrentPage = document.getElementById('pdfCurrentPage');
+    const pdfTotalPages = document.getElementById('pdfTotalPages');
+    const pdfPrint = document.getElementById('pdfPrint');
     let zoom = 1;
     let pdfDocument = null;
     let activeEntityKey = null;
@@ -1521,6 +1732,49 @@ if ($userRole === 'coordinator') {
                 );
             }
             pdfLoading.classList.add('hidden');
+
+            if (pdfTotalPages) {
+                pdfTotalPages.textContent = String(pdfDocument.numPages);
+            }
+            if (pdfCurrentPage) {
+                pdfCurrentPage.textContent = '1';
+            }
+
+            // Update the page number while scrolling, similar to a browser PDF viewer.
+            if ('IntersectionObserver' in window) {
+                const pageElements = Array.from(
+                    pdfPages.querySelectorAll('.pdf-page')
+                );
+                const observer = new IntersectionObserver(
+                    entries => {
+                        let bestEntry = null;
+                        entries.forEach(entry => {
+                            if (!entry.isIntersecting) return;
+                            if (
+                                !bestEntry ||
+                                entry.intersectionRatio >
+                                    bestEntry.intersectionRatio
+                            ) {
+                                bestEntry = entry;
+                            }
+                        });
+                        if (bestEntry && pdfCurrentPage) {
+                            const pageIndex =
+                                pageElements.indexOf(bestEntry.target);
+                            if (pageIndex >= 0) {
+                                pdfCurrentPage.textContent =
+                                    String(pageIndex + 1);
+                            }
+                        }
+                    },
+                    {
+                        root: pdfStage,
+                        threshold: [0.25, 0.5, 0.75]
+                    }
+                );
+                pageElements.forEach(page => observer.observe(page));
+            }
+
             if (zoomValue) {
                 zoomValue.textContent =
                     `${Math.round(zoom * 100)}%`;
@@ -1576,6 +1830,26 @@ if ($userRole === 'coordinator') {
         );
         renderPdf();
     });
+
+    pdfPrint?.addEventListener('click', () => {
+        if (report.fileUrl) {
+            const printWindow = window.open(
+                report.fileUrl,
+                '_blank',
+                'noopener,noreferrer'
+            );
+            if (printWindow) {
+                printWindow.addEventListener('load', () => {
+                    try {
+                        printWindow.print();
+                    } catch (error) {
+                        console.warn('Unable to trigger PDF print dialog.', error);
+                    }
+                });
+            }
+        }
+    });
+
     renderEntities();
     renderPdf();
 })();

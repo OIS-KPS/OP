@@ -285,8 +285,8 @@ foreach ($reviewReports as $index => $report) {
                             ================================================== -->
 
                             <a
-                                href="/ICS-PORTAL/public/files/Weekly-Accomplishment-Report-Format.docx"
-                                download="ICS_WAR_template.docx"
+                                href="/ICS-PORTAL/public/files/ICS-WAR-TEMPLATE.docx"
+                                download="ICS-WAR-TEMPLATE.docx"
                                 class="shrink-0 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs transition-all border border-white/15 inline-flex items-center gap-2"
                             >
 
