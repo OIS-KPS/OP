@@ -382,12 +382,10 @@ def strip_column_label(name, text):
 
 def is_label_row(texts):
     """
-    True when a row carries nothing but the column labels.
+    True when a row only repeats the column labels.
 
-    Word repeats the header row at the top of every page, and those
-    repeats are never part of what the trainee wrote. Tested against the
-    raw text, before any label is stripped, so a row the trainee started
-    with the word ACTIVITIES is still kept.
+    Tested against the raw text, before any label is stripped, so a row
+    the trainee started with the word ACTIVITIES is still kept.
     """
 
     labelled = False
@@ -396,21 +394,17 @@ def is_label_row(texts):
 
         text = texts.get(name) or ""
 
-        if not text.strip():
+        if not text:
 
             continue
 
-        for line in text.splitlines():
+        first_line = text.splitlines()[0].strip()
 
-            if not line.strip():
+        if not WAR_LABEL_LINE_PATTERNS[name].match(first_line):
+    
+            return False
 
-                continue
-
-            if not WAR_LABEL_LINE_PATTERNS[name].match(line.strip()):
-
-                return False
-
-            labelled = True
+        labelled = True
 
     return labelled
 
@@ -962,22 +956,10 @@ def header_row_bands(page, header, columns):
 
     if header["table"] is not None:
 
-        bands = table_row_bands(
+        return table_row_bands(
             header["table"],
             header["header_row"]
         )
-
-        if bands:
-
-            return bands
-
-        # Rows that were never ruled leave the labels sitting in one tall
-        # cell, so the columns are read in a single block and the labels
-        # are dropped from it afterwards.
-        return [(
-            header["table"].bbox[1],
-            header["table"].bbox[3]
-        )]
 
     top = header["bottom"] + 1
     bottom = columns.get("bottom")
@@ -1005,24 +987,6 @@ def header_row_bands(page, header, columns):
     return [(top, bottom)]
 
 
-def has_continuation_borders(page, columns):
-    """
-    True when the page still carries the table's column borders.
-
-    Without this a page that only shares the column positions, such as the
-    documentation sheet that follows the report, would be read as if the
-    WAR table continued onto it.
-    """
-
-    return any(
-        is_vertical_rule(rule)
-        and abs(
-            rule["x0"] - columns["divider"]
-        ) <= WAR_TABLE_X_TOLERANCE
-        for rule in page.edges
-    )
-
-
 def continuation_row_bands(page, columns):
     """
     The body of the WAR table on a page that continues it.
@@ -1045,10 +1009,6 @@ def continuation_row_bands(page, columns):
             table,
             None
         )
-
-    if not has_continuation_borders(page, columns):
-
-        return []
 
     rows = resolve_continuation_rows(
         page,
@@ -1145,9 +1105,7 @@ def build_war_column_scope(pdf):
 
         if resolved is None:
 
-            # The page has the labels but no table to read them from, so
-            # the column edges have to come from the ruling lines.
-            resolved, verticals = resolve_war_columns(
+            resolved, rules = resolve_war_columns(
                 page,
                 candidate
             )
@@ -1197,12 +1155,6 @@ def build_war_column_scope(pdf):
         pdf.pages,
         start=1
     ):
-
-        # The table starts where its header starts, so nothing before that
-        # page belongs to it, whatever a cover sheet happens to line up.
-        if page_number < header_page:
-
-            continue
 
         if page_number == header_page:
 
@@ -1309,8 +1261,6 @@ def extract_war_column_text(scope_result):
         )
 
     return "\n\n".join(parts).strip()
-
-
 # ============================================================
 # CREATE SEARCHABLE PDF TEXT
 # ============================================================
@@ -2142,38 +2092,23 @@ def main():
         )
 
     except Error as e:
-
         fail(
             "Database error while loading predefined entities.",
             str(e)
         )
 
     except Exception as e:
-
         fail(
             "Entity matching failed.",
             str(e)
         )
-
     finally:
-
         if connection is not None:
-
             try:
-
                 if connection.is_connected():
-
                     connection.close()
-
             except Exception:
-
                 pass
-
-
-# ============================================================
-# RUN
-# ============================================================
-
 if __name__ == "__main__":
 
     main()
