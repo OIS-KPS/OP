@@ -91,7 +91,8 @@ try {
                 r.submitted_at,
                 u_student.name AS student_name,
                 u_student.avatar_url AS student_avatar,
-                s.student_number
+                s.student_number,
+                s.id AS student_id
             FROM reports r
             JOIN students s ON r.student_id = s.id
             JOIN users u_student ON s.user_id = u_student.id

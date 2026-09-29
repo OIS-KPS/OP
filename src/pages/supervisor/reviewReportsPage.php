@@ -190,7 +190,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                             <?php endif; ?>
                                         </td>
                                         <td class="py-4 px-6 text-right whitespace-nowrap">
-                                            <a href="review_reports.php?review_id=<?= (int)$item['id']; ?>&status=<?= e($filter_status); ?>" 
+                                            <a href="view_report.php?student_id=<?= (int)($item['student_id'] ?? 0); ?>&report_id=<?= (int)$item['id']; ?>" 
                                                class="px-4 py-2 <?= $isPending ? 'bg-[#0F2854] text-white hover:bg-blue-900 shadow-xs' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300'; ?> text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer">
                                                 <span><?= $isPending ? 'Review' : 'View Details'; ?></span>
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
@@ -280,7 +280,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
 
                 <?php if (!empty($activeReport['student_id'])): ?>
                     <div class="pt-2.5 mt-2 border-t border-slate-300 text-center shrink-0">
-                        <a href="interns.php?id=<?= (int)$activeReport['student_id']; ?>" class="text-xs font-bold text-[#0F2854] hover:underline">
+                        <a href="view_report.php?student_id=<?= (int)$activeReport['student_id']; ?>" class="text-xs font-bold text-[#0F2854] hover:underline">
                             View All Weekly Reports by <?= e($activeReport['student_name'] ?? 'Student'); ?> &rarr;
                         </a>
                     </div>

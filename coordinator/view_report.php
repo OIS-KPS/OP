@@ -1,8 +1,9 @@
-<?php
+﻿<?php
 // coordinator/view_report.php
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../src/services/report_workspace.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
     header('Location: ../auth/login.php');
@@ -18,10 +19,10 @@ $selectedReportId = isset($_GET['report_id']) ? (int) $_GET['report_id'] : 0;
 $forceExtraction = isset($_GET['extract']) && $_GET['extract'] === '1';
 
 if ($studentId <= 0 && ($reportId > 0 || $selectedReportId > 0)) {
-    $lookupId = $selectedReportId > 0 ? $selectedReportId : $reportId;
-    $stmtR = $pdo->prepare("SELECT student_id FROM reports WHERE id = ? LIMIT 1");
-    $stmtR->execute([$lookupId]);
-    $studentId = (int) ($stmtR->fetchColumn() ?: 0);
+    $studentId = reportWorkspaceStudentIdForReport(
+        $pdo,
+        $selectedReportId > 0 ? $selectedReportId : $reportId
+    );
 }
 
 if ($studentId <= 0 && $reportId <= 0 && $selectedReportId <= 0) {
@@ -329,7 +330,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $student = null;
 $reportsList = [];
 $activeReport = null;
-$rawAllEntities = [];
 $allEntities = [];
 $weekEntities = [];
 $archivedEntities = [];
@@ -337,196 +337,42 @@ $itPct = 0;
 $clericalPct = 0;
 $technicalCount = 0;
 $clericalCount = 0;
+$weekItPct = 0;
+$weekClericalPct = 0;
+$weekTotalCount = 0;
+$pdfUrl = '';
 
 try {
-    if ($studentId > 0) {
-        $stmtStudent = $pdo->prepare(
-            'SELECT 
-                s.id AS student_id, s.student_number, s.program, COALESCE(s.section, "A") AS section,
-                u.name AS student_name, u.email AS student_email, u.avatar_url AS student_avatar,
-                c.name AS company_name, c.department AS company_dept,
-                u_sup.name AS supervisor_name
-             FROM students s
-             JOIN users u ON s.user_id = u.id
-             LEFT JOIN companies c ON s.company_id = c.id
-             LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
-             LEFT JOIN users u_sup ON sup.user_id = u_sup.id
-             WHERE s.id = ?
-             LIMIT 1'
-        );
-        $stmtStudent->execute([$studentId]);
-        $student = $stmtStudent->fetch(PDO::FETCH_ASSOC);
-    }
+    $workspace = reportWorkspaceBuild($pdo, $studentId, [
+        'reportId' => $selectedReportId > 0 ? $selectedReportId : $reportId,
+        'status' => 'approved',
+    ]);
+
+    $student = $workspace['student'];
 
     if (!$student) {
         header('Location: approved_reports.php');
         exit();
     }
 
-    $stmtReports = $pdo->prepare(
-        'SELECT id, week_number, file_path, status, submitted_at, approved_at, updated_at
-         FROM reports
-         WHERE student_id = ? AND status = \'approved\'
-         ORDER BY week_number ASC'
-    );
-    $stmtReports->execute([$studentId]);
-    $reportsList = $stmtReports->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $reportsList = $workspace['reportsList'];
+    $activeReport = $workspace['activeReport'];
+    $allEntities = $workspace['allEntities'];
+    $weekEntities = $workspace['weekEntities'];
+    $archivedEntities = $workspace['archivedEntities'];
+    $itPct = $workspace['itPct'];
+    $clericalPct = $workspace['clericalPct'];
+    $technicalCount = $workspace['technicalCount'];
+    $clericalCount = $workspace['clericalCount'];
+    $weekItPct = $workspace['weekItPct'];
+    $weekClericalPct = $workspace['weekClericalPct'];
+    $weekTotalCount = $workspace['weekTotalCount'];
+    $pdfUrl = $workspace['pdfUrl'];
 
-    if (!empty($reportsList)) {
-        if ($selectedReportId > 0 || $reportId > 0) {
-            $targetId = $selectedReportId > 0 ? $selectedReportId : $reportId;
-            foreach ($reportsList as $rep) {
-                if ((int)$rep['id'] === $targetId) {
-                    $activeReport = $rep;
-                    break;
-                }
-            }
-        }
-        if (!$activeReport) {
-            $activeReport = end($reportsList);
-            reset($reportsList);
-        }
-    }
-
-    $reportIds = array_column($reportsList, 'id');
-    if (!empty($reportIds)) {
-        $placeholders = implode(',', array_fill(0, count($reportIds), '?'));
-        
-        // Fetch Active Entities
-        $stmtEnt = $pdo->prepare(
-            "SELECT 
-                re.id, re.report_id, re.entity_name, re.canonical_name, re.category,
-                re.activity_type, re.activity_type AS classification,
-                re.it_related, re.source, re.confidence_score, re.created_at,
-                r.week_number
-             FROM report_entities re
-             JOIN reports r ON re.report_id = r.id
-             WHERE re.report_id IN ($placeholders) AND re.is_archived = 0
-             ORDER BY r.week_number ASC, re.id DESC"
-        );
-        $stmtEnt->execute($reportIds);
-        $rawAllEntities = $stmtEnt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-        // Fetch Archived Entities
-        $stmtArch = $pdo->prepare(
-            "SELECT 
-                re.id, re.report_id, re.entity_name, re.category, re.activity_type, r.week_number
-             FROM report_entities re
-             JOIN reports r ON re.report_id = r.id
-             WHERE re.report_id IN ($placeholders) AND re.is_archived = 1
-             ORDER BY r.week_number ASC, re.id DESC"
-        );
-        $stmtArch->execute($reportIds);
-        $archivedEntities = $stmtArch->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    // REMOVE REDUNDANCY / DUPLICATE ENTITIES PER WEEK
-    $seenWeekEntities = [];
-    foreach ($rawAllEntities as $entity) {
-        $weekNum = (int) ($entity['week_number'] ?? 0);
-        $cleanName = strtolower(trim($entity['entity_name'] ?? ''));
-        $dedupKey = $weekNum . '|' . $cleanName;
-
-        if (!isset($seenWeekEntities[$dedupKey])) {
-            $seenWeekEntities[$dedupKey] = true;
-            $allEntities[] = $entity;
-        }
-    }
-
-   // Handle CSV Export Request (Prioritizing Weekly Report Percentages)
     if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-        $safeStudentName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $student['student_name'] ?? 'student');
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=' . $safeStudentName . '_weekly_reports_summary.csv');
-        
-        $output = fopen('php://output', 'w');
-        fputcsv($output, ['Week Number', 'Report Status', 'Submitted Date', 'IT Percentage (%)', 'Clerical Percentage (%)']);
-        
-        // Loop through all reports and compute each week's specific percentage
-        foreach ($reportsList as $rep) {
-            $repId = (int)$rep['id'];
-            $wTech = 0;
-            $wCler = 0;
-            
-            foreach ($allEntities as $ent) {
-                if ((int)$ent['report_id'] === $repId) {
-                    $actType = strtolower(trim((string)($ent['activity_type'] ?? '')));
-                    if ($actType === 'clerical') {
-                        $wCler++;
-                    } elseif ($actType !== '') {
-                        $wTech++;
-                    }
-                }
-            }
-            
-            $wTotal = $wTech + $wCler;
-            $wItPct = $wTotal > 0 ? round(($wTech / $wTotal) * 100, 1) : 0.0;
-            $wClerPct = $wTotal > 0 ? round(($wCler / $wTotal) * 100, 1) : 0.0;
-            
-            fputcsv($output, [
-                'Week ' . (int)$rep['week_number'],
-                ucfirst($rep['status'] ?? 'N/A'),
-                $rep['submitted_at'] ?? 'N/A',
-                $wItPct . '%',
-                $wClerPct . '%'
-            ]);
-        }
-        
-        fclose($output);
+        reportWorkspaceExportCsv($student, $reportsList, $allEntities);
         exit();
     }
-
-    $activeReportId = $activeReport ? (int)$activeReport['id'] : 0;
-    $weekEntities = array_filter($allEntities, function($e) use ($activeReportId) {
-        return (int)$e['report_id'] === $activeReportId;
-    });
-
-    foreach ($allEntities as &$entity) {
-        $activityType = strtolower(trim((string) ($entity['activity_type'] ?? '')));
-        $itRelated = strtolower(trim((string) ($entity['it_related'] ?? 'unknown')));
-
-        $entity['classification_label'] = $activityType === 'clerical'
-            ? 'Clerical'
-            : ($activityType !== '' ? 'Technical' : 'Unclassified');
-        $entity['it_related_label'] = match ($itRelated) {
-            'yes' => 'IT Related',
-            'no' => 'Non-IT',
-            default => 'Unknown'
-        };
-
-        if ($activityType === 'clerical') {
-            $clericalCount++;
-        } elseif ($activityType !== '') {
-            $technicalCount++;
-        }
-    }
-    unset($entity);
-
-    $totalEntities = $technicalCount + $clericalCount;
-    if ($totalEntities > 0) {
-        $itPct = round(($technicalCount / $totalEntities) * 100, 1);
-        $clericalPct = round(($clericalCount / $totalEntities) * 100, 1);
-    }
-
-    $weekTechCount = 0;
-    $weekClericalCount = 0;
-    foreach ($weekEntities as $ent) {
-        $actType = strtolower(trim((string) ($ent['activity_type'] ?? '')));
-        if ($actType === 'clerical') {
-            $weekClericalCount++;
-        } elseif ($actType !== '') {
-            $weekTechCount++;
-        }
-    }
-    
-    $weekTotalCount = $weekTechCount + $weekClericalCount;
-    $weekItPct = 0;
-    $weekClericalPct = 0;
-    if ($weekTotalCount > 0) {
-        $weekItPct = round(($weekTechCount / $weekTotalCount) * 100, 1);
-        $weekClericalPct = round(($weekClericalCount / $weekTotalCount) * 100, 1);
-    }
-
 } catch (Throwable $exception) {
     error_log('Error in coordinator/view_report.php: ' . $exception->getMessage());
     $allEntities = [];
