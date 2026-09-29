@@ -512,7 +512,7 @@ foreach ($reviewReports as $index => $report) {
                                     <?php endif; ?>
                                     <?php if (!empty($filePath)): ?>
                                         <a
-                                            href="review_report.php?report_id=<?= urlencode((string)($r['id'] ?? $r['report_id'] ?? '')); ?>"
+                                            href="view_report.php?report_id=<?= urlencode((string)($r['id'] ?? $r['report_id'] ?? '')); ?>"
                                             class="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#0F2854] bg-slate-100 hover:bg-slate-200/80 rounded-xl border border-slate-200/70 transition-all"
                                         >
                                             Review PDF
