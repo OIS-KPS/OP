@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // coordinator/view_report.php
 session_start();
 
@@ -88,6 +88,51 @@ function findEntityExtractor(): ?string
 }
 
 /**
+ * Locate the Python binary across Windows and Linux environments.
+ */
+function findPythonBinary(): string
+{
+    $isWin = PHP_OS_FAMILY === 'Windows';
+    $localAppData = getenv('LOCALAPPDATA') ?: '';
+
+    $candidates = [
+        getenv('PYTHON_BINARY') ?: '',
+        __DIR__ . '/../python/.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python3'),
+        __DIR__ . '/../python/.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python'),
+        __DIR__ . '/../.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python3'),
+        __DIR__ . '/../.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python'),
+    ];
+
+    if ($isWin) {
+        $candidates[] = 'C:\\Users\\HP\\AppData\\Local\\Programs\\Python\\Python314\\python.exe';
+        if ($localAppData !== '') {
+            $candidates[] = $localAppData . '\\Programs\\Python\\Python314\\python.exe';
+            $candidates[] = $localAppData . '\\Programs\\Python\\Python313\\python.exe';
+            $candidates[] = $localAppData . '\\Programs\\Python\\Python312\\python.exe';
+            $candidates[] = $localAppData . '\\Programs\\Python\\Python311\\python.exe';
+        }
+        $candidates[] = 'C:\\Python314\\python.exe';
+        $candidates[] = 'C:\\Python313\\python.exe';
+        $candidates[] = 'C:\\Python312\\python.exe';
+        $candidates[] = 'python';
+        $candidates[] = 'py';
+    } else {
+        $candidates[] = '/usr/bin/python3';
+        $candidates[] = '/usr/local/bin/python3';
+        $candidates[] = 'python3';
+        $candidates[] = 'python';
+    }
+
+    foreach ($candidates as $candidate) {
+        if ($candidate !== '' && ($candidate === 'python' || $candidate === 'python3' || $candidate === 'py' || is_file($candidate))) {
+            return $candidate;
+        }
+    }
+
+    return $isWin ? 'python' : 'python3';
+}
+
+/**
  * Execute the extractor and decode its JSON response.
  */
 function runEntityExtractor(string $pdfPath): array
@@ -96,18 +141,19 @@ function runEntityExtractor(string $pdfPath): array
     if ($extractor === null) {
         return [
             'success' => false,
-            'error' => 'The spaCy entity extractor was not found. Place entity_extractor.py in the python directory.'
+            'error' => 'The spaCy entity extractor was not found. Place entity_extractor.py or extract_entities.py in the python directory.'
         ];
     }
 
-    $command = 'python3 ' . escapeshellarg($extractor) . ' ' . escapeshellarg($pdfPath);
+    $pythonBinary = findPythonBinary();
+    $command = [$pythonBinary, $extractor, $pdfPath];
     $descriptors = [
         0 => ['pipe', 'r'],
         1 => ['pipe', 'w'],
         2 => ['pipe', 'w'],
     ];
 
-    $process = proc_open($command, $descriptors, $pipes);
+    $process = proc_open($command, $descriptors, $pipes, dirname($extractor));
     if (!is_resource($process)) {
         return [
             'success' => false,

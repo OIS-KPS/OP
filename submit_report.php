@@ -120,12 +120,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SERVER['REMOTE_ADDR'] ?? '::1',
                     $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
                 ]);
+                require_once __DIR__ . '/src/services/report_workspace.php';
+                reportWorkspaceEnsureExtraction($pdo, ['id' => (int)$existingReport['id'], 'file_path' => $filePath], true);
             } else {
                 $stmtInsert = $pdo->prepare("
                     INSERT INTO reports (student_id, week_number, file_path, status, submitted_at)
                     VALUES (?, ?, ?, 'pending', NOW())
                 ");
                 $stmtInsert->execute([$student_id, $weekNumber, $filePath]);
+                $newReportId = (int) $pdo->lastInsertId();
 
                 $logDesc = "Student {$studentName} submitted Week {$weekNumber} accomplishment report.";
                 $stmtLog = $pdo->prepare("
@@ -138,6 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SERVER['REMOTE_ADDR'] ?? '::1',
                     $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
                 ]);
+
+                require_once __DIR__ . '/src/services/report_workspace.php';
+                reportWorkspaceEnsureExtraction($pdo, ['id' => $newReportId, 'file_path' => $filePath]);
             }
 
             header("Location: reports.php?submitted=success");

@@ -222,6 +222,193 @@ if (!function_exists('reportWorkspaceRatio')) {
 }
 
 /**
+ * Resolve local filesystem path to a report's PDF.
+ */
+if (!function_exists('reportWorkspaceResolvePdf')) {
+    function reportWorkspaceResolvePdf(string $filePath): string
+    {
+        $filePath = trim(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $filePath));
+        if ($filePath === '') {
+            return '';
+        }
+
+        $projectRoot = dirname(__DIR__, 2);
+        $candidates = [
+            $filePath,
+            $projectRoot . DIRECTORY_SEPARATOR . ltrim($filePath, '/\\'),
+            $projectRoot . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'reports' . DIRECTORY_SEPARATOR . basename($filePath),
+        ];
+
+        foreach ($candidates as $cand) {
+            $real = realpath($cand);
+            if ($real && is_file($real)) {
+                return $real;
+            }
+        }
+
+        return '';
+    }
+}
+
+/**
+ * Ensure entities have been extracted and persisted for a report.
+ */
+if (!function_exists('reportWorkspaceEnsureExtraction')) {
+    function reportWorkspaceEnsureExtraction(PDO $pdo, array $report, bool $force = false): bool
+    {
+        $reportId = (int)($report['id'] ?? 0);
+        $filePath = (string)($report['file_path'] ?? '');
+        if ($reportId <= 0 || $filePath === '') {
+            return false;
+        }
+
+        if (!$force) {
+            try {
+                $stmtCheck = $pdo->prepare('SELECT COUNT(*) FROM report_entities WHERE report_id = ?');
+                $stmtCheck->execute([$reportId]);
+                if ((int)$stmtCheck->fetchColumn() > 0) {
+                    return true;
+                }
+            } catch (Throwable $e) {
+                return false;
+            }
+        }
+
+        $localPdf = reportWorkspaceResolvePdf($filePath);
+        if ($localPdf === '') {
+            return false;
+        }
+
+        $projectRoot = dirname(__DIR__, 2);
+        $scriptCandidates = [
+            $projectRoot . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'extract_entities.py',
+            $projectRoot . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'entity_extractor.py',
+        ];
+
+        $scriptPath = '';
+        foreach ($scriptCandidates as $candidate) {
+            if (is_file($candidate)) {
+                $scriptPath = realpath($candidate) ?: $candidate;
+                break;
+            }
+        }
+
+        if ($scriptPath === '') {
+            return false;
+        }
+
+        $pythonCandidates = [
+            $projectRoot . '/python/.venv/bin/python3',
+            $projectRoot . '/python/.venv/bin/python',
+            getenv('PYTHON_BINARY') ?: '',
+            'C:\\Users\\HP\\AppData\\Local\\Programs\\Python\\Python314\\python.exe',
+            'C:\\Python314\\python.exe',
+            PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3',
+        ];
+
+        $pythonBinary = PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3';
+        foreach ($pythonCandidates as $cand) {
+            if ($cand !== '' && ($cand === 'python' || $cand === 'python3' || (is_file($cand) && is_executable($cand)))) {
+                $pythonBinary = $cand;
+                break;
+            }
+        }
+
+        $command = escapeshellarg($pythonBinary) . ' ' .
+            escapeshellarg($scriptPath) . ' ' .
+            escapeshellarg($localPdf);
+
+        $descriptors = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $proc = proc_open($command, $descriptors, $pipes, $projectRoot);
+        if (!is_resource($proc)) {
+            return false;
+        }
+
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($proc);
+
+        $data = json_decode(trim((string)$stdout), true);
+        if (!is_array($data) || empty($data['success']) || !isset($data['entities'])) {
+            error_log("Extraction error for report $reportId: " . ($data['error'] ?? $stderr));
+            return false;
+        }
+
+        $entities = $data['entities'];
+        if (!is_array($entities) || empty($entities)) {
+            return true;
+        }
+
+        try {
+            $pdo->beginTransaction();
+            if ($force) {
+                $delStmt = $pdo->prepare('DELETE FROM report_entities WHERE report_id = ?');
+                $delStmt->execute([$reportId]);
+            }
+            $insertStmt = $pdo->prepare("
+                INSERT INTO report_entities
+                (report_id, entity_name, canonical_name, category, activity_type, it_related, source, confidence_score, is_archived)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+            ");
+
+            $seen = [];
+            foreach ($entities as $ent) {
+                $name = trim((string)($ent['entity_name'] ?? $ent['entity'] ?? $ent['term'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+                $canonical = trim((string)($ent['canonical_name'] ?? $name));
+                $category = trim((string)($ent['category'] ?? 'Other')) ?: 'Other';
+                $activityType = trim((string)($ent['activity_type'] ?? 'Software'));
+                if (!in_array($activityType, ['Software', 'Hardware', 'Clerical', 'Other'], true)) {
+                    $activityType = 'Other';
+                }
+                $itRelated = trim((string)($ent['it_related'] ?? 'unknown'));
+                if (!in_array($itRelated, ['yes', 'no', 'unknown'], true)) {
+                    $itRelated = $activityType === 'Clerical' ? 'no' : 'yes';
+                }
+                $conf = isset($ent['confidence_score']) && is_numeric($ent['confidence_score'])
+                    ? (float)$ent['confidence_score']
+                    : 100.00;
+
+                $key = strtolower($canonical . '|' . $activityType);
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+
+                $insertStmt->execute([
+                    $reportId,
+                    $name,
+                    $canonical,
+                    $category,
+                    $activityType,
+                    $itRelated,
+                    $ent['source'] ?? 'spacy',
+                    $conf
+                ]);
+            }
+            $pdo->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log("Failed to insert entities for report $reportId: " . $e->getMessage());
+            return false;
+        }
+    }
+}
+
+/**
  * Everything a report workspace view needs for one student.
  *
  * @param array{reportId?:int, status?:?string, weekOrder?:string} $options
@@ -270,6 +457,11 @@ if (!function_exists('reportWorkspaceBuild')) {
                 $workspace['activeReport'] = end($workspace['reportsList']);
                 reset($workspace['reportsList']);
             }
+        }
+
+        // Auto-extract entities for the active report if not yet processed
+        if ($workspace['activeReport'] !== null) {
+            reportWorkspaceEnsureExtraction($pdo, $workspace['activeReport']);
         }
 
         $entities = reportWorkspaceLoadEntities($pdo, array_column($workspace['reportsList'], 'id'));

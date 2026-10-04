@@ -27,8 +27,8 @@ SET time_zone = "+00:00";
 -- Table structure for table `audit_logs`
 --
 
-CREATE DATABASE `nbsc_ojt` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `nbsc_ojt`;
+-- CREATE DATABASE `nbsc_ojt` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- USE `nbsc_ojt`;
 
 CREATE TABLE `audit_logs` (
   `id` int(11) NOT NULL,
@@ -242,9 +242,9 @@ CREATE TABLE `students` (
 --
 
 INSERT INTO `students` (`id`, `user_id`, `student_number`, `program`, `section`, `company_id`, `supervisor_id`, `completion_requested`, `created_at`) VALUES
-(1, 1, '20231053', 'BSIT', 'A', 1, 1, 0, '2026-08-19 07:00:29'),
-(110, 113, '20231969', 'BSIT', 'B', 1, 2, 0, '2026-08-22 08:28:48');
-
+-- (1, 1, '20231053', 'BSIT', 'A', 1, 1, 0, '2026-08-19 07:00:29'),
+-- (110, 113, '20231969', 'BSIT', 'B', 1, 2, 0, '2026-08-22 08:28:48'),
+(2, 102, '20231052', 'BSIT', 'C', 1, 2, 3, '2026-08-23 08:28:48');
 -- --------------------------------------------------------
 
 --
@@ -295,7 +295,7 @@ INSERT INTO `users` (`id`, `name`, `email`, `password_hash`, `role`, `status`, `
 (112, 'Spvr. Sander Perejan', 'sanderperejan@gmail.com', '$2y$10$iX8PH3eCaqwzaLtkWvXgFuIftvNxXVH6046FQ5D9cULARQ1O26aIO', 'supervisor', 'active', NULL, 'https://lh3.googleusercontent.com/a/ACg8ocLo3ANHFlWgegCn6_J_KrGDO8Txnr27MTKMfkNmYSOLRA5xv9fL=s96-c', '2026-08-22 07:36:22'),
 (113, 'Sander Perejan', '20231969@nbsc.edu.ph', '$2y$10$KlzFsdVLaX6yzjeLbqFQx.5VMUwk0n2pPDnrTfZO1dvs8LThI5XGS', 'student', 'active', NULL, 'https://lh3.googleusercontent.com/a/ACg8ocJZ26hhJE1jpszXnioRlpMOCbGByYSk54nAm7SzZYLz3XV3j0ff=s96-c', '2026-08-22 07:37:13'),
 (114, 'Prof. Sander', 'syder844@gmail.com', '$2y$10$ILOV6OumfFksRaBxGkIiGe5MVkKu.5vsuGsPdYgwRL448h8X4/LlG', 'coordinator', 'active', NULL, 'https://lh3.googleusercontent.com/a/ACg8ocJ8hHv80_HQczTIj3PWOzVJDwzKYAmELAL6yXXxOcZJNkrmTg=s96-c', '2026-08-22 08:26:29');
-
+(201, 'Pauline May Coming', '20231052@nbsc.edu.ph', NULL, 'student', 'active', NULL, NULL, '2026-08-25 07:00:29'),
 --
 -- Indexes for dumped tables
 --

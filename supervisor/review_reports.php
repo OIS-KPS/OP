@@ -11,11 +11,44 @@ require_once __DIR__ . '/../config/db.php';
 // CONFIGURATION
 // ============================================================
 
-// Detect Python binary
-$pythonExec = 'python';
-$standardWindowsPython = 'C:\\Users\\HP\\AppData\\Local\\Programs\\Python\\Python314\\python.exe';
-if (is_file($standardWindowsPython)) {
-    $pythonExec = $standardWindowsPython;
+// Detect Python binary (Cross-Platform: Windows & Linux)
+$isWin = PHP_OS_FAMILY === 'Windows';
+$localAppData = getenv('LOCALAPPDATA') ?: '';
+
+$pythonCandidates = [
+    getenv('PYTHON_BINARY') ?: '',
+    __DIR__ . '/../python/.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python3'),
+    __DIR__ . '/../python/.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python'),
+    __DIR__ . '/../.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python3'),
+    __DIR__ . '/../.venv/' . ($isWin ? 'Scripts/python.exe' : 'bin/python'),
+];
+
+if ($isWin) {
+    $pythonCandidates[] = 'C:\\Users\\HP\\AppData\\Local\\Programs\\Python\\Python314\\python.exe';
+    if ($localAppData !== '') {
+        $pythonCandidates[] = $localAppData . '\\Programs\\Python\\Python314\\python.exe';
+        $pythonCandidates[] = $localAppData . '\\Programs\\Python\\Python313\\python.exe';
+        $pythonCandidates[] = $localAppData . '\\Programs\\Python\\Python312\\python.exe';
+        $pythonCandidates[] = $localAppData . '\\Programs\\Python\\Python311\\python.exe';
+    }
+    $pythonCandidates[] = 'C:\\Python314\\python.exe';
+    $pythonCandidates[] = 'C:\\Python313\\python.exe';
+    $pythonCandidates[] = 'C:\\Python312\\python.exe';
+    $pythonCandidates[] = 'python';
+    $pythonCandidates[] = 'py';
+} else {
+    $pythonCandidates[] = '/usr/bin/python3';
+    $pythonCandidates[] = '/usr/local/bin/python3';
+    $pythonCandidates[] = 'python3';
+    $pythonCandidates[] = 'python';
+}
+
+$pythonExec = $isWin ? 'python' : 'python3';
+foreach ($pythonCandidates as $candidate) {
+    if ($candidate !== '' && ($candidate === 'python' || $candidate === 'python3' || $candidate === 'py' || is_file($candidate))) {
+        $pythonExec = $candidate;
+        break;
+    }
 }
 
 define('PYTHON_EXEC', $pythonExec);
@@ -204,26 +237,46 @@ function extractEntitiesWithSpaCy(
     }
 
     // ========================================================
-    // EXECUTE PYTHON
+    // EXECUTE PYTHON (Cross-Platform proc_open Array Execution)
     // ========================================================
 
-    $command =
-        escapeshellarg(PYTHON_EXEC) .
-        ' ' .
-        escapeshellarg($pythonScript) .
-        ' ' .
-        escapeshellarg($realPdfPath) .
-        ' 2>&1';
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
 
-    $output = shell_exec($command);
+    $process = proc_open(
+        [PYTHON_EXEC, $pythonScript, $realPdfPath],
+        $descriptors,
+        $pipes,
+        dirname($pythonScript)
+    );
 
-    if (
-        $output === null ||
-        trim($output) === ''
-    ) {
+    if (!is_resource($process)) {
+        return [
+            'success' => false,
+            'error' => 'Unable to start Python extraction process.',
+            'entities' => [],
+            'content' => '',
+            'summary' => []
+        ];
+    }
+
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
+
+    $output = trim((string)$stdout);
+
+    if ($output === '') {
         return [
             'success' => false,
             'error' => 'Python returned no output.',
+            'details' => trim((string)$stderr),
             'entities' => [],
             'content' => '',
             'summary' => []

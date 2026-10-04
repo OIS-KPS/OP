@@ -12,7 +12,6 @@ cuda-bindings==13.4.3
 cuda-pathfinder==1.8.2
 cuda-toolkit==13.0.3.0
 cymem==2.0.13
-fastapi==0.142.2
 filelock==4.0.7
 fsspec==2026.9.0
 h11==0.16.0
