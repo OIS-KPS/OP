@@ -126,7 +126,7 @@ A trained spaCy transformer model directory. Contains `config.cfg`, `meta.json`,
 
 ### `extract_entities.py`
 
-**Legacy script** — a standalone, monolithic entity extractor that connects directly to MySQL (`nbsc_ojt`) and processes PDF files via `pdfplumber`. It predates the FastAPI service and is **not part of the API runtime**. It is retained for backward compatibility and WAR (Weekly Accomplishment Report) PDF column extraction logic. Its text extraction routines can optionally be integrated with the FastAPI pipeline (see [Integrating with Text Extraction from `extract_entities.py`](#integrating-with-text-extraction-from-extract_entitiespy)).
+**Legacy script** — a standalone, monolithic entity extractor that connects directly to MySQL (`nbsc_ojt`) and processes PDF files via `pdfplumber`. Its CLI entry point and database matching are **not used by the API**, but its PDF parsing routines (`extract_pdf_text()`, `build_war_column_scope()`, `extract_war_column_text()`) **are** imported by `POST /extract-pdf` to read the uploaded report and scope it to the `ACTIVITIES` / `REFLECTIONS` columns.
 
 ### `requirements.txt`
 
@@ -280,6 +280,7 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 | --- | --- | --- |
 | `GET` | `/health` | Readiness probe — `200` when pipeline is loaded, `503` during startup. |
 | `POST` | `/extract` | Entity extraction — accepts `{"text": "..."}`, returns entities with dedup + summary. |
+| `POST` | `/extract-pdf` | Entity extraction from a report PDF — accepts `multipart/form-data` with a `file` field. Called by the PHP portal (`entityApiExtractPdf()`). |
 
 ### `POST /extract` — Request Body
 
@@ -390,43 +391,33 @@ The legacy `extract_entities.py` script is a self-contained tool that:
 - Runs spaCy NER on extracted text
 - Writes results back to the database
 
-It is **not used by the FastAPI service** and has no shared runtime state with it. The API replaces the entity extraction portion with a cleaner HTTP interface, while the PDF parsing and database logic remain in the legacy script for backward compatibility.
+Only its **PDF parsing** side is used by the API: `POST /extract-pdf` calls `extract_pdf_text()`, `build_war_column_scope()` and `extract_war_column_text()` to turn an uploaded report into text before handing it to `HybridJournalPipeline`. Its CLI entry point, MySQL connection, and database matching are not part of the API runtime — the PHP portal owns persistence.
 
-### Integrating with Text Extraction from `extract_entities.py`
+### Text extraction routines used by `/extract-pdf`
 
-If you want to extract entities from Weekly Accomplishment Report (WAR) PDF files or full PDF documents, you can combine the robust text-extraction routines in [extract_entities.py](/python/extract_entities.py) with the FastAPI microservice:
+1. **WAR Column Extraction**: `build_war_column_scope(pdf)` locates the `ACTIVITIES` / `REFLECTIONS` table across pages; `extract_war_column_text()` renders that scope into the text the model is matched against.
+2. **Full PDF Text**: `extract_pdf_text(pdf)` reads every page via `pdfplumber` and becomes the `content` field, so the reviewer page still renders the whole submission.
+3. **Entity Pipeline**: the scoped text (or the full document when scoping fails) goes to `HybridJournalPipeline.predict(mode="hybrid")`, deduplicated and summarised exactly like `/extract`.
 
-1. **WAR Column Extraction**: `locate_war_columns()` and `extract_war_column_text()` isolate text written within the `ACTIVITIES` and `REFLECTIONS` columns across table pages.
-2. **Full PDF Fallback**: `extract_pdf_text()` extracts text across all pages via `pdfplumber`.
-3. **Entity Pipeline**: Send the extracted text payload to the `POST /extract` endpoint (or call `HybridJournalPipeline.predict()` directly in Python).
-
-#### Example Integration (Python)
+The functions are importable on their own if you need the same text outside the API:
 
 ```python
-import requests
 import pdfplumber
-from extract_entities import locate_war_columns, extract_war_column_text, extract_pdf_text
+from extract_entities import (
+    build_war_column_scope,
+    extract_pdf_text,
+    extract_war_column_text,
+)
 
-pdf_path = "path/to/weekly_accomplishment_report.pdf"
+with pdfplumber.open("path/to/weekly_accomplishment_report.pdf") as pdf:
+    full_text, err = extract_pdf_text(pdf)
+    scope_result = build_war_column_scope(pdf)
+    scoped_text = extract_war_column_text(scope_result) or full_text
+```
 
-# 1. Extract scoped WAR column text (Activities & Reflections)
-with pdfplumber.open(pdf_path) as pdf:
-    scope_result = locate_war_columns(pdf)
-    text = extract_war_column_text(scope_result)
+To test a PDF straight against the service without going through PHP:
 
-    # Fallback to full document text if table columns are not found
-    if not text:
-        text, err = extract_pdf_text(pdf)
-
-# 2. Send the extracted text to the FastAPI entity extraction service
-if text:
-    response = requests.post(
-        "http://localhost:8000/extract",
-        json={"text": text},
-        timeout=30
-    )
-    result = response.json()
-    if result.get("success"):
-        entities = result.get("entities", [])
-        print(f"Extracted {len(entities)} entities from PDF.")
+```bash
+curl -X POST http://localhost:8000/extract-pdf \
+  -F "file=@uploads/reports/WAR_Week_1_Student_111_1790603603.pdf;type=application/pdf"
 ```
