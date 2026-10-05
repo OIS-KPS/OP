@@ -10,11 +10,12 @@ import os
 import sys
 import re
 import logging
+import tempfile
 from contextlib import asynccontextmanager
 from collections import defaultdict
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
@@ -39,6 +40,11 @@ logger = logging.getLogger("ojt_pipeline.api")
 # long text wouldn't improve results anyway.
 MAX_TEXT_LENGTH = 100_000
 
+# Upload ceiling for POST /extract-pdf. A scanned weekly report exported from
+# Word lands far below this; the guard exists so a mistyped upload cannot fill
+# the temp directory.
+MAX_PDF_BYTES = 25 * 1024 * 1024
+
 # Whitespace normalisation regex — mirrors the lowercase + collapse-whitespace
 # approach already used by the pipeline's EntityRuler (phrase_matcher_attr=LOWER)
 # and the _lower_terms_set dictionary lookup.
@@ -54,6 +60,9 @@ def _normalise(text: str) -> str:
 # Global pipeline reference (populated at startup)
 # ---------------------------------------------------------------------------
 _pipeline: Optional[HybridJournalPipeline] = None
+
+# Lazily-imported ``extract_entities`` module (PDF/WAR column helpers).
+_pdf_module = None
 
 
 @asynccontextmanager
@@ -155,6 +164,55 @@ def _build_summary(entities: list[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# PDF helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_pdf_module():
+    """Import the legacy PDF/WAR column helpers lazily.
+
+    ``extract_entities`` pulls in pdfplumber and mysql.connector at module
+    level. Neither is needed to serve ``/extract``, so the import is deferred
+    until a PDF is actually uploaded and the module is cached afterwards.
+    """
+    global _pdf_module
+    if _pdf_module is None:
+        import extract_entities  # noqa: F401  (module-level import is intentional)
+
+        _pdf_module = extract_entities
+    return _pdf_module
+
+
+def _read_pdf_text(pdf_path: str) -> Tuple[str, str, Dict[str, Any]]:
+    """Read a PDF into ``(full_text, scoped_text, scope)``.
+
+    The scoped text is limited to the ACTIVITIES / REFLECTIONS columns when
+    the WAR table is found, which is what entities should be matched against.
+    Falls back to the whole document when the table cannot be located.
+    """
+    import pdfplumber
+
+    module = _load_pdf_module()
+
+    with pdfplumber.open(pdf_path) as pdf:
+        full_text, text_error = module.extract_pdf_text(pdf)
+
+        if text_error is not None:
+            raise RuntimeError(text_error)
+
+        try:
+            scope_result = module.build_war_column_scope(pdf)
+            scope = dict(scope_result[0])
+            scoped_text = module.extract_war_column_text(scope_result)
+        except Exception as exc:  # noqa: BLE001 — never fail the upload on scoping
+            logger.warning("WAR column scoping failed, using full document text: %s", exc)
+            scope = {"status": "scoping_failed", "message": str(exc)}
+            scoped_text = ""
+
+    return full_text, scoped_text, scope
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -220,6 +278,177 @@ async def extract_entities(req: ExtractionRequest):
     return {
         "success": True,
         "content": req.text,
+        "entities": deduped,
+        "entity_count": len(deduped),
+        "summary": summary,
+    }
+
+
+@app.post("/extract-pdf")
+async def extract_pdf(file: UploadFile = File(...)):
+    """Run hybrid entity extraction on an uploaded weekly report PDF.
+
+    This is the endpoint the PHP portal calls (``entityApiExtractPdf()``): the
+    PDF arrives as ``multipart/form-data`` under the ``file`` field, so the
+    response mirrors ``POST /extract`` — ``success``, ``content``, ``entities``,
+    ``entity_count`` and ``summary`` — with the full document text as
+    ``content``.
+
+    Entities are matched against the ACTIVITIES / REFLECTIONS columns when the
+    WAR table can be located; otherwise the whole document is used and
+    ``extraction_scope`` reports what happened.
+    """
+    # --- Guard: pipeline must be loaded ---
+    if _pipeline is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "error": "Pipeline is not loaded. Try again shortly.",
+                "content": "",
+                "entities": [],
+                "entity_count": 0,
+                "summary": {},
+            },
+        )
+
+    # --- Guard: content type ---
+    if file.content_type not in ("application/pdf", "application/octet-stream"):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Uploaded file is not a PDF.",
+                "details": f"Received content type '{file.content_type}'.",
+                "content": "",
+                "entities": [],
+                "entity_count": 0,
+                "summary": {},
+            },
+        )
+
+    payload = await file.read()
+
+    if not payload:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Uploaded PDF was empty.",
+                "content": "",
+                "entities": [],
+                "entity_count": 0,
+                "summary": {},
+            },
+        )
+
+    if len(payload) > MAX_PDF_BYTES:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Uploaded PDF is too large.",
+                "details": f"Received {len(payload)} bytes; limit is {MAX_PDF_BYTES}.",
+                "content": "",
+                "entities": [],
+                "entity_count": 0,
+                "summary": {},
+            },
+        )
+
+    # --- Read the PDF ---
+    # pdfplumber needs a real file, so the upload is spooled to a temp file and
+    # removed whatever happens.
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=".pdf", delete=False
+        ) as handle:
+            handle.write(payload)
+            temp_path = handle.name
+
+        try:
+            full_text, scoped_text, scope = _read_pdf_text(temp_path)
+        except Exception as exc:  # noqa: BLE001 — surfaced as a 422 to the caller
+            logger.exception("Failed to read the uploaded PDF.")
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "success": False,
+                    "error": "Failed to read PDF.",
+                    "details": str(exc),
+                    "content": "",
+                    "entities": [],
+                    "entity_count": 0,
+                    "summary": {},
+                },
+            )
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                logger.warning("Could not remove temp PDF %s", temp_path)
+
+    if not full_text:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": "No extractable text was found in the PDF.",
+                "details": "The file may be a scanned image rather than a text PDF.",
+                "content": "",
+                "entities": [],
+                "entity_count": 0,
+                "summary": {},
+            },
+        )
+
+    # The WAR columns are the trainee's own writing, so they win; the full
+    # document is only used when the table could not be located.
+    text = scoped_text or full_text
+
+    if len(text) > MAX_TEXT_LENGTH:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Extracted text exceeds maximum allowed length.",
+                "details": f"Received {len(text)} characters; limit is {MAX_TEXT_LENGTH}.",
+                "content": full_text,
+                "entities": [],
+                "entity_count": 0,
+                "summary": {},
+            },
+        )
+
+    # --- Run inference ---
+    try:
+        raw_result = _pipeline.predict(text, mode="hybrid")
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Pipeline inference failed.")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": "Entity extraction failed.",
+                "details": str(exc),
+                "content": full_text,
+                "entities": [],
+                "entity_count": 0,
+                "summary": {},
+            },
+        )
+
+    # --- Deduplicate & summarise ---
+    deduped = _deduplicate_entities(raw_result["entities"])
+    summary = _build_summary(deduped)
+
+    return {
+        "success": True,
+        "content": full_text,
+        "scoped_content": scoped_text,
+        "extraction_scope": scope,
         "entities": deduped,
         "entity_count": len(deduped),
         "summary": summary,

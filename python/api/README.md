@@ -105,6 +105,53 @@ curl -X POST http://localhost:8000/extract \
 }
 ```
 
+### `POST /extract-pdf`
+
+The endpoint the PHP portal actually calls. Accepts a weekly report PDF as `multipart/form-data` under the `file` field:
+
+```bash
+curl -X POST http://localhost:8000/extract-pdf \
+  -F "file=@uploads/reports/WAR_Week_1_Student_111_1790603603.pdf;type=application/pdf"
+```
+
+```json
+{
+  "success": true,
+  "content": "--- PAGE 1 ---\n<full document text>",
+  "scoped_content": "ACTIVITIES:\n<trainee writing>\n\nREFLECTIONS:\n<trainee writing>",
+  "extraction_scope": {
+    "status": "columns",
+    "header_page": 1,
+    "pages_with_text": [1]
+  },
+  "entities": [
+    {
+      "term": "laravel Blade templates",
+      "category": "IT_TERM",
+      "start": 0,
+      "end": 23,
+      "confidence": 0.9999,
+      "source": "ML",
+      "status": "ACCEPTED",
+      "frequency": 1
+    }
+  ],
+  "entity_count": 1,
+  "summary": {
+    "total_occurrences": 1,
+    "unique_entities": 1,
+    "IT_TERM": 1,
+    "CLERICAL_TERM": 0,
+    "IT_TERM_percentage": 100.0,
+    "CLERICAL_TERM_percentage": 0.0
+  }
+}
+```
+
+`content` is the whole document so the reviewer page still renders the full submission. Entities are matched against `scoped_content` — the `ACTIVITIES` / `REFLECTIONS` columns located by the WAR table parser in `extract_entities.py`. When the table cannot be located the full document is used instead and `extraction_scope.status` reports why.
+
+The WAR/PDF helpers are imported lazily on the first upload, so `pdfplumber` and `mysql.connector` are not needed to serve `/extract`.
+
 ### Duplicate entity deduplication
 
 When the same entity appears multiple times in the input text, the API returns a single record with `"frequency": N` instead of N separate records:
