@@ -241,8 +241,6 @@ function rr_run_python_extractor(string $pdfPath): array
     // then compatible legacy names.
     $scriptCandidates = [
         __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'entity_extractor.py',
-        __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'extract_entities.py',
-        __DIR__ . DIRECTORY_SEPARATOR . 'python' . DIRECTORY_SEPARATOR . 'entity_extractor_fixed.py',
     ];
 
     $scriptPath = '';
