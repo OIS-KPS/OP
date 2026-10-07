@@ -134,6 +134,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
+    // Action B2: Create / Reactivate Coordinator Account
+    if ($action === 'create_coordinator') {
+        $name  = trim($_POST['name'] ?? '');
+        $email = strtolower(trim($_POST['email'] ?? ''));
+
+        if (!empty($name) && !empty($email)) {
+            try {
+                $pdo->beginTransaction();
+
+                $chk = $pdo->prepare("SELECT id, role, status FROM users WHERE email = ?");
+                $chk->execute([$email]);
+                $existing = $chk->fetch(PDO::FETCH_ASSOC);
+
+                $isReactivation = false;
+
+                if ($existing) {
+                    $userId = $existing['id'];
+                    $isReactivation = true;
+                    $pdo->prepare("UPDATE users SET name = ?, role = 'coordinator', status = 'active', archived_at = NULL WHERE id = ?")
+                        ->execute([$name, $userId]);
+                } else {
+                    $stmtUser = $pdo->prepare("INSERT INTO users (name, email, role, status, created_at) VALUES (?, ?, 'coordinator', 'active', NOW())");
+                    $stmtUser->execute([$name, $email]);
+                    $userId = $pdo->lastInsertId();
+                }
+
+                logActivity($pdo, $coordinatorId, 'coordinator', 'COORDINATOR_CREATED', "Added coordinator {$name} ({$email}).");
+                $pdo->commit();
+
+                if ($isReactivation) {
+                    $mailSent = $mailer->sendRoleAssignmentEmail($email, $name, 'coordinator');
+                    $_SESSION['flash_success'] = "Coordinator '{$name}' account updated successfully!" . ($mailSent ? " Notification email sent." : "");
+                } else {
+                    $mailSent = $mailer->sendWelcomeEmail($email, $name, 'coordinator');
+                    $_SESSION['flash_success'] = "Coordinator '{$name}' added successfully!" . ($mailSent ? " Welcome email sent." : "");
+                }
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $_SESSION['flash_error'] = "Failed to add coordinator: " . $e->getMessage();
+            }
+        } else {
+            $_SESSION['flash_error'] = "Coordinator name and email are required.";
+        }
+        header("Location: users.php?tab=coordinators");
+        exit();
+    }
+
     // Action C: Bulk Import Students (CSV)
     if ($action === 'bulk_import_students' && isset($_FILES['excel_file'])) {
         $file = $_FILES['excel_file'];
@@ -215,6 +262,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ? WHERE id = ?");
                 $stmt->execute([$name, $email, $userId]);
 
+                // Allow role changes when editing a coordinator row
+                if ($role === 'coordinator') {
+                    $newRole = strtolower(trim($_POST['new_role'] ?? 'coordinator'));
+                    $allowedRoles = ['coordinator', 'supervisor', 'student'];
+
+                    if (in_array($newRole, $allowedRoles, true)) {
+                        if ($userId === (int)$coordinatorId && $newRole !== 'coordinator') {
+                            $_SESSION['flash_error'] = "You cannot demote your own coordinator account.";
+                            header("Location: users.php?tab=" . $redirectTab);
+                            exit();
+                        }
+                        $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$newRole, $userId]);
+                    }
+                }
+
                 if ($role === 'student') {
                     $stdNumber    = trim($_POST['student_number'] ?? '');
                     $section      = strtoupper(trim($_POST['section'] ?? 'A'));
@@ -291,6 +353,7 @@ $supervisors    = [];
 $companies      = [];
 $archivedUsers  = [];
 $activeSections = [];
+$coordinators   = [];
 
 try {
     $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
@@ -377,6 +440,15 @@ try {
         ORDER BY archived_at DESC
     ");
     $archivedUsers = $stmtArch->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // Active Coordinators
+    $stmtCoord = $pdo->query("
+        SELECT id AS user_id, name, email, avatar_url, status, created_at
+        FROM users
+        WHERE role = 'coordinator' AND status = 'active'
+        ORDER BY name ASC
+    ");
+    $coordinators = $stmtCoord->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 } catch (Exception $e) {
     error_log("Database Error in coordinator/users.php: " . $e->getMessage());

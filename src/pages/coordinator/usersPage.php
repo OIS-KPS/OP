@@ -60,7 +60,7 @@
                         <div>
                             <h1 class="text-base font-extrabold text-slate-950 tracking-tight leading-snug">User Directory</h1>
                             <p class="text-xs font-semibold text-slate-600 mt-1">
-                                Manage student intern, industry supervisor, and partner company records.
+                                Manage student intern, industry supervisor, partner company, and coordinator records.
                             </p>
                         </div>
 
@@ -85,6 +85,9 @@
                                     <button type="button" onclick="toggleAddMenu(); toggleModal('addCompanySupervisorModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors cursor-pointer">
                                         <span>Company &amp; Supervisor</span>
                                     </button>
+                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addCoordinatorModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors cursor-pointer">
+                                        <span>Coordinator</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -94,11 +97,30 @@
                     <div class="p-4 border-b border-slate-200/70 flex flex-col md:flex-row items-center justify-between gap-4 bg-white">
                         
                         <!-- Navigation Tabs -->
-                        <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
-                            <a href="users.php?tab=students" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= ($tab ?? 'students') === 'students' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                                <span>Students</span>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? 'students') === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($students ?? []); ?></span>
-                            </a>
+                        <div class="flex items-center gap-2 overflow-visible flex-wrap w-full md:w-auto">
+                            <!-- Students Dropdown -->
+                            <div class="relative inline-block text-left">
+                                <div class="inline-flex items-center gap-0 <?= ($tab ?? 'students') === 'students' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 border border-slate-300'; ?> rounded-lg">
+                                    <a href="users.php?tab=students" class="px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2">
+                                        <span>Students<?= ($tab ?? '') === 'students' && ($selectedSection ?? 'all') !== 'all' ? ' · Sec ' . htmlspecialchars($selectedSection) : ''; ?></span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? 'students') === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($students ?? []); ?></span>
+                                    </a>
+                                    <button type="button" onclick="toggleStudentsMenu(event)" class="px-2 py-1.5 border-l border-current/20 cursor-pointer" aria-label="Toggle sections">
+                                        <svg id="studentsMenuChevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                                    </button>
+                                </div>
+
+                                <div id="studentsMenu" class="hidden absolute left-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-300 z-50 text-xs overflow-hidden p-1.5">
+                                    <a href="users.php?tab=students&section=all" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? 'all') === 'all' ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
+                                        All Students
+                                    </a>
+                                    <?php foreach ($activeSections as $sec): ?>
+                                        <a href="users.php?tab=students&section=<?= urlencode($sec); ?>" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? '') === $sec ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
+                                            Section <?= htmlspecialchars($sec); ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
 
                             <a href="users.php?tab=supervisors" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= ($tab ?? '') === 'supervisors' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
                                 <span>Supervisors</span>
@@ -110,35 +132,31 @@
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? '') === 'companies' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($companies ?? []); ?></span>
                             </a>
 
+                            <a href="users.php?tab=coordinators" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= ($tab ?? '') === 'coordinators' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
+                                <span>Coordinators</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? '') === 'coordinators' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($coordinators ?? []); ?></span>
+                            </a>
+
                             <a href="users.php?tab=archived" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= ($tab ?? '') === 'archived' ? 'bg-rose-700 text-white border border-rose-700' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
                                 <span>Archived</span>
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? '') === 'archived' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($archivedUsers ?? []); ?></span>
                             </a>
                         </div>
 
-                        <!-- Search & Section Filter Bar -->
-                        <div class="flex items-center gap-3 w-full md:w-auto">
-                            <?php if (($tab ?? 'students') === 'students'): ?>
-                                <select onchange="location.href='users.php?tab=students&section=' + this.value" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer">
-                                    <option value="all" <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>>All Sections</option>
-                                    <?php foreach ($activeSections as $sec): ?>
-                                        <option value="<?= htmlspecialchars($sec); ?>" <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>>
-                                            Section <?= htmlspecialchars($sec); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            <?php endif; ?>
+                    </div>
 
-                            <!-- Instant Live Search -->
-                            <div class="relative w-full md:w-64">
-                                <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                                <input 
-                                    type="text" 
-                                    id="userSearchInput" 
-                                    placeholder="Search <?= htmlspecialchars($tab ?? 'students'); ?>..." 
-                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
-                                >
-                            </div>
+                    <!-- (Section filters now live inside the Students dropdown) -->
+
+                    <!-- Full-Width Search -->
+                    <div class="p-4 border-b border-slate-200/70 bg-white">
+                        <div class="relative w-full">
+                            <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                            <input 
+                                type="text" 
+                                id="userSearchInput" 
+                                placeholder="Search..." 
+                                class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
+                            >
                         </div>
                     </div>
 
@@ -294,6 +312,66 @@
                         <?php else: ?>
                             <div class="py-16 text-center text-slate-500 text-xs font-semibold">
                                 No partner companies registered yet.
+                            </div>
+                        <?php endif; ?>
+
+                    <!-- TAB 3B: COORDINATORS TABLE -->
+                    <?php elseif ($tab === 'coordinators'): ?>
+                        <?php if (!empty($coordinators)): ?>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
+                                            <th class="py-4 px-6">Coordinator</th>
+                                            <th class="py-4 px-6">Email</th>
+                                            <th class="py-4 px-6">Status</th>
+                                            <th class="py-4 px-6 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200/80 text-slate-800">
+                                        <?php foreach ($coordinators as $coord): ?>
+                                            <tr class="hover:bg-slate-50 transition-colors user-row">
+                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                                    <div class="flex items-center gap-3">
+                                                        <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-black text-xs shrink-0 overflow-hidden border border-slate-300">
+                                                            <?php if (!empty($coord['avatar_url'])): ?>
+                                                                <img src="<?= htmlspecialchars($coord['avatar_url']); ?>" class="w-full h-full object-cover">
+                                                            <?php else: ?>
+                                                                <?= strtoupper(substr($coord['name'] ?? 'C', 0, 1)); ?>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                        <p class="font-extrabold text-slate-950 text-sm row-name"><?= htmlspecialchars($coord['name']); ?></p>
+                                                    </div>
+                                                </td>
+                                                <td class="py-4 px-6 whitespace-nowrap text-slate-600 text-xs font-semibold row-sub align-middle">
+                                                    <?= htmlspecialchars($coord['email']); ?>
+                                                </td>
+                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold text-[11px] border border-emerald-200">
+                                                        <?= htmlspecialchars(ucfirst($coord['status'] ?? 'active')); ?>
+                                                    </span>
+                                                </td>
+                                                <td class="py-4 px-6 text-right whitespace-nowrap align-middle space-x-1.5">
+                                                    <button onclick='openEditCoordinatorModal(<?= json_encode($coord); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
+                                                        Edit
+                                                    </button>
+                                                    <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Archive coordinator <?= htmlspecialchars(addslashes($coord['name'])); ?>?');">
+                                                        <input type="hidden" name="action" value="archive_user">
+                                                        <input type="hidden" name="redirect_tab" value="coordinators">
+                                                        <input type="hidden" name="user_id" value="<?= $coord['user_id']; ?>">
+                                                        <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-300 shadow-2xs transition-colors cursor-pointer">
+                                                            Archive
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="py-16 text-center text-slate-500 text-xs font-semibold">
+                                No active coordinators registered yet. Click "+ Add New" above to begin.
                             </div>
                         <?php endif; ?>
 
@@ -606,9 +684,78 @@
         </div>
     </div>
 
+    <!-- MODAL 6: ADD COORDINATOR -->
+    <div id="addCoordinatorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+                <h3 class="text-sm font-black text-slate-950">Add Coordinator</h3>
+                <button type="button" onclick="toggleModal('addCoordinatorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
+            </div>
+            <form action="users.php" method="POST" class="space-y-3 text-xs">
+                <input type="hidden" name="action" value="create_coordinator">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                    <input type="text" name="name" required placeholder="e.g., Prof. Sander" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                    <input type="email" name="email" required placeholder="coordinator@nbsc.edu.ph" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
+                    <button type="button" onclick="toggleModal('addCoordinatorModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Coordinator</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 7: EDIT COORDINATOR -->
+    <div id="editCoordinatorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+                <h3 class="text-sm font-black text-slate-950">Edit Coordinator</h3>
+                <button type="button" onclick="toggleModal('editCoordinatorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
+            </div>
+            <form action="users.php" method="POST" class="space-y-3 text-xs">
+                <input type="hidden" name="action" value="edit_user">
+                <input type="hidden" name="role" value="coordinator">
+                <input type="hidden" name="redirect_tab" value="coordinators">
+                <input type="hidden" name="user_id" id="edit_coordinator_user_id">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                    <input type="text" name="name" id="edit_coordinator_name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                    <input type="email" name="email" id="edit_coordinator_email" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Role / Status</label>
+                    <select name="new_role" id="edit_coordinator_new_role" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                        <option value="coordinator">Coordinator</option>
+                        <option value="supervisor">Supervisor</option>
+                        <option value="student">Student</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
+                    <button type="button" onclick="toggleModal('editCoordinatorModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         const allSupervisors = <?= json_encode($supervisors ?? []); ?>;
+
+        function toggleStudentsMenu(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById('studentsMenu');
+            const chevron = document.getElementById('studentsMenuChevron');
+            if (menu) menu.classList.toggle('hidden');
+            if (chevron) chevron.classList.toggle('rotate-180');
+        }
 
         function toggleModal(id) {
             const modal = document.getElementById(id);
@@ -625,6 +772,12 @@
             const btn = e.target.closest('button');
             if (menu && !menu.contains(e.target) && (!btn || !btn.textContent.includes('+ Add New'))) {
                 menu.classList.add('hidden');
+            }
+
+            const studentsMenu = document.getElementById('studentsMenu');
+            if (studentsMenu && !studentsMenu.contains(e.target) && !e.target.closest('#studentsMenuChevron') && !e.target.closest('button[aria-label="Toggle sections"]')) {
+                studentsMenu.classList.add('hidden');
+                document.getElementById('studentsMenuChevron')?.classList.remove('rotate-180');
             }
         });
 
@@ -683,6 +836,14 @@
             document.getElementById('edit_supervisor_email').value = supervisor.email;
             document.getElementById('edit_supervisor_company').value = supervisor.company_id || '';
             toggleModal('editSupervisorModal');
+        }
+
+        function openEditCoordinatorModal(coordinator) {
+            document.getElementById('edit_coordinator_user_id').value = coordinator.user_id;
+            document.getElementById('edit_coordinator_name').value = coordinator.name;
+            document.getElementById('edit_coordinator_email').value = coordinator.email;
+            document.getElementById('edit_coordinator_new_role').value = 'coordinator';
+            toggleModal('editCoordinatorModal');
         }
 
         // Live Search Filter
