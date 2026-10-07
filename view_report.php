@@ -5,6 +5,7 @@
 session_start();
 
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/src/services/entity_extraction.php';
 require_once __DIR__ . '/src/services/report_workspace.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
@@ -50,6 +51,53 @@ if ($requestedReportId > 0 && reportWorkspaceStudentIdForReport($pdo, $requested
     $requestedReportId = 0;
 }
 
+/**
+ * Resolve a reports.file_path value to a readable file on disk.
+ * Same logic as supervisor/view_report.php.
+ */
+if (!function_exists('resolveReportPdfPath')) {
+    function resolveReportPdfPath($filePath)
+    {
+        if (empty($filePath)) {
+            return false;
+        }
+
+        $filePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $filePath);
+
+        if (is_file($filePath)) {
+            $realPath = realpath($filePath);
+            if ($realPath !== false) {
+                return $realPath;
+            }
+        }
+
+        $projectRoot = realpath(__DIR__);
+        if ($projectRoot !== false) {
+            $relativePath = ltrim($filePath, DIRECTORY_SEPARATOR);
+            $fileName = basename($filePath);
+
+            $candidateReports = $projectRoot . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'reports' . DIRECTORY_SEPARATOR . $fileName;
+            if (is_file($candidateReports)) {
+                return realpath($candidateReports);
+            }
+
+            $candidate = $projectRoot . DIRECTORY_SEPARATOR . $relativePath;
+            if (is_file($candidate)) {
+                return realpath($candidate);
+            }
+
+            $normalized = str_replace('\\', '/', $relativePath);
+            $normalized = preg_replace('#^ICS-PORTAL/#i', '', $normalized);
+            $candidate = $projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
+            if (is_file($candidate)) {
+                return realpath($candidate);
+            }
+        }
+
+        return false;
+    }
+}
+
 try {
     $workspace = reportWorkspaceBuild($pdo, $studentId, [
         'reportId' => $requestedReportId,
@@ -73,6 +121,39 @@ try {
     $weekClericalPct = $workspace['weekClericalPct'];
     $weekTotalCount = $workspace['weekTotalCount'];
     $pdfUrl = $workspace['pdfUrl'];
+
+    // Auto-extract entities if none exist for the report being viewed
+    // (same behaviour as supervisor/view_report.php).
+    if (!empty($activeReport) && (int)$activeReport['id'] > 0) {
+        $reportIdActive = (int)$activeReport['id'];
+        $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
+
+        if ($pdfPath !== false) {
+            $check = $pdo->prepare('SELECT COUNT(*) FROM report_entities WHERE report_id = ?');
+            $check->execute([$reportIdActive]);
+
+            if ((int)$check->fetchColumn() === 0) {
+                extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
+
+                $workspace = reportWorkspaceBuild($pdo, $studentId, [
+                    'reportId' => $requestedReportId,
+                    'status' => null,
+                ]);
+                $student = $workspace['student'];
+                $reportsList = $workspace['reportsList'];
+                $activeReport = $workspace['activeReport'];
+                $allEntities = $workspace['allEntities'];
+                $weekEntities = $workspace['weekEntities'];
+                $archivedEntities = $workspace['archivedEntities'];
+                $itPct = $workspace['itPct'];
+                $clericalPct = $workspace['clericalPct'];
+                $weekItPct = $workspace['weekItPct'];
+                $weekClericalPct = $workspace['weekClericalPct'];
+                $weekTotalCount = $workspace['weekTotalCount'];
+                $pdfUrl = $workspace['pdfUrl'];
+            }
+        }
+    }
 } catch (Throwable $exception) {
     error_log('Error loading report workspace in view_report.php: ' . $exception->getMessage());
 }

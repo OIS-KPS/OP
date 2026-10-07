@@ -20,6 +20,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <script src="/ICS-PORTAL/public/js/loadingOverlay.js"></script>
     
     <style>
         /* Scoped Tab Styles to Prevent Global Hover Glitches */
@@ -303,7 +304,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                     <div class="flex items-center justify-end gap-2">
                                                         <!-- Latest File Link -->
                                                         <?php if (!empty($filePath)): ?>
-                                                            <a href="view_report.php?report_id=<?= (int)$report['id']; ?>" class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+                                                            <a href="view_report.php?report_id=<?= (int)$report['id']; ?>" data-ics-loading="Extracting entities from this report&hellip; This may take a moment." class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer">
                                                                 <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                                                                 <span>View File</span>
                                                             </a>
