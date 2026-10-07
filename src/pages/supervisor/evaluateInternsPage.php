@@ -71,10 +71,10 @@ if (!function_exists('e')) {
                     <div class="p-6 border-b border-slate-200/70 flex justify-between items-center bg-slate-50/60">
                         <div>
                             <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Student Evaluation List</h3>
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Students require 12 weekly reports before final evaluation</p>
+                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Students submit weekly accomplishment reports continuously until completion</p>
                         </div>
                         <span class="text-xs font-bold text-slate-700 bg-white px-3 py-1 rounded-lg border border-slate-300 shadow-2xs">
-                            Requirement: 12 Weeks
+                            Flexible Duration
                         </span>
                     </div>
 
@@ -92,10 +92,9 @@ if (!function_exists('e')) {
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                     <?php foreach ($students as $student): 
-                                        $requiredWeeks = 12;
                                         $submittedWars = intval($student['submitted_wars'] ?? 0);
                                         $approvedWars  = intval($student['approved_wars'] ?? 0);
-                                        $isWARComplete = ($approvedWars >= $requiredWeeks || $submittedWars >= $requiredWeeks);
+                                        $isWARComplete = ($submittedWars > 0);
                                         $evalStatus    = strtolower($student['evaluation_status'] ?? '');
                                         $isEvaluated   = !empty($student['evaluation_id']) || in_array($evalStatus, ['verified', 'completed', 'approved']);
                                         $isTriggered   = !empty($student['evaluation_triggered']);
@@ -123,14 +122,14 @@ if (!function_exists('e')) {
                                             <!-- Progress Count -->
                                             <td class="py-4 px-6 whitespace-nowrap">
                                                 <div class="flex items-center gap-2">
-                                                    <span class="font-extrabold text-slate-950 text-xs"><?= $submittedWars; ?> of <?= $requiredWeeks; ?> Weeks</span>
-                                                    <?php if ($isWARComplete): ?>
-                                                        <span class="px-2 py-0.5 bg-emerald-100/80 text-emerald-900 text-[10px] font-bold rounded-md border border-emerald-300">
-                                                            Complete
+                                                    <span class="font-extrabold text-slate-950 text-xs"><?= $submittedWars; ?> <?= ($submittedWars === 1) ? 'Report' : 'Reports'; ?> Submitted</span>
+                                                    <?php if ($submittedWars > 0): ?>
+                                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-800 text-[10px] font-bold rounded-md border border-blue-200">
+                                                            Active Logs
                                                         </span>
                                                     <?php else: ?>
                                                         <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded-md border border-slate-300">
-                                                            In Progress
+                                                            None Yet
                                                         </span>
                                                     <?php endif; ?>
                                                 </div>
@@ -148,21 +147,15 @@ if (!function_exists('e')) {
                                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                                                         Ready for Evaluation
                                                     </span>
-                                                <?php elseif ($isWARComplete): ?>
+                                                <?php else: ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100/80 text-blue-900 border border-blue-300 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                                                         Awaiting Coordinator
                                                     </span>
-                                                <?php else: ?>
-                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-300 text-xs font-semibold">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                                        Pending Reports
-                                                    </span>
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Evaluation status. The overall rating is
-                                                 coordinator-only, so no score is shown here. -->
+                                            <!-- Evaluation status. -->
                                             <td class="py-4 px-6 whitespace-nowrap">
                                                 <?php if ($isEvaluated): ?>
                                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-black">
@@ -185,13 +178,9 @@ if (!function_exists('e')) {
                                                         <span>Evaluate</span>
                                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
                                                     </a>
-                                                <?php elseif ($isWARComplete): ?>
+                                                <?php else: ?>
                                                     <button disabled class="px-3.5 py-1.5 bg-slate-100 text-slate-400 text-xs font-semibold rounded-xl border border-slate-200 cursor-not-allowed inline-block" title="Coordinator must trigger the evaluation request first">
                                                         Awaiting Coordinator
-                                                    </button>
-                                                <?php else: ?>
-                                                    <button disabled class="px-3.5 py-1.5 bg-slate-100 text-slate-400 text-xs font-semibold rounded-xl border border-slate-200 cursor-not-allowed inline-block">
-                                                        Incomplete Weeks
                                                     </button>
                                                 <?php endif; ?>
                                             </td>
