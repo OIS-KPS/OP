@@ -180,6 +180,8 @@ foreach ($reviewReports as $index => $report) {
 
     </style>
 
+    <script src="/ICS-PORTAL/public/js/loadingOverlay.js"></script>
+
 </head>
 
 
@@ -499,6 +501,7 @@ foreach ($reviewReports as $index => $report) {
                                     <?php if (!empty($filePath)): ?>
                                         <a
                                             href="view_report.php?report_id=<?= urlencode((string)($r['id'] ?? $r['report_id'] ?? '')); ?>"
+                                            data-ics-loading="Extracting entities from this report&hellip; This may take a moment."
                                             class="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#0F2854] bg-slate-100 hover:bg-slate-200/80 rounded-xl border border-slate-200/70 transition-all"
                                         >
                                             Review PDF
