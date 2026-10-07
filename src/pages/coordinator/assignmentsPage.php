@@ -101,11 +101,24 @@
                                     </div>
                                 </div>
 
-                                <button type="button" onclick="filterByStatus('assigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer">
+                                <?php
+                                    $assignedCount   = 0;
+                                    $unassignedCount = 0;
+                                    foreach ($students as $st) {
+                                        if (!empty($st['company_id']) && !empty($st['supervisor_id'])) {
+                                            $assignedCount++;
+                                        } else {
+                                            $unassignedCount++;
+                                        }
+                                    }
+                                ?>
+                                <button type="button" onclick="filterByStatus('assigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer inline-flex items-center gap-2">
                                     <span>Assigned</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300"><?= $assignedCount; ?></span>
                                 </button>
-                                <button type="button" onclick="filterByStatus('unassigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer">
+                                <button type="button" onclick="filterByStatus('unassigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer inline-flex items-center gap-2">
                                     <span>Unassigned</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300"><?= $unassignedCount; ?></span>
                                 </button>
                             </div>
                         </div>
@@ -131,6 +144,7 @@
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
                                         <th class="py-4 px-6">Student Intern</th>
                                         <th class="py-4 px-6">Section</th>
+                                        <th class="py-4 px-6">Status</th>
                                         <th class="py-4 px-6">Company</th>
                                         <th class="py-4 px-6">Supervisor</th>
                                         <th class="py-4 px-6 text-right">Action</th>
@@ -138,9 +152,12 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                     <?php foreach ($students as $s): 
-                                        $hasPlacement = !empty($s['supervisor_id']);
+                                        $hasCompany   = !empty($s['company_id']);
+                                        $hasSupervisor = !empty($s['supervisor_id']);
+                                        $hasPlacement = $hasCompany && $hasSupervisor;
+                                        $rowStatus    = $hasPlacement ? 'assigned' : 'unassigned';
                                     ?>
-                                        <tr class="hover:bg-slate-50 transition-colors group assignment-row" data-status="<?= $hasPlacement ? 'assigned' : 'unassigned'; ?>">
+                                        <tr class="hover:bg-slate-50 transition-colors group assignment-row" data-status="<?= $rowStatus; ?>" data-status-label="<?= $hasPlacement ? 'assigned' : 'not assigned'; ?>">
                                             
                                             <!-- Student Info -->
                                             <td class="py-4 px-6 whitespace-nowrap align-middle">
@@ -166,6 +183,26 @@
                                                 </span>
                                             </td>
 
+                                            <!-- Assignment Status -->
+                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                                <?php if ($hasPlacement): ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Assigned
+                                                    </span>
+                                                    <p class="text-[10px] text-slate-500 font-semibold mt-1">Company &amp; supervisor linked</p>
+                                                <?php elseif ($hasCompany || $hasSupervisor): ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100/80 text-sky-900 border border-sky-300 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-sky-600"></span> Partially Assigned
+                                                    </span>
+                                                    <p class="text-[10px] text-slate-500 font-semibold mt-1"><?= $hasCompany ? 'Missing supervisor' : 'Missing company'; ?></p>
+                                                <?php else: ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Not Assigned
+                                                    </span>
+                                                    <p class="text-[10px] text-slate-500 font-semibold mt-1">Needs company &amp; supervisor</p>
+                                                <?php endif; ?>
+                                            </td>
+
                                             <!-- Host Company -->
                                             <td class="py-4 px-6 align-middle">
                                                 <?php if (!empty($s['company_name'])): ?>
@@ -175,27 +212,6 @@
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Unassigned
                                                     </span>
-                                                <?php endif; ?>
-
-                                                <?php if (($s['placement_request_status'] ?? '') === 'pending'): ?>
-                                                    <div class="mt-3 p-3 bg-amber-50/90 border border-amber-300/80 rounded-xl space-y-2 shadow-2xs">
-                                                        <div class="flex items-center justify-between">
-                                                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-200/70 text-amber-900 font-extrabold text-[10px]">
-                                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
-                                                                Pending Request
-                                                            </span>
-                                                            <span class="text-[10px] font-semibold text-slate-500">Review Required</span>
-                                                        </div>
-                                                        <div>
-                                                            <p class="text-[10px] uppercase font-black text-slate-500 tracking-wider">Requested Company</p>
-                                                            <p class="text-xs font-black text-slate-950"><?= htmlspecialchars($s['requested_company_name']); ?></p>
-                                                        </div>
-                                                        <form method="POST" action="assignments.php" class="flex items-center gap-2 pt-1 border-t border-amber-200/60">
-                                                            <input type="hidden" name="student_id" value="<?= $s['id']; ?>">
-                                                            <button type="submit" name="action" value="approve_placement" class="flex-1 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs shadow-2xs transition-colors cursor-pointer text-center">Approve</button>
-                                                            <button type="submit" name="action" value="reject_placement" class="flex-1 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg text-xs shadow-2xs transition-colors cursor-pointer text-center">Reject</button>
-                                                        </form>
-                                                    </div>
                                                 <?php endif; ?>
                                             </td>
 
@@ -221,6 +237,12 @@
 
                                         </tr>
                                     <?php endforeach; ?>
+                                    <tr id="noResultsRow" class="hidden">
+                                        <td colspan="6" class="py-10 px-6 text-center">
+                                            <p class="text-xs font-black text-slate-700">No students match your filter</p>
+                                            <p class="text-[11px] font-semibold text-slate-500 mt-1">Try a different status tab or search term.</p>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -260,8 +282,10 @@
                     <label class="block font-bold text-slate-700 mb-1">Student Intern</label>
                     <select id="studentSelect" name="student_id" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854]">
                         <option value="" disabled selected>-- Choose Student --</option>
-                        <?php foreach ($students as $s): ?>
-                            <option value="<?= $s['id']; ?>"><?= htmlspecialchars($s['name']); ?> (Sec <?= htmlspecialchars($s['section'] ?? 'A'); ?> - ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?>)</option>
+                        <?php foreach ($students as $s): 
+                            $optStatus = (!empty($s['company_id']) && !empty($s['supervisor_id'])) ? 'Assigned' : 'Not Assigned';
+                        ?>
+                            <option value="<?= $s['id']; ?>"><?= htmlspecialchars($s['name']); ?> (Sec <?= htmlspecialchars($s['section'] ?? 'A'); ?> - ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?> - <?= $optStatus; ?>)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -357,11 +381,15 @@
             if (companyId > 0) {
                 document.getElementById('companySelect').value = companyId;
                 filterSupervisorsByCompany(supervisorId);
-                document.getElementById('unassignBtn').classList.remove('hidden');
             } else {
                 document.getElementById('companySelect').value = '';
                 document.getElementById('supervisorSelect').innerHTML = '<option value="" disabled selected>-- Select Partner Company First --</option>';
                 document.getElementById('supervisorSelect').disabled = true;
+            }
+
+            if (companyId > 0 || supervisorId > 0) {
+                document.getElementById('unassignBtn').classList.remove('hidden');
+            } else {
                 document.getElementById('unassignBtn').classList.add('hidden');
             }
 
@@ -425,22 +453,30 @@
             const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
             const rows = document.querySelectorAll('.assignment-row');
 
+            let visibleCount = 0;
             rows.forEach(row => {
                 const rowStatus = row.getAttribute('data-status');
                 const name = row.querySelector('.intern-name')?.textContent.toLowerCase() || '';
                 const id   = row.querySelector('.intern-id')?.textContent.toLowerCase() || '';
                 const comp = row.querySelector('.company-name')?.textContent.toLowerCase() || '';
                 const sup  = row.querySelector('.supervisor-name')?.textContent.toLowerCase() || '';
+                const status = row.getAttribute('data-status-label') || '';
 
-                const matchesSearch = name.includes(query) || id.includes(query) || comp.includes(query) || sup.includes(query);
+                const matchesSearch = name.includes(query) || id.includes(query) || comp.includes(query) || sup.includes(query) || status.includes(query);
                 const matchesStatus = (currentStatusFilter === 'all') || (rowStatus === currentStatusFilter);
 
                 if (matchesSearch && matchesStatus) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                 }
             });
+
+            const noResultsRow = document.getElementById('noResultsRow');
+            if (noResultsRow) {
+                noResultsRow.classList.toggle('hidden', visibleCount > 0);
+            }
         }
     </script>
 </body>

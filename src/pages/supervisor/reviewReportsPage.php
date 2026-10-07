@@ -63,6 +63,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <script src="/ICS-PORTAL/public/js/loadingOverlay.js"></script>
     <style>
         #pdf-viewer { position: relative; width: 100%; min-width: 0; overflow-y: auto; overflow-x: hidden; background: #f1f5f9; }
         .pdf-page { position: relative; max-width: 100%; margin: 0 auto 14px; background: #fff; box-shadow: 0 1px 4px rgba(15, 23, 42, .12); border-radius: 6px; }
@@ -191,6 +192,7 @@ $pdfUrl = buildSupervisorPdfUrl($activeFilePath);
                                         </td>
                                         <td class="py-4 px-6 text-right whitespace-nowrap">
                                             <a href="view_report.php?student_id=<?= (int)($item['student_id'] ?? 0); ?>&report_id=<?= (int)$item['id']; ?>" 
+                                               data-ics-loading="Extracting entities from this report&hellip; This may take a moment."
                                                class="px-4 py-2 <?= $isPending ? 'bg-[#0F2854] text-white hover:bg-blue-900 shadow-xs' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300'; ?> text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer">
                                                 <span><?= $isPending ? 'Review' : 'View Details'; ?></span>
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
