@@ -214,7 +214,7 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
 
     <!-- Placement Request Modal -->
     <div id="placementModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-3xl border border-slate-300 shadow-2xl max-w-lg w-full p-7 space-y-5 animate-in fade-in zoom-in duration-200">
+        <div class="bg-white rounded-3xl border border-slate-300 shadow-2xl max-w-xl w-full p-7 space-y-4 animate-in fade-in zoom-in duration-200">
             
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <div>
@@ -227,27 +227,45 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
             <form method="POST" action="profile.php" class="space-y-4 text-xs">
                 <input type="hidden" name="action" value="request_placement_update">
 
-                <div>
-                    <label class="block font-bold text-slate-800 mb-1.5">Host Company / Agency Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="company_name" required placeholder="Enter company or agency name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
+                <!-- Company Information Section Box -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Company Information</span>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Host Company / Agency Name <span class="text-rose-600">*</span></label>
+                        <input type="text" name="company_name" required maxlength="255" placeholder="Enter company or agency name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Department / Branch <span class="text-rose-600">*</span></label>
+                            <input type="text" name="department" required maxlength="255" placeholder="Enter department" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Company Address <span class="text-rose-600">*</span></label>
+                            <input type="text" name="address" required maxlength="255" placeholder="Enter company address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-bold text-slate-800 mb-1.5">Designated Supervisor Name</label>
-                        <input type="text" name="supervisor_name" placeholder="Enter supervisor's full name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-800 mb-1.5">Supervisor Email</label>
-                        <input type="email" name="supervisor_email" placeholder="Enter supervisor's email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
+                <!-- Supervisor Information Section Box -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Supervisor Information</span>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Designated Supervisor Name <span class="text-rose-600">*</span></label>
+                            <input type="text" name="supervisor_name" required placeholder="Enter supervisor's full name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Supervisor Email <span class="text-rose-600">*</span></label>
+                            <input type="email" name="supervisor_email" required placeholder="Enter supervisor's email address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
                     </div>
                 </div>
 
                 <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200/70">
-                    <button type="button" onclick="closePlacementModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all cursor-pointer">
+                    <button type="button" onclick="closePlacementModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">
                         Cancel
                     </button>
-                    <button type="submit" class="px-6 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer">
+                    <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">
                         Submit for Approval
                     </button>
                 </div>
