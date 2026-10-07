@@ -122,11 +122,6 @@
                                 </div>
                             </div>
 
-                            <a href="users.php?tab=supervisors" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= ($tab ?? '') === 'supervisors' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                                <span>Supervisors</span>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? '') === 'supervisors' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($supervisors ?? []); ?></span>
-                            </a>
-
                             <a href="users.php?tab=companies" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= ($tab ?? '') === 'companies' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
                                 <span>Companies</span>
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? '') === 'companies' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($companies ?? []); ?></span>
@@ -226,88 +221,140 @@
                             </div>
                         <?php endif; ?>
 
-                    <!-- TAB 2: SUPERVISORS TABLE -->
-                    <?php elseif ($tab === 'supervisors'): ?>
-                        <?php if (!empty($supervisors)): ?>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                            <th class="py-4 px-6">Supervisor</th>
-                                            <th class="py-4 px-6">Company</th>
-                                            <th class="py-4 px-6">Assigned Interns</th>
-                                            <th class="py-4 px-6 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-200/80 text-slate-800">
-                                        <?php foreach ($supervisors as $sup): ?>
-                                            <tr class="hover:bg-slate-50 transition-colors user-row">
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <p class="font-extrabold text-slate-950 text-sm row-name"><?= htmlspecialchars($sup['name']); ?></p>
-                                                    <p class="text-[11px] text-slate-600 font-semibold mt-0.5 row-sub"><?= htmlspecialchars($sup['email']); ?></p>
-                                                </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <p class="font-bold text-slate-900 text-xs"><?= htmlspecialchars($sup['company_name'] ?? 'Unassigned'); ?></p>
-                                                </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
-                                                        <?= intval($sup['assigned_interns']); ?> Intern(s)
-                                                    </span>
-                                                </td>
-                                                <td class="py-4 px-6 text-right whitespace-nowrap align-middle space-x-1.5">
-                                                    <button onclick='openEditSupervisorModal(<?= json_encode($sup); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
-                                                        Edit
-                                                    </button>
-                                                    <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Archive supervisor <?= htmlspecialchars(addslashes($sup['name'])); ?>?');">
-                                                        <input type="hidden" name="action" value="archive_user">
-                                                        <input type="hidden" name="redirect_tab" value="supervisors">
-                                                        <input type="hidden" name="user_id" value="<?= $sup['user_id']; ?>">
-                                                        <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-300 shadow-2xs transition-colors cursor-pointer">
-                                                            Archive
-                                                        </button>
-                                                    </form>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        <?php else: ?>
-                            <div class="py-16 text-center text-slate-500 text-xs font-semibold">
-                                No active supervisors registered yet.
-                            </div>
-                        <?php endif; ?>
-
-                    <!-- TAB 3: COMPANIES TABLE -->
+                    <!-- TAB 2: COMPANIES & SUPERVISORS (collapsible cards) -->
                     <?php elseif ($tab === 'companies'): ?>
-                        <?php if (!empty($companies)): ?>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                            <th class="py-4 px-6">Company Name</th>
-                                            <th class="py-4 px-6">Department / Branch</th>
-                                            <th class="py-4 px-6">Total Interns</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-200/80 text-slate-800">
-                                        <?php foreach ($companies as $comp): ?>
-                                            <tr class="hover:bg-slate-50 transition-colors user-row">
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <p class="font-extrabold text-slate-950 text-sm row-name"><?= htmlspecialchars($comp['name']); ?></p>
-                                                </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <p class="text-xs font-semibold text-slate-600"><?= htmlspecialchars($comp['department'] ?? 'Main Office'); ?></p>
-                                                </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
+                        <?php
+                        // Renders one supervisor row (shared by company cards and the Unassigned card)
+                        $renderSupervisorRow = function (array $sup) {
+                            $interns = $sup['interns'] ?? [];
+                            ?>
+                            <div class="sup-row px-6 py-4 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                                <div class="min-w-0 flex items-start gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-slate-100 border border-slate-300 text-[#0F2854] text-xs font-black flex items-center justify-center overflow-hidden shrink-0">
+                                        <?php if (!empty($sup['avatar_url'])): ?>
+                                            <img src="<?= htmlspecialchars($sup['avatar_url']); ?>" alt="" class="w-full h-full object-cover" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.textContent='<?= htmlspecialchars(strtoupper(substr($sup['name'], 0, 1)), ENT_QUOTES); ?>';">
+                                        <?php else: ?>
+                                            <?= htmlspecialchars(strtoupper(substr($sup['name'], 0, 1))); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="font-extrabold text-slate-950 text-sm row-name"><?= htmlspecialchars($sup['name']); ?></p>
+                                        <p class="text-[11px] text-slate-600 font-semibold mt-0.5 row-sub"><?= htmlspecialchars($sup['email']); ?></p>
+                                        <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px]">
+                                            <p class="font-semibold text-slate-600">
+                                                <span class="font-black text-slate-700 uppercase tracking-wider text-[10px]">Position:</span>
+                                                <?= !empty($sup['job_title']) ? '<span class="font-bold text-slate-900">' . htmlspecialchars($sup['job_title']) . '</span>' : '<span class="italic text-slate-400">Not provided</span>'; ?>
+                                            </p>
+                                            <p class="font-semibold text-slate-600">
+                                                <span class="font-black text-slate-700 uppercase tracking-wider text-[10px]">Contact:</span>
+                                                <?= !empty($sup['contact_number']) ? '<span class="font-bold text-slate-900">' . htmlspecialchars($sup['contact_number']) . '</span>' : '<span class="italic text-slate-400">Not provided</span>'; ?>
+                                            </p>
+                                        </div>
+
+                                        <div class="mt-3">
+                                            <p class="text-[10px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                Assigned Interns (<?= count($interns); ?>)
+                                            </p>
+                                            <?php if (!empty($interns)): ?>
+                                                <div class="flex flex-wrap gap-1.5">
+                                                    <?php foreach ($interns as $intern): ?>
+                                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-semibold text-[11px] border border-slate-300">
+                                                            <?= htmlspecialchars($intern['name']); ?>
+                                                            <?php if (!empty($intern['student_number'])): ?>
+                                                                <span class="text-slate-500 font-medium">· <?= htmlspecialchars($intern['student_number']); ?></span>
+                                                            <?php endif; ?>
+                                                        </span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <p class="text-[11px] italic text-slate-400 font-semibold">No interns assigned.</p>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <button type="button" onclick='openEditSupervisorModal(<?= json_encode($sup, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_TAG); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
+                                        Edit
+                                    </button>
+                                    <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Archive supervisor <?= htmlspecialchars(addslashes($sup['name'])); ?>?');">
+                                        <input type="hidden" name="action" value="archive_user">
+                                        <input type="hidden" name="redirect_tab" value="companies">
+                                        <input type="hidden" name="user_id" value="<?= (int)$sup['user_id']; ?>">
+                                        <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-300 shadow-2xs transition-colors cursor-pointer">
+                                            Archive
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            <?php
+                        };
+                        ?>
+
+                        <?php if (!empty($companies) || !empty($unassignedSupervisors)): ?>
+                            <div class="p-4 space-y-4 bg-slate-50/40">
+
+                                <?php foreach ($companies as $comp):
+                                    $compSupervisors = $supervisorsByCompany[(int)$comp['id']] ?? [];
+                                    $detailLine = trim(($comp['department'] ?? '') . (!empty($comp['address']) ? ' · ' . $comp['address'] : ''), ' ·');
+                                ?>
+                                    <div class="company-card bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden" data-name="<?= htmlspecialchars(strtolower($comp['name']), ENT_QUOTES); ?>">
+                                        <div class="flex items-stretch bg-slate-50/60">
+                                            <button type="button" onclick="toggleCompanyCard(this.closest('.company-card'))" class="flex-1 min-w-0 flex items-center justify-between gap-4 pl-6 pr-4 py-4 hover:bg-slate-100/70 transition-colors text-left cursor-pointer" aria-expanded="true">
+                                                <div class="min-w-0">
+                                                    <p class="font-extrabold text-slate-950 text-sm"><?= htmlspecialchars($comp['name']); ?></p>
+                                                    <?php if ($detailLine !== ''): ?>
+                                                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5"><?= htmlspecialchars($detailLine); ?></p>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="flex items-center gap-2.5 shrink-0">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-blue-50 text-[#0F2854] font-bold text-[11px] border border-blue-200">
                                                         <?= intval($comp['total_interns']); ?> Intern(s)
                                                     </span>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
+                                                        <?= count($compSupervisors); ?> Supervisor(s)
+                                                    </span>
+                                                    <svg class="company-chevron w-4 h-4 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                                                </div>
+                                            </button>
+                                            <div class="flex items-center pr-6">
+                                                <button type="button" onclick='openEditCompanyModal(<?= json_encode(['id' => (int)$comp['id'], 'name' => $comp['name'], 'department' => $comp['department'] ?? '', 'address' => $comp['address'] ?? ''], JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_TAG); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
+                                                    Edit
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="company-body divide-y divide-slate-200/80 border-t border-slate-200/70">
+                                            <?php if (!empty($compSupervisors)): ?>
+                                                <?php foreach ($compSupervisors as $sup) { $renderSupervisorRow($sup); } ?>
+                                            <?php else: ?>
+                                                <div class="px-6 py-6 text-center text-[11px] italic text-slate-400 font-semibold">No supervisor assigned yet.</div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+
+                                <?php if (!empty($unassignedSupervisors)): ?>
+                                    <div class="company-card bg-white rounded-2xl border border-amber-300 shadow-xs overflow-hidden" data-name="unassigned supervisors">
+                                        <button type="button" onclick="toggleCompanyCard(this.closest('.company-card'))" class="w-full flex items-center justify-between gap-4 px-6 py-4 bg-amber-50/70 hover:bg-amber-100/60 transition-colors text-left cursor-pointer" aria-expanded="true">
+                                            <div class="min-w-0">
+                                                <p class="font-extrabold text-amber-950 text-sm">Unassigned Supervisors</p>
+                                                <p class="text-[11px] font-semibold text-amber-800 mt-0.5">Supervisors not linked to a partner company yet.</p>
+                                            </div>
+                                            <div class="flex items-center gap-2.5 shrink-0">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[11px] border border-amber-300">
+                                                    <?= count($unassignedSupervisors); ?> Supervisor(s)
+                                                </span>
+                                                <svg class="company-chevron w-4 h-4 text-amber-700 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                                            </div>
+                                        </button>
+
+                                        <div class="company-body divide-y divide-slate-200/80 border-t border-amber-200">
+                                            <?php foreach ($unassignedSupervisors as $sup) { $renderSupervisorRow($sup); } ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+
                             </div>
                         <?php else: ?>
                             <div class="py-16 text-center text-slate-500 text-xs font-semibold">
@@ -442,8 +489,8 @@
     </div>
 
     <!-- MODAL 1: ADD STUDENT -->
-    <div id="addStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full overflow-hidden p-6 space-y-4">
+    <div id="addStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-950">Add Student Intern</h3>
                 <button type="button" onclick="toggleModal('addStudentModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
@@ -454,12 +501,12 @@
                 <div class="space-y-2.5">
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Full Name</label>
-                        <input type="text" name="name" required placeholder="e.g., Katelyn Coming" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                        <input type="text" name="name" required placeholder="Enter full name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Student ID Number</label>
-                            <input type="text" name="student_number" required placeholder="e.g., 2023-IT01" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                            <input type="text" name="student_number" required placeholder="Enter student ID" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                         </div>
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Section</label>
@@ -472,8 +519,8 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Email Address</label>
-                        <input type="email" name="email" required placeholder="student@nbsc.edu.ph" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                        <label class="block font-bold text-slate-700 mb-1">Student Email Address</label>
+                        <input type="email" name="email" required placeholder="Enter student email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                 </div>
 
@@ -498,7 +545,7 @@
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200/70">
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
                     <button type="button" onclick="toggleModal('addStudentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Student</button>
                 </div>
@@ -507,8 +554,8 @@
     </div>
 
     <!-- MODAL 2: UNIFIED ADD COMPANY & SUPERVISOR -->
-    <div id="addCompanySupervisorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full overflow-hidden p-6 space-y-4">
+    <div id="addCompanySupervisorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-xl w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <div>
                     <h3 class="text-sm font-black text-slate-950">Add Partner Company &amp; Supervisor</h3>
@@ -524,27 +571,45 @@
                     <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Company Information</span>
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Company / Office Name</label>
-                        <input type="text" name="company_name" required placeholder="e.g., LGU Manolo Fortich" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        <input type="text" name="company_name" required maxlength="255" placeholder="Enter company name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
                     </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Department / Branch</label>
-                        <input type="text" name="department" placeholder="e.g., IT Department / SASDD" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Department / Branch</label>
+                            <input type="text" name="department" maxlength="255" placeholder="Enter department" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Company Address</label>
+                            <input type="text" name="address" maxlength="255" placeholder="Enter company address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
                     </div>
                 </div>
 
                 <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
                     <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Supervisor Information</span>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Supervisor Full Name</label>
-                        <input type="text" name="supervisor_name" required placeholder="e.g., Jane Doe" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                            <input type="text" name="supervisor_name" required placeholder="Enter full name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                            <input type="email" name="supervisor_email" required placeholder="Enter email address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Email Address</label>
-                        <input type="email" name="supervisor_email" required placeholder="supervisor@company.com" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Job Title / Position</label>
+                            <input type="text" name="job_title" maxlength="150" placeholder="Enter job title or position" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Contact Number</label>
+                            <input type="tel" name="contact_number" maxlength="20" pattern="[0-9+\-\s()]{7,20}" title="7-20 characters: digits, +, -, spaces or parentheses" placeholder="Enter contact number" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200/70">
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
                     <button type="button" onclick="toggleModal('addCompanySupervisorModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Company &amp; Supervisor</button>
                 </div>
@@ -553,8 +618,8 @@
     </div>
 
     <!-- MODAL 3: BULK IMPORT -->
-    <div id="bulkImportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+    <div id="bulkImportModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-950">Bulk Import Students (.csv)</h3>
                 <button type="button" onclick="toggleModal('bulkImportModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
@@ -569,7 +634,7 @@
                 <div class="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center bg-slate-50 hover:border-[#0F2854] transition-colors">
                     <input type="file" name="excel_file" accept=".csv, .txt" required class="block w-full text-xs text-slate-600 font-medium file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0F2854] file:text-white hover:file:bg-blue-900 cursor-pointer">
                 </div>
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200/70">
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
                     <button type="button" onclick="toggleModal('bulkImportModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
                         <span>Process Import</span>
@@ -580,8 +645,8 @@
     </div>
 
     <!-- MODAL 4: EDIT STUDENT -->
-    <div id="editStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full overflow-hidden p-6 space-y-4">
+    <div id="editStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-950">Edit Student Intern</h3>
                 <button type="button" onclick="toggleModal('editStudentModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
@@ -613,8 +678,8 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Email Address</label>
-                        <input type="email" name="email" id="edit_student_email" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                        <label class="block font-bold text-slate-700 mb-1">Student Email Address</label>
+                        <input type="email" name="email" id="edit_student_email" required placeholder="Enter student email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                 </div>
 
@@ -639,7 +704,7 @@
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200/70">
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
                     <button type="button" onclick="toggleModal('editStudentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Changes</button>
                 </div>
@@ -648,8 +713,8 @@
     </div>
 
     <!-- MODAL 5: EDIT SUPERVISOR -->
-    <div id="editSupervisorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+    <div id="editSupervisorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-950">Edit Supervisor</h3>
                 <button type="button" onclick="toggleModal('editSupervisorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
@@ -657,15 +722,17 @@
             <form action="users.php" method="POST" class="space-y-3 text-xs">
                 <input type="hidden" name="action" value="edit_user">
                 <input type="hidden" name="role" value="supervisor">
-                <input type="hidden" name="redirect_tab" value="supervisors">
+                <input type="hidden" name="redirect_tab" value="companies">
                 <input type="hidden" name="user_id" id="edit_supervisor_user_id">
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Supervisor Full Name</label>
-                    <input type="text" name="name" id="edit_supervisor_name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Email Address</label>
-                    <input type="email" name="email" id="edit_supervisor_email" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                        <input type="text" name="name" id="edit_supervisor_name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                        <input type="email" name="email" id="edit_supervisor_email" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    </div>
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Assigned Company</label>
@@ -676,6 +743,16 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Job Title / Position</label>
+                        <input type="text" name="job_title" id="edit_supervisor_job_title" maxlength="150" placeholder="Enter job title or position" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Contact Number</label>
+                        <input type="tel" name="contact_number" id="edit_supervisor_contact_number" maxlength="20" pattern="[0-9+\-\s()]{7,20}" title="7-20 characters: digits, +, -, spaces or parentheses" placeholder="Enter contact number" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    </div>
+                </div>
                 <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
                     <button type="button" onclick="toggleModal('editSupervisorModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Changes</button>
@@ -684,9 +761,39 @@
         </div>
     </div>
 
+    <!-- MODAL 5B: EDIT COMPANY -->
+    <div id="editCompanyModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full m-auto p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+                <h3 class="text-sm font-black text-slate-950">Edit Company</h3>
+                <button type="button" onclick="toggleModal('editCompanyModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
+            </div>
+            <form action="users.php" method="POST" class="space-y-3 text-xs">
+                <input type="hidden" name="action" value="edit_company">
+                <input type="hidden" name="company_id" id="edit_company_id">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Company / Office Name</label>
+                    <input type="text" name="company_name" id="edit_company_name" required maxlength="255" placeholder="Enter company name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Department / Branch</label>
+                    <input type="text" name="department" id="edit_company_department" maxlength="255" placeholder="Enter department" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Company Address</label>
+                    <input type="text" name="address" id="edit_company_address" maxlength="255" placeholder="Enter company address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
+                    <button type="button" onclick="toggleModal('editCompanyModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL 6: ADD COORDINATOR -->
-    <div id="addCoordinatorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+    <div id="addCoordinatorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-950">Add Coordinator</h3>
                 <button type="button" onclick="toggleModal('addCoordinatorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
@@ -695,11 +802,11 @@
                 <input type="hidden" name="action" value="create_coordinator">
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Full Name</label>
-                    <input type="text" name="name" required placeholder="e.g., Prof. Sander" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    <input type="text" name="name" required placeholder="Enter full name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Email Address</label>
-                    <input type="email" name="email" required placeholder="coordinator@nbsc.edu.ph" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    <input type="email" name="email" required placeholder="Enter email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                 </div>
                 <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
                     <button type="button" onclick="toggleModal('addCoordinatorModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
@@ -710,8 +817,8 @@
     </div>
 
     <!-- MODAL 7: EDIT COORDINATOR -->
-    <div id="editCoordinatorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+    <div id="editCoordinatorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-950">Edit Coordinator</h3>
                 <button type="button" onclick="toggleModal('editCoordinatorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
@@ -835,7 +942,17 @@
             document.getElementById('edit_supervisor_name').value = supervisor.name;
             document.getElementById('edit_supervisor_email').value = supervisor.email;
             document.getElementById('edit_supervisor_company').value = supervisor.company_id || '';
+            document.getElementById('edit_supervisor_job_title').value = supervisor.job_title || '';
+            document.getElementById('edit_supervisor_contact_number').value = supervisor.contact_number || '';
             toggleModal('editSupervisorModal');
+        }
+
+        function openEditCompanyModal(company) {
+            document.getElementById('edit_company_id').value = company.id;
+            document.getElementById('edit_company_name').value = company.name || '';
+            document.getElementById('edit_company_department').value = company.department || '';
+            document.getElementById('edit_company_address').value = company.address || '';
+            toggleModal('editCompanyModal');
         }
 
         function openEditCoordinatorModal(coordinator) {
@@ -846,12 +963,51 @@
             toggleModal('editCoordinatorModal');
         }
 
+        // Collapsible company cards
+        function setCompanyCardOpen(card, open) {
+            const body = card.querySelector('.company-body');
+            const chevron = card.querySelector('.company-chevron');
+            const toggle = card.querySelector('button[aria-expanded]');
+            if (body) body.classList.toggle('hidden', !open);
+            if (chevron) chevron.classList.toggle('rotate-180', open);
+            if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function toggleCompanyCard(card) {
+            const body = card.querySelector('.company-body');
+            setCompanyCardOpen(card, body && body.classList.contains('hidden'));
+        }
+
+        // Cards start expanded
+        document.querySelectorAll('.company-card').forEach(function(card) {
+            setCompanyCardOpen(card, true);
+        });
+
         // Live Search Filter
         const searchInput = document.getElementById('userSearchInput');
         if (searchInput) {
             searchInput.addEventListener('input', function() {
                 const query = this.value.toLowerCase().trim();
                 const rows = document.querySelectorAll('.user-row');
+
+                // Company cards: match company name (show all its supervisors) or individual supervisors
+                document.querySelectorAll('.company-card').forEach(function(card) {
+                    const companyMatch = query === '' || (card.dataset.name || '').includes(query);
+                    let anyMatch = false;
+
+                    card.querySelectorAll('.sup-row').forEach(function(row) {
+                        const name = row.querySelector('.row-name')?.textContent.toLowerCase() || '';
+                        const sub  = row.querySelector('.row-sub')?.textContent.toLowerCase() || '';
+                        const match = query === '' || name.includes(query) || sub.includes(query);
+                        row.style.display = (match || companyMatch) ? '' : 'none';
+                        if (match) anyMatch = true;
+                    });
+
+                    card.style.display = (companyMatch || anyMatch) ? '' : 'none';
+                    if (query !== '' && (companyMatch || anyMatch)) {
+                        setCompanyCardOpen(card, true);
+                    }
+                });
 
                 rows.forEach(function(row) {
                     const name = row.querySelector('.row-name')?.textContent.toLowerCase() || '';
