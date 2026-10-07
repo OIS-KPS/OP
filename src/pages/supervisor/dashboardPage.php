@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <script src="/ICS-PORTAL/public/js/loadingOverlay.js"></script>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
@@ -105,7 +106,7 @@
                                             </div>
                                         </div>
 
-                                        <a href="view_report.php?student_id=<?= (int)$report['student_id']; ?>&report_id=<?= (int)$report['report_id']; ?>" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all shrink-0 inline-flex items-center gap-1.5 cursor-pointer">
+                                        <a href="view_report.php?student_id=<?= (int)$report['student_id']; ?>&report_id=<?= (int)$report['report_id']; ?>" data-ics-loading="Extracting entities from this report&hellip; This may take a moment." class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all shrink-0 inline-flex items-center gap-1.5 cursor-pointer">
                                             <span>Review</span>
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
                                         </a>
