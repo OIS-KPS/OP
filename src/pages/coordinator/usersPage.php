@@ -328,7 +328,12 @@
                                             <?php if (!empty($compSupervisors)): ?>
                                                 <?php foreach ($compSupervisors as $sup) { $renderSupervisorRow($sup); } ?>
                                             <?php else: ?>
-                                                <div class="px-6 py-6 text-center text-[11px] italic text-slate-400 font-semibold">No supervisor assigned yet.</div>
+                                                <div class="px-6 py-5 flex items-center justify-between bg-amber-50/50 border-t border-amber-200">
+                                                    <p class="text-[11px] font-bold text-amber-900">Supervisor required, add one.</p>
+                                                    <button type="button" onclick="openAddSupervisorToCompanyModal(<?= (int)$comp['id']; ?>, '<?= htmlspecialchars(addslashes($comp['name'])); ?>')" class="px-3.5 py-1.5 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 rounded-xl border border-amber-300 transition-colors cursor-pointer">
+                                                        + Add Supervisor
+                                                    </button>
+                                                </div>
                                             <?php endif; ?>
                                         </div>
                                     </div>
@@ -500,16 +505,16 @@
 
                 <div class="space-y-2.5">
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                        <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
                         <input type="text" name="name" required placeholder="Enter full name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Student ID Number</label>
+                            <label class="block font-bold text-slate-700 mb-1">Student ID Number <span class="text-rose-600">*</span></label>
                             <input type="text" name="student_number" required placeholder="Enter student ID" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Section</label>
+                            <label class="block font-bold text-slate-700 mb-1">Section <span class="text-rose-600">*</span></label>
                             <select name="section" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                                 <option value="A">Section A</option>
                                 <option value="B">Section B</option>
@@ -519,7 +524,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Student Email Address</label>
+                        <label class="block font-bold text-slate-700 mb-1">Student Email Address <span class="text-rose-600">*</span></label>
                         <input type="email" name="email" required placeholder="Enter student email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                 </div>
@@ -553,7 +558,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: UNIFIED ADD COMPANY & SUPERVISOR -->
+   <!-- MODAL 2: UNIFIED ADD COMPANY & SUPERVISOR -->
     <div id="addCompanySupervisorModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
         <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-xl w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
@@ -570,17 +575,17 @@
                 <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
                     <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Company Information</span>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Company / Office Name</label>
+                        <label class="block font-bold text-slate-700 mb-1">Company / Office Name <span class="text-rose-600">*</span></label>
                         <input type="text" name="company_name" required maxlength="255" placeholder="Enter company name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Department / Branch</label>
-                            <input type="text" name="department" maxlength="255" placeholder="Enter department" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                            <label class="block font-bold text-slate-700 mb-1">Department / Branch <span class="text-rose-600">*</span></label>
+                            <input type="text" name="department" required maxlength="255" placeholder="Enter department" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Company Address</label>
-                            <input type="text" name="address" maxlength="255" placeholder="Enter company address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                            <label class="block font-bold text-slate-700 mb-1">Company Address <span class="text-rose-600">*</span></label>
+                            <input type="text" name="address" required maxlength="255" placeholder="Enter company address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
                         </div>
                     </div>
                 </div>
@@ -589,11 +594,11 @@
                     <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Supervisor Information</span>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                            <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
                             <input type="text" name="supervisor_name" required placeholder="Enter full name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                            <label class="block font-bold text-slate-700 mb-1">Email Address <span class="text-rose-600">*</span></label>
                             <input type="email" name="supervisor_email" required placeholder="Enter email address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
                         </div>
                     </div>
@@ -659,16 +664,16 @@
                 
                 <div class="space-y-2.5">
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                        <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
                         <input type="text" name="name" id="edit_student_name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Student ID Number</label>
+                            <label class="block font-bold text-slate-700 mb-1">Student ID Number <span class="text-rose-600">*</span></label>
                             <input type="text" name="student_number" id="edit_student_number" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Section</label>
+                            <label class="block font-bold text-slate-700 mb-1">Section <span class="text-rose-600">*</span></label>
                             <select name="section" id="edit_student_section" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                                 <option value="A">Section A</option>
                                 <option value="B">Section B</option>
@@ -678,7 +683,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Student Email Address</label>
+                        <label class="block font-bold text-slate-700 mb-1">Student Email Address <span class="text-rose-600">*</span></label>
                         <input type="email" name="email" id="edit_student_email" required placeholder="Enter student email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                 </div>
@@ -726,11 +731,11 @@
                 <input type="hidden" name="user_id" id="edit_supervisor_user_id">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                        <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
                         <input type="text" name="name" id="edit_supervisor_name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                        <label class="block font-bold text-slate-700 mb-1">Email Address <span class="text-rose-600">*</span></label>
                         <input type="email" name="email" id="edit_supervisor_email" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                     </div>
                 </div>
@@ -772,7 +777,7 @@
                 <input type="hidden" name="action" value="edit_company">
                 <input type="hidden" name="company_id" id="edit_company_id">
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Company / Office Name</label>
+                    <label class="block font-bold text-slate-700 mb-1">Company / Office Name <span class="text-rose-600">*</span></label>
                     <input type="text" name="company_name" id="edit_company_name" required maxlength="255" placeholder="Enter company name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                 </div>
                 <div>
@@ -801,11 +806,11 @@
             <form action="users.php" method="POST" class="space-y-3 text-xs">
                 <input type="hidden" name="action" value="create_coordinator">
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                    <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
                     <input type="text" name="name" required placeholder="Enter full name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                    <label class="block font-bold text-slate-700 mb-1">Email Address <span class="text-rose-600">*</span></label>
                     <input type="email" name="email" required placeholder="Enter email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                 </div>
                 <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
@@ -829,15 +834,15 @@
                 <input type="hidden" name="redirect_tab" value="coordinators">
                 <input type="hidden" name="user_id" id="edit_coordinator_user_id">
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                    <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
                     <input type="text" name="name" id="edit_coordinator_name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Email Address</label>
+                    <label class="block font-bold text-slate-700 mb-1">Email Address <span class="text-rose-600">*</span></label>
                     <input type="email" name="email" id="edit_coordinator_email" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Role / Status</label>
+                    <label class="block font-bold text-slate-700 mb-1">Role / Status <span class="text-rose-600">*</span></label>
                     <select name="new_role" id="edit_coordinator_new_role" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                         <option value="coordinator">Coordinator</option>
                         <option value="supervisor">Supervisor</option>
