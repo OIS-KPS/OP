@@ -229,17 +229,17 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
 
                 <div>
                     <label class="block font-bold text-slate-800 mb-1.5">Host Company / Agency Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="company_name" required placeholder="e.g., NBSC IT Dept" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
+                    <input type="text" name="company_name" required placeholder="Enter company or agency name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block font-bold text-slate-800 mb-1.5">Designated Supervisor Name</label>
-                        <input type="text" name="supervisor_name" placeholder="e.g., Engr. keyt" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
+                        <input type="text" name="supervisor_name" placeholder="Enter supervisor's full name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
                     </div>
                     <div>
                         <label class="block font-bold text-slate-800 mb-1.5">Supervisor Email</label>
-                        <input type="email" name="supervisor_email" placeholder="e.g., coming.katelyn08@gmail.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
+                        <input type="email" name="supervisor_email" placeholder="Enter supervisor's email address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-[#0F2854]">
                     </div>
                 </div>
 

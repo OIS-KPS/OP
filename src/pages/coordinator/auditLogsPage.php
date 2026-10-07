@@ -113,6 +113,8 @@
                                             $cleanDesc = 'New user account provisioned via Google OAuth';
                                         } elseif (stripos($rawAction, 'STUDENT_CREATED') !== false) {
                                             $cleanDesc = 'Created student profile and dispatched welcome email';
+                                        } elseif (stripos($rawAction, 'SUPERVISOR_PROFILE_UPDATED') !== false) {
+                                            $cleanDesc = 'Updated job title and contact number on supervisor profile';
                                         } elseif (stripos($rawAction, 'SUPERVISOR_CREATED') !== false) {
                                             $cleanDesc = 'Created supervisor account and dispatched invite';
                                         } elseif (stripos($rawAction, 'COMPANY_CREATED') !== false) {
