@@ -1249,307 +1249,158 @@ if (!function_exists('e')) {
                                 <?= e($activeEval['company_name'] ?? 'Unassigned'); ?>
                             </p>
 
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">
-                                <?= e($activeEval['supervisor_name'] ?? 'Supervisor'); ?>
-                            </p>
-
+                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">  <?= e($activeEval['supervisor_name'] ?? 'Supervisor'); ?> </p>
                         </div>
-
                     </div>
-
 
                     <!-- Scorecard -->
                     <?php require __DIR__ . '/../../components/evaluation_scorecard.php'; ?>
-
-
                     <!-- Remarks -->
                     <?php if (!empty($activeEval['feedback'])): ?>
 
                         <div class="space-y-1">
-
                             <span class="block text-[10px] font-black uppercase tracking-wider text-slate-500">
                                 Comments / Remarks
                             </span>
 
                             <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-slate-800 font-medium leading-relaxed italic">
-
                                 "&ldquo;<?= e($activeEval['feedback']); ?>&rdquo;"
-
                             </div>
-
                         </div>
-
                     <?php endif; ?>
 
 
                     <!-- OTP -->
                     <div class="p-3.5 bg-emerald-50 rounded-xl border border-emerald-300 flex items-center justify-between text-xs">
-
                         <div class="flex items-center gap-2 text-emerald-900 font-black">
-
-                            <svg
-                                class="w-4 h-4 text-emerald-600 shrink-0"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2.5"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    d="M9 12.75L11.25 15 15 9.75m-2.18-8.204a2.25 2.25 0 00-2.14 0L4.78 4.39A2.25 2.25 0 003.5 6.36v7.38c0 4.26 3.27 8.04 7.5 9.26 4.23-1.22 7.5-5 7.5-9.26V6.36a2.25 2.25 0 00-1.28-1.97l-4.15-2.04z"
-                                />
+                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"viewBox="0 0 24 24" >
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-2.18-8.204a2.25 2.25 0 00-2.14 0L4.78 4.39A2.25 2.25 0 003.5 6.36v7.38c0 4.26 3.27 8.04 7.5 9.26 4.23-1.22 7.5-5 7.5-9.26V6.36a2.25 2.25 0 00-1.28-1.97l-4.15-2.04z" />
                             </svg>
 
                             <span>
                                 OTP Signed &amp; Verified
                             </span>
-
                         </div>
 
-
                         <span class="text-slate-600 font-bold text-[11px]">
-
                             <?= !empty($activeEval['otp_signed_at'])
-                                ? date(
-                                    "M d, Y \a\\t g:i A",
-                                    strtotime($activeEval['otp_signed_at'])
-                                )
+                                ? date("M d, Y \a\\t g:i A", strtotime($activeEval['otp_signed_at']))
                                 : 'Verified Record';
                             ?>
-
                         </span>
-
                     </div>
-
                 </div>
-
 
                 <!-- Footer -->
                 <div class="p-4 border-t border-slate-200/70 bg-slate-50/60 flex justify-end">
-
-                    <a
-                        href="evaluations.php"
-                        class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs border border-slate-300 transition-colors"
-                    >
-                        Close
-                    </a>
-
+                    <a href="evaluations.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs border border-slate-300 transition-colors" > Close </a>
                 </div>
-
             </div>
-
         </div>
 
     <?php endif; ?>
-
-
-    <!-- ========================================================= -->
-    <!-- JAVASCRIPT -->
-    <!-- ========================================================= -->
-
     <script>
-
         /* =====================================================
            SEARCH
         ===================================================== */
 
         const searchInput = document.getElementById('searchInput');
 
-        if (searchInput) {
-
-            searchInput.addEventListener('input', function() {
-
+        if (searchInput) { searchInput.addEventListener('input', function() {
                 const query = this.value.toLowerCase().trim();
-
                 const rows = document.querySelectorAll('.eval-row');
 
                 rows.forEach(function(row) {
-
-                    const name =
-                        row.querySelector('.intern-name')
-                        ?.textContent
-                        .toLowerCase() || '';
-
-                    const id =
-                        row.querySelector('.intern-id')
-                        ?.textContent
-                        .toLowerCase() || '';
-
-                    if (
-                        name.includes(query) ||
-                        id.includes(query)
-                    ) {
-
+                    const name = row.querySelector('.intern-name') ?.textContent.toLowerCase() || '';
+                    const id = row.querySelector('.intern-id') ?.textContent.toLowerCase() || '';
+                    if ( name.includes(query) || id.includes(query)) {
                         row.style.display = '';
-
                     } else {
-
                         row.style.display = 'none';
-
                     }
-
                 });
-
             });
-
         }
-
 
         /* =====================================================
            BULK MODAL
         ===================================================== */
 
         function openTriggerModal() {
-
-            const modal =
-                document.getElementById('triggerEvalModal');
-
+            const modal = document.getElementById('triggerEvalModal');
             modal.classList.remove('hidden');
-
             modal.classList.add('flex');
-
         }
 
 
         function closeTriggerModal() {
-
-            const modal =
-                document.getElementById('triggerEvalModal');
-
+            const modal = document.getElementById('triggerEvalModal');
             modal.classList.remove('flex');
-
             modal.classList.add('hidden');
-
         }
-
 
         /* =====================================================
            SELECT ALL
         ===================================================== */
-
         let selectAllState = false;
 
-
         function toggleSelectAll() {
-
             selectAllState = !selectAllState;
-
-            const checkboxes =
-                document.querySelectorAll('.student-checkbox');
-
+            const checkboxes = document.querySelectorAll('.student-checkbox');
             checkboxes.forEach(function(cb) {
-
                 cb.checked = selectAllState;
-
             });
 
 
-            const button =
-                document.getElementById('selectAllBtn');
-
-            if (button) {
-
-                button.textContent =
-                    selectAllState
-                        ? 'Deselect All'
-                        : 'Select All';
-
-            }
-
+            const button = document.getElementById('selectAllBtn');
+            if (button) {button.textContent = selectAllState ? 'Deselect All' : 'Select All'; }
         }
-
 
         /* =====================================================
            SINGLE EVALUATION MODAL
         ===================================================== */
 
         function openSingleConfirmModal(studentId, studentName) {
-
-            document.getElementById('confirmStudentId').value =
-                studentId;
-
-            document.getElementById('confirmStudentName').textContent =
-                studentName;
-
-
-            const modal =
-                document.getElementById('singleConfirmModal');
-
+            document.getElementById('confirmStudentId').value = studentId;
+            document.getElementById('confirmStudentName').textContent = studentName;
+            const modal = document.getElementById('singleConfirmModal');
             modal.classList.remove('hidden');
-
             modal.classList.add('flex');
-
         }
-
 
         function closeSingleConfirmModal() {
-
-            const modal =
-                document.getElementById('singleConfirmModal');
-
+            const modal =  document.getElementById('singleConfirmModal');
             modal.classList.remove('flex');
-
             modal.classList.add('hidden');
-
         }
-
 
         /* =====================================================
            CANCEL EVALUATION MODAL
         ===================================================== */
-
         function openCancelEvaluationModal(studentId, studentName) {
+            document.getElementById('cancelStudentId').value = studentId;
+            document.getElementById('cancelStudentName').textContent = studentName;
 
-            document.getElementById('cancelStudentId').value =
-                studentId;
-
-            document.getElementById('cancelStudentName').textContent =
-                studentName;
-
-
-            const modal =
-                document.getElementById('cancelEvalModal');
-
+            const modal = document.getElementById('cancelEvalModal');
             modal.classList.remove('hidden');
-
             modal.classList.add('flex');
-
         }
-
-
         function closeCancelEvaluationModal() {
-
-            const modal =
-                document.getElementById('cancelEvalModal');
-
+            const modal = document.getElementById('cancelEvalModal');
             modal.classList.remove('flex');
-
             modal.classList.add('hidden');
-
         }
-
-
         /* =====================================================
            ESC KEY CLOSES MODALS
         ===================================================== */
-
         document.addEventListener('keydown', function(event) {
-
             if (event.key !== 'Escape') {
                 return;
             }
-
             closeTriggerModal();
-
             closeSingleConfirmModal();
-
             closeCancelEvaluationModal();
-
         });
-
     </script>
-
 </body>
-
 </html>
