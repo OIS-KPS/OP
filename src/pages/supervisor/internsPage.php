@@ -94,8 +94,7 @@ if (!function_exists('e')) {
                                             <!-- Progress Count -->
                                             <td class="py-4 px-6 whitespace-nowrap">
                                                 <div class="flex items-center gap-2">
-                                                    <span class="font-extrabold text-slate-950 text-xs"><?= $submitted; ?> of 12 Reports</span>
-                                                    <?php if ($submitted > 0): ?>
+                                                        <span class="font-extrabold text-slate-950 text-xs"><?= $submitted; ?> <?= ($submitted === 1) ? 'Report' : 'Reports'; ?> Submitted</span>                                                    <?php if ($submitted > 0): ?>
                                                         <span class="px-2 py-0.5 bg-blue-50 text-blue-800 text-[10px] font-bold rounded-md border border-blue-200">
                                                             Active Logs
                                                         </span>

@@ -369,22 +369,8 @@ foreach ($reviewReports as $index => $report) {
                             Overall Progress
                         </span>
 
-                        <span class="font-bold text-white">
-
-                            <?= intval($totalApproved ?? 0); ?>
-
-                            of
-
-                            <?= htmlspecialchars($targetWeeks ?? '12'); ?>
-
-                            Weeks Approved
-
-                            (
-
-                            <?= htmlspecialchars($progressPercentage ?? '0'); ?>%
-
-                            )
-
+                       <span class="font-bold text-white">
+                            <?= intval($totalApproved ?? 0); ?> <?= (intval($totalApproved) === 1) ? 'Week' : 'Weeks'; ?> Approved
                         </span>
 
                     </div>
