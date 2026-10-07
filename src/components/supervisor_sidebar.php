@@ -127,6 +127,21 @@ if (!isset($pendingEvalBadgeCount)) {
                 </div>
             </div>
 
+            <!-- ACCOUNT SECTION -->
+            <div>
+                <p class="px-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Account</p>
+                <div class="space-y-1.5">
+                    <!-- Profile -->
+                    <?php $isProfile = ($currentPage === 'profile.php'); ?>
+                    <a href="profile.php" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm <?= $isProfile ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
+                        <svg class="w-5 h-5 <?= $isProfile ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <span>Profile</span>
+                    </a>
+                </div>
+            </div>
+
         </nav>
     </div>
 </aside>
