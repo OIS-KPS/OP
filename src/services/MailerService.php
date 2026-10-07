@@ -59,7 +59,7 @@ class MailerService
             $this->mailer->addAddress($recipientEmail, $recipientName);
 
             $this->mailer->Subject = "Welcome to NBSC OJT Management Portal";
-            $roleLabel = ($role === 'student') ? 'Student Intern' : 'Industry Supervisor';
+            $roleLabel = ($role === 'student') ? 'Student Intern' : (($role === 'coordinator') ? 'OJT Coordinator' : 'Industry Supervisor');
 
             $this->mailer->Body = "
                 <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; color: #1e293b;'>
@@ -79,6 +79,37 @@ class MailerService
             return $this->mailer->send();
         } catch (Exception $e) {
             error_log("Mailer Error (Welcome Email): " . $this->mailer->ErrorInfo);
+            return false;
+        }
+    }
+
+    /**
+     * Notify an existing user that their account role has been updated
+     */
+    public function sendRoleAssignmentEmail($recipientEmail, $recipientName, $role)
+    {
+        try {
+            $this->mailer->clearAddresses();
+            $this->mailer->addAddress($recipientEmail, $recipientName);
+
+            $roleLabel = ($role === 'coordinator') ? 'OJT Coordinator' : (($role === 'supervisor') ? 'Industry Supervisor' : 'Student Intern');
+
+            $this->mailer->Subject = "Your NBSC OJT Portal Account Has Been Updated";
+            $this->mailer->Body = "
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; color: #1e293b;'>
+                    <h2 style='color: #0F2854; margin-top: 0;'>Account Role Updated</h2>
+                    <p>Hello <strong>" . htmlspecialchars($recipientName) . "</strong>,</p>
+                    <p>Your NBSC OJT Portal account has been updated to <strong>{$roleLabel}</strong> status.</p>
+                    <p>You can sign in using your registered email address via Google Sign-In.</p>
+                    <p style='margin-top: 24px;'><a href='http://localhost/ICS-PORTAL/auth/login.php' style='background-color: #0F2854; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;'>Access Portal</a></p>
+                    <hr style='border: none; border-top: 1px solid #e2e8f0; margin-top: 32px;'>
+                    <p style='font-size: 11px; color: #94a3b8; text-align: center;'>Northern Bukidnon State College - Institute for Computer Studies</p>
+                </div>
+            ";
+
+            return $this->mailer->send();
+        } catch (Exception $e) {
+            error_log("Mailer Error (Role Assignment Email): " . $this->mailer->ErrorInfo);
             return false;
         }
     }
