@@ -72,47 +72,56 @@
                         </div>
                     </div>
 
-                    <!-- 2. Integrated Filter Tabs & Live Search Toolbar -->
-                    <div class="p-4 border-b border-slate-200/70 flex flex-col md:flex-row items-center justify-between gap-4 bg-white">
-                        
-                        <!-- Status Filter Tabs -->
-                        <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
-                            <button type="button" onclick="filterByStatus('all', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-[#0F2854] text-white border border-[#0F2854] cursor-pointer">
-                                <span>All Interns</span>
-                                <span class="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white"><?= count($students ?? []); ?></span>
-                            </button>
-                            <button type="button" onclick="filterByStatus('assigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer">
-                                <span>Assigned</span>
-                            </button>
-                            <button type="button" onclick="filterByStatus('unassigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer">
-                                <span>Unassigned</span>
-                            </button>
+                        <!-- 2. Integrated Filter Tabs & Live Search Toolbar -->
+                        <div class="p-4 border-b border-slate-200/70 bg-white">
+
+                            <!-- Status Filter Tabs -->
+                            <div class="flex items-center gap-2 overflow-visible flex-wrap">
+                                <!-- All Interns + Sections Dropdown -->
+                                <div class="relative inline-block text-left">
+                                    <div class="inline-flex items-center">
+                                        <button type="button" onclick="filterByStatus('all', this)" class="filter-tab px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]">
+                                            <span>All Interns<?= ($selectedSection ?? 'all') !== 'all' ? ' · Sec ' . htmlspecialchars($selectedSection) : ''; ?></span>
+                                            <span class="ml-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white"><?= count($students ?? []); ?></span>
+                                        </button>
+                                        <button type="button" onclick="toggleSectionsMenu(event)" class="px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 border-[#0F2854] bg-[#0F2854] text-white" aria-label="Toggle sections">
+                                            <svg id="sectionsMenuChevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <div id="sectionsMenu" class="hidden absolute left-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-300 z-50 text-xs overflow-hidden p-1.5">
+                                        <a href="assignments.php?section=all" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? 'all') === 'all' ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
+                                            All Sections
+                                        </a>
+                                        <?php foreach ($activeSections as $sec): ?>
+                                            <a href="assignments.php?section=<?= urlencode($sec); ?>" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? '') === $sec ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
+                                                Section <?= htmlspecialchars($sec); ?>
+                                            </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+
+                                <button type="button" onclick="filterByStatus('assigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer">
+                                    <span>Assigned</span>
+                                </button>
+                                <button type="button" onclick="filterByStatus('unassigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer">
+                                    <span>Unassigned</span>
+                                </button>
+                            </div>
                         </div>
 
-                        <!-- Section Filter & Live Search Input -->
-                        <div class="flex items-center gap-3 w-full md:w-auto">
-                            <!-- Section Filter -->
-                            <select onchange="location.href='assignments.php?section=' + this.value" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer">
-                                <option value="all" <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>>All Sections</option>
-                                <?php foreach ($activeSections as $sec): ?>
-                                    <option value="<?= htmlspecialchars($sec); ?>" <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>>
-                                        Section <?= htmlspecialchars($sec); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-
-                            <!-- Live Search Input -->
-                            <div class="relative w-full md:w-64">
+                        <!-- Full-Width Search -->
+                        <div class="p-4 border-b border-slate-200/70 bg-white">
+                            <div class="relative w-full">
                                 <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                                 <input 
                                     type="text" 
                                     id="assignmentSearchInput"
-                                    placeholder="Search student or company..." 
+                                    placeholder="Search..." 
                                     class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                                 >
                             </div>
                         </div>
-                    </div>
 
                     <!-- 3. Placement Table -->
                     <?php if (!empty($students)): ?>
@@ -373,12 +382,38 @@
             currentStatusFilter = status;
             
             document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.className = 'filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer';
+                tab.className = 'filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer inline-flex items-center gap-2';
             });
-            btnElement.className = 'filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-[#0F2854] text-white border border-[#0F2854] cursor-pointer';
+            btnElement.className = 'filter-tab px-3.5 py-1.5 text-xs font-bold cursor-pointer inline-flex items-center gap-2 bg-[#0F2854] text-white rounded-lg border border-[#0F2854]';
+
+            const chevronBtn = document.querySelector('button[aria-label="Toggle sections"]');
+            if (chevronBtn) {
+                if (status === 'all') {
+                    chevronBtn.className = 'px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 border-[#0F2854] bg-[#0F2854] text-white';
+                } else {
+                    chevronBtn.className = 'px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100';
+                }
+            }
 
             applyCombinedFilter();
         }
+
+        function toggleSectionsMenu(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById('sectionsMenu');
+            const chevron = document.getElementById('sectionsMenuChevron');
+            if (menu) menu.classList.toggle('hidden');
+            if (chevron) chevron.classList.toggle('rotate-180');
+        }
+
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('sectionsMenu');
+            const chevronBtn = document.querySelector('button[aria-label="Toggle sections"]');
+            if (menu && !menu.contains(e.target) && (!chevronBtn || !chevronBtn.contains(e.target))) {
+                menu.classList.add('hidden');
+                document.getElementById('sectionsMenuChevron')?.classList.remove('rotate-180');
+            }
+        });
 
         // Live Search Listener
         const searchInput = document.getElementById('assignmentSearchInput');
