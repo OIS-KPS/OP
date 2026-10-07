@@ -66,9 +66,9 @@ while (in_array($nextWeek, $submittedWeeks)) {
     $nextWeek++;
 }
 
-// 5. Calculate OJT Target Progress (12 Weeks standard cohort target)
-$targetWeeks = 12;
-$progressPercentage = min(100, round(($totalApproved / $targetWeeks) * 100));
+// 5. Calculate OJT Target Progress (Dynamic expandable target: minimum 12 weeks, scales up if internship extends further)
+$targetWeeks = max(12, $nextWeek - 1, $totalSubmitted);
+$progressPercentage = ($targetWeeks > 0) ? min(100, round(($totalApproved / $targetWeeks) * 100)) : 0;
 
 // 6. 2 Most Recent Reports for Snapshot Feed
 $recentReports = array_slice(array_reverse($reports), 0, 2);
