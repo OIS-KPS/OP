@@ -255,6 +255,8 @@ CREATE TABLE `supervisors` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `company_id` int(11) DEFAULT NULL,
+`job_title` varchar(150) DEFAULT NULL,
+  `contact_number` varchar(30) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
