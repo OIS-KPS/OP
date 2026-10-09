@@ -39,7 +39,7 @@ function redirectUserByRole($role) {
             break;
         case 'student':
         default:
-            header("Location: ../reports.php");
+            header("Location: ../dashboard.php");
             break;
     }
     exit();
