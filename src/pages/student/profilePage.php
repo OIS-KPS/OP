@@ -1,8 +1,5 @@
 <!-- src/pages/student/profilePage.php -->
 <?php
-$placementStatus    = strtolower($student['placement_request_status'] ?? 'none');
-$isPlacementPending = ($placementStatus === 'pending');
-$isPlacementRejected= ($placementStatus === 'rejected');
 $hasActivePlacement = !empty($student['company_name']);
 $studentNumber      = !empty($student['student_number']) ? $student['student_number'] : 'N/A';
 $studentName        = !empty($student['student_name']) ? $student['student_name'] : 'Student';
@@ -59,7 +56,7 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
                 <!-- Page Header Title -->
                 <div>
                     <h2 class="text-base font-extrabold text-slate-950 leading-snug tracking-tight">Student Profile</h2>
-                    <p class="text-slate-600 text-xs font-semibold mt-0.5">View your account details and manage your assigned internship placement.</p>
+                    <p class="text-slate-600 text-xs font-semibold mt-0.5">View your account details and your assigned internship placement.</p>
                 </div>
 
                 <!-- Clean Profile Identity Card -->
@@ -128,12 +125,7 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
                                     <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">Internship Placement</h4>
                                 </div>
 
-                                <?php if ($isPlacementPending): ?>
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
-                                        Pending Approval
-                                    </span>
-                                <?php elseif ($hasActivePlacement): ?>
+                                <?php if ($hasActivePlacement): ?>
                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                                         Active Placement
@@ -163,46 +155,7 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
                                         <p class="text-[11px] font-semibold text-slate-500 mt-0.5"><?= htmlspecialchars($student['supervisor_email']); ?></p>
                                     <?php endif; ?>
                                 </div>
-
-                                <!-- Pending Request Notice Box -->
-                                <?php if ($isPlacementPending): ?>
-                                    <div class="p-3.5 bg-amber-50/80 border border-amber-300 rounded-xl space-y-1">
-                                        <div class="flex items-center gap-1.5 text-amber-900 font-extrabold text-[11px]">
-                                            <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            <span>Update Request Submitted</span>
-                                        </div>
-                                        <p class="text-[11px] text-amber-900 font-medium leading-snug">
-                                            Requested Company: <strong class="font-black text-slate-950"><?= htmlspecialchars($student['requested_company_name'] ?? ''); ?></strong>. Awaiting review by the OJT Coordinator.
-                                        </p>
-                                    </div>
-                                <?php endif; ?>
-
-                                <!-- Rejected Request Notice Box -->
-                                <?php if ($isPlacementRejected && !empty($student['placement_rejection_reason'])): ?>
-                                    <div class="p-3.5 bg-rose-50 border border-rose-300 rounded-xl space-y-1">
-                                        <div class="flex items-center gap-1.5 text-rose-900 font-extrabold text-[11px]">
-                                            <span>✕ Request Rejected by Coordinator</span>
-                                        </div>
-                                        <p class="text-[11px] text-rose-800 font-medium">
-                                            <?= htmlspecialchars($student['placement_rejection_reason']); ?>
-                                        </p>
-                                    </div>
-                                <?php endif; ?>
                             </div>
-                        </div>
-
-                        <!-- Update Placement Button -->
-                        <div class="pt-4 border-t border-slate-200/70 flex justify-end">
-                            <?php if (!$isPlacementPending): ?>
-                               <button type="button" onclick="openPlacementModal()" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-2 cursor-pointer">
-                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg>
-                                    <span><?= $hasActivePlacement ? 'Request Placement Transfer' : 'Request Initial Placement'; ?></span>
-                                </button>
-                            <?php else: ?>
-                                <button disabled class="px-4 py-2 bg-slate-100 text-slate-400 text-xs font-bold rounded-xl border border-slate-200 cursor-not-allowed">
-                                    Request Under Review
-                                </button>
-                            <?php endif; ?>
                         </div>
                     </div>
 
@@ -211,75 +164,5 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
             </main>
         </div>
     </div>
-
-    <!-- Placement Request Modal -->
-    <div id="placementModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-3xl border border-slate-300 shadow-2xl max-w-xl w-full p-7 space-y-4 animate-in fade-in zoom-in duration-200">
-            
-            <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
-                <div>
-                    <h3 class="text-sm font-black text-slate-950 tracking-tight">Request Internship Placement</h3>
-                    <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Subject to review and confirmation by the OJT Coordinator</p>
-                </div>
-                <button onclick="closePlacementModal()" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-xs font-bold flex items-center justify-center border border-slate-300 transition-all cursor-pointer">✕</button>
-            </div>
-
-            <form method="POST" action="profile.php" class="space-y-4 text-xs">
-                <input type="hidden" name="action" value="request_placement_update">
-
-                <!-- Company Information Section Box -->
-                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Company Information</span>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Host Company / Agency Name <span class="text-rose-600">*</span></label>
-                        <input type="text" name="company_name" required maxlength="255" placeholder="Enter company or agency name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block font-bold text-slate-700 mb-1">Department / Branch <span class="text-rose-600">*</span></label>
-                            <input type="text" name="department" required maxlength="255" placeholder="Enter department" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-700 mb-1">Company Address <span class="text-rose-600">*</span></label>
-                            <input type="text" name="address" required maxlength="255" placeholder="Enter company address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Supervisor Information Section Box -->
-                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Supervisor Information</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block font-bold text-slate-700 mb-1">Designated Supervisor Name <span class="text-rose-600">*</span></label>
-                            <input type="text" name="supervisor_name" required placeholder="Enter supervisor's full name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-700 mb-1">Supervisor Email <span class="text-rose-600">*</span></label>
-                            <input type="email" name="supervisor_email" required placeholder="Enter supervisor's email address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200/70">
-                    <button type="button" onclick="closePlacementModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">
-                        Submit for Approval
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-    function openPlacementModal() {
-        document.getElementById('placementModal').classList.remove('hidden');
-    }
-    function closePlacementModal() {
-        document.getElementById('placementModal').classList.add('hidden');
-    }
-    </script>
 </body>
 </html>
