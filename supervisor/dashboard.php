@@ -128,7 +128,7 @@ try {
             $status = strtolower($log['status'] ?? 'pending');
             $hasRevision = !empty($log['previous_file_path']);
             $timestamp = !empty($log['approved_at']) ? $log['approved_at'] : (!empty($log['updated_at']) ? $log['updated_at'] : $log['submitted_at']);
-            $timeAgo = !empty($timestamp) ? date("M d, Y &bull; g:i A", strtotime($timestamp)) : 'Recently';
+            $timeAgo = !empty($timestamp) ? date("M d, Y • g:i A", strtotime($timestamp)) : 'Recently';
 
             if ($status === 'approved') {
                 $title = "Approved Week " . $log['week_number'] . " report for " . htmlspecialchars($log['student_name']);
