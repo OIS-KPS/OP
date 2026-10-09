@@ -1,6 +1,23 @@
 <!-- src/components/coordinator_sidebar.php -->
 <?php
 $currentPage = basename($_SERVER['PHP_SELF']);
+
+// Dynamic Database Fetch for Pending Evaluation Requests Badge
+$pendingRequestBadgeCount = 0;
+if (isset($pdo)) {
+    try {
+        $stmtPendingReqBadge = $pdo->query("
+            SELECT COUNT(s.id)
+            FROM students s
+            WHERE s.completion_requested = 1
+              AND (s.evaluation_triggered IS NULL OR s.evaluation_triggered = 0)
+              AND NOT EXISTS (SELECT 1 FROM evaluations e WHERE e.student_id = s.id)
+        ");
+        $pendingRequestBadgeCount = (int)$stmtPendingReqBadge->fetchColumn();
+    } catch (Exception $e) {
+        $pendingRequestBadgeCount = 0;
+    }
+}
 ?>
 
 <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-20">
@@ -42,13 +59,22 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         Accomplishment Reports
                     </a>
 
-                    <!-- Final Evaluations -->
+                    <!-- Final Evaluations with Pending Request Notification Badge -->
                     <?php $isEvaluations = ($currentPage === 'evaluations.php'); ?>
-                    <a href="evaluations.php" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm <?= $isEvaluations ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
-                        <svg class="w-5 h-5 <?= $isEvaluations ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
-                        </svg>
-                        Final Evaluations
+                    <a href="evaluations.php" class="flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm <?= $isEvaluations ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <svg class="w-5 h-5 <?= $isEvaluations ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                            </svg>
+                            <span class="truncate">Final Evaluations</span>
+                        </div>
+
+                        <!-- Dynamic Pending Evaluation Request Badge -->
+                        <?php if ($pendingRequestBadgeCount > 0): ?>
+                            <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white font-bold text-xs shrink-0 shadow-2xs">
+                                <?= $pendingRequestBadgeCount; ?>
+                            </span>
+                        <?php endif; ?>
                     </a>
 
                 </div>
