@@ -62,29 +62,33 @@ try {
     );
         $evaluatedStudents = (int) ($stmt->fetchColumn() ?: 0);
 
-    // 3. Total submitted reports used as the report-coverage denominator.
-    $stmt = $pdo->query('SELECT COUNT(*) FROM reports');
+    // 3. Total submitted reports used as the report-coverage denominator (approved only).
+    $stmt = $pdo->query("SELECT COUNT(*) FROM reports WHERE status = 'approved'");
     $totalReports = (int) ($stmt->fetchColumn() ?: 0);
 
-    // 4. Technical share of all persisted extracted/report entities.
+    // 4. Technical share of all persisted extracted/report entities (approved reports only).
     $stmt = $pdo->query(
         "SELECT COALESCE(
             ROUND(
-                100 * SUM(CASE WHEN activity_type <> 'Clerical' THEN 1 ELSE 0 END)
+                100 * SUM(CASE WHEN re.activity_type <> 'Clerical' THEN 1 ELSE 0 END)
                 / NULLIF(COUNT(*), 0),
                 2
             ),
             0
          )
-         FROM report_entities"
+         FROM report_entities re
+         INNER JOIN reports r ON r.id = re.report_id
+         WHERE r.status = 'approved'"
     );
     $overallTechPct = (float) ($stmt->fetchColumn() ?: 0);
 
-    // 4. Average confidence from the extractor/database records.
+    // 4. Average confidence from the extractor/database records (approved reports only).
     $stmt = $pdo->query(
-        'SELECT COALESCE(ROUND(AVG(confidence_score), 2), 0)
-         FROM report_entities
-         WHERE confidence_score IS NOT NULL'
+        "SELECT COALESCE(ROUND(AVG(re.confidence_score), 2), 0)
+         FROM report_entities re
+         INNER JOIN reports r ON r.id = re.report_id
+         WHERE re.confidence_score IS NOT NULL
+           AND r.status = 'approved'"
     );
     $spacyConfidence = (float) ($stmt->fetchColumn() ?: 0);
 
@@ -121,6 +125,7 @@ try {
          FROM students s
          INNER JOIN reports r ON r.student_id = s.id
          INNER JOIN report_entities re ON re.report_id = r.id
+         WHERE r.status = 'approved'
          GROUP BY s.company_id"
     );
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -170,7 +175,7 @@ try {
         static fn (array $company): bool => (float) ($company['it_task_ratio'] ?? 0) < 60
     ));
 
-    // 6. Entity frequency by predefined/extracted entity, company, and report date.
+    // 6. Entity frequency by predefined/extracted entity, company, and report date (approved reports only).
     // report_entities has one row per report entity, so COUNT(*) is the real
     // frequency represented by the current schema.
     $stmt = $pdo->query(
@@ -188,6 +193,7 @@ try {
          INNER JOIN reports r ON r.id = re.report_id
          INNER JOIN students s ON s.id = r.student_id
          LEFT JOIN companies c ON c.id = s.company_id
+         WHERE r.status = 'approved'
          GROUP BY
             re.entity_name,
             re.category,
@@ -316,7 +322,12 @@ try {
     });
     $topEntities = array_slice($topEntities, 0, 5);
 
-    $stmt = $pdo->query('SELECT COUNT(DISTINCT report_id) FROM report_entities');
+    $stmt = $pdo->query(
+        "SELECT COUNT(DISTINCT re.report_id)
+         FROM report_entities re
+         INNER JOIN reports r ON r.id = re.report_id
+         WHERE r.status = 'approved'"
+    );
     $totalReportsWithEntities = (int) ($stmt->fetchColumn() ?: 0);
 
     foreach ($companyPerformance as $company) {
