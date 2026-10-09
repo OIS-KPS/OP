@@ -445,6 +445,7 @@ try {
             s.id AS student_id,
             s.student_number,
             s.program,
+            s.completion_requested,
             s.evaluation_triggered,
 
             COALESCE(s.section, 'A') AS section,

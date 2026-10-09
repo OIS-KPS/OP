@@ -671,6 +671,37 @@ if (!function_exists('e')) {
                                                     </div>
 
 
+                                                <?php elseif (!empty($eval['completion_requested'])): ?>
+
+                                                    <!-- Approve Pending Evaluation Request -->
+                                                    <?php if ($eval['supervisor_name'] === 'Pending Assignment'): ?>
+
+                                                        <span
+                                                            class="px-2.5 py-1 text-[11px] font-bold text-amber-700 bg-amber-50 rounded-xl border border-amber-300 inline-block"
+                                                            title="Assign a supervisor first"
+                                                        >
+                                                            Needs Supervisor
+                                                        </span>
+
+                                                    <?php else: ?>
+
+                                                        <button
+                                                            type="button"
+                                                            onclick="openSingleConfirmModal(
+                                                                <?= (int)$eval['student_id']; ?>,
+                                                                '<?= e($eval['student_name']); ?>'
+                                                            )"
+                                                            class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer"
+                                                        >
+
+                                                            <span>
+                                                                Approve
+                                                            </span>
+
+                                                        </button>
+
+                                                    <?php endif; ?>
+
                                                 <?php elseif ($eval['supervisor_name'] === 'Pending Assignment'): ?>
 
                                                     <span
