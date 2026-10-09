@@ -40,7 +40,17 @@ try {
             if (empty($student['evaluation_id']) && empty($student['completion_requested'])) {
                 $stmtReq = $pdo->prepare("UPDATE students SET completion_requested = 1 WHERE id = ?");
                 $stmtReq->execute([$studentId]);
-                $_SESSION['flash_message'] = "Your final evaluation request has been submitted to your supervisor.";
+                $_SESSION['flash_message'] = "Your final evaluation request has been submitted to the OJT Coordinator.";
+            }
+            header("Location: reports.php");
+            exit();
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_evaluation_request'])) {
+            if (empty($student['evaluation_id']) && !empty($student['completion_requested']) && empty($student['evaluation_triggered'])) {
+                $stmtCancel = $pdo->prepare("UPDATE students SET completion_requested = 0 WHERE id = ?");
+                $stmtCancel->execute([$studentId]);
+                $_SESSION['flash_message'] = "Your final evaluation request has been cancelled.";
             }
             header("Location: reports.php");
             exit();

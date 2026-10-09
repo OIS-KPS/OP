@@ -7,6 +7,7 @@ unset($_SESSION['flash_message']);
 $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
 $isAssigned  = !empty($student['company_id']);
+$canCancelRequest = $isRequested && empty($student['evaluation_triggered']);
 $nextWeekToSubmit = count($reports ?? []) + 1;
 ?>
 <!DOCTYPE html>
@@ -84,12 +85,12 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                     </div>
                 <?php endif; ?>
 
-                <!-- 1. Conditional 486-Hour / Final Evaluation Notification Banner -->
-                <?php if ($totalApproved >= 12 || $isRequested || $isEvaluated): ?>
+                <!-- 1. Conditional Internship Completion / Final Evaluation Notification Banner -->
+                <?php if ($totalApproved >= 10 || $isRequested || $isEvaluated): ?>
                     <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div class="space-y-1">
                             <div class="flex items-center gap-2">
-                                <span class="text-xs font-black text-slate-900 uppercase tracking-wider">486-Hour Internship Completion</span>
+                                <span class="text-xs font-black text-slate-900 uppercase tracking-wider">Internship Completion</span>
                                 <?php if ($isEvaluated): ?>
                                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100/80 text-emerald-900 border border-emerald-300">Evaluation Forwarded</span>
                                 <?php elseif ($isRequested): ?>
@@ -104,7 +105,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                 <?php elseif ($isRequested): ?>
                                     Your completion request has been submitted. Your supervisor will review and sign your appraisal.
                                 <?php else: ?>
-                                    You have completed your 12 weekly reports. Request your final performance evaluation from your supervisor.
+                                    You have completed your <?= (int)$totalApproved; ?> weekly reports. Request your final performance evaluation from your supervisor.
                                 <?php endif; ?>
                             </p>
                         </div>
@@ -115,11 +116,20 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Completed &amp; Signed
                                 </span>
                             <?php elseif ($isRequested): ?>
-                                <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
-                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span> Waiting for Supervisor
-                                </span>
+                                <div class="inline-flex flex-wrap items-center gap-2.5">
+                                    <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
+                                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> Waiting for Supervisor
+                                    </span>
+                                    <?php if ($canCancelRequest): ?>
+                                        <form method="POST" action="reports.php" class="inline" onsubmit="return confirm('Cancel your final evaluation request? You can submit a new request later.');">
+                                            <button type="submit" name="cancel_evaluation_request" class="px-3.5 py-1.5 rounded-full bg-white text-amber-700 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition-colors cursor-pointer">
+                                                Cancel Request
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
                             <?php else: ?>
-                                <form method="POST" action="reports.php" onsubmit="return confirm('Confirm that you have completed rendering all required 486 hours of your internship. Your supervisor will be notified to evaluate you.');">
+                                <form method="POST" action="reports.php" onsubmit="return confirm('Confirm that you have completed your internship. Your supervisor will be notified to evaluate you.');">
                                     <button type="submit" name="request_evaluation" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2">
                                         <span>Request Final Evaluation</span>
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
@@ -162,7 +172,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                         </div>
 
                         <div class="flex items-center gap-2.5">
-                            <?php if (!$isEvaluated && $totalApproved < 12 && $isAssigned): ?>
+                            <?php if (!$isEvaluated && $totalApproved < 10 && $isAssigned): ?>
                                 <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                                     <span>Submit Week <?= $nextWeekToSubmit; ?></span>

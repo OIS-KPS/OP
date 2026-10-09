@@ -66,8 +66,8 @@ while (in_array($nextWeek, $submittedWeeks)) {
     $nextWeek++;
 }
 
-// 5. Calculate OJT Target Progress (Dynamic expandable target: minimum 12 weeks, scales up if internship extends further)
-$targetWeeks = max(12, $nextWeek - 1, $totalSubmitted);
+// 5. Calculate OJT Target Progress (Dynamic expandable target: minimum 10 weeks, scales up if internship extends further)
+$targetWeeks = max(10, $nextWeek - 1, $totalSubmitted);
 $progressPercentage = ($targetWeeks > 0) ? min(100, round(($totalApproved / $targetWeeks) * 100)) : 0;
 
 // 6. 2 Most Recent Reports for Snapshot Feed
