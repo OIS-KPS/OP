@@ -338,7 +338,8 @@ try {
     $stmtCompanies = $pdo->query("
         SELECT id, name
         FROM companies
-        WHERE name IS NOT NULL
+        WHERE status = 'active'
+          AND name IS NOT NULL
           AND name != ''
         ORDER BY name ASC
     ");
@@ -456,6 +457,7 @@ try {
 
             c.id AS company_id,
             COALESCE(c.name, 'Unassigned') AS company_name,
+            o.name AS office_name,
 
             COALESCE(
                 u_sup.name,
@@ -498,6 +500,9 @@ try {
 
         LEFT JOIN companies c
             ON s.company_id = c.id
+
+        LEFT JOIN offices o
+            ON s.office_id = o.id
 
         LEFT JOIN supervisors sup
             ON s.supervisor_id = sup.id

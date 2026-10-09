@@ -104,9 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $section       = strtoupper(trim($_POST['section'] ?? 'A'));
 
-        $companyId     = !empty($_POST['company_id']) ? intval($_POST['company_id']) : null;
-
-        $supervisorId  = !empty($_POST['supervisor_id']) ? intval($_POST['supervisor_id']) : null;
+        $officeId      = !empty($_POST['office_id']) ? intval($_POST['office_id']) : null;
 
 
 
@@ -115,6 +113,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
 
                 $pdo->beginTransaction();
+
+
+
+                // Resolve placement: the office determines company + supervisor
+                $companyId    = null;
+                $supervisorId = null;
+
+                if ($officeId) {
+                    $stmtOffice = $pdo->prepare("
+                        SELECT o.company_id, sup.id AS supervisor_id
+                        FROM offices o
+                        LEFT JOIN supervisors sup ON sup.office_id = o.id
+                        WHERE o.id = ?
+                        LIMIT 1
+                    ");
+                    $stmtOffice->execute([$officeId]);
+                    $office = $stmtOffice->fetch(PDO::FETCH_ASSOC);
+
+                    if ($office) {
+                        $companyId    = $office['company_id'];
+                        $supervisorId = $office['supervisor_id'] ?: null;
+                    }
+                }
 
 
 
@@ -146,9 +167,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $stmtStudent = $pdo->prepare("
 
-                    INSERT INTO students (user_id, student_number, program, section, company_id, supervisor_id)
+                    INSERT INTO students (user_id, student_number, program, section, office_id, company_id, supervisor_id)
 
-                    VALUES (?, ?, 'BSIT', ?, ?, ?)
+                    VALUES (?, ?, 'BSIT', ?, ?, ?, ?)
 
                     ON DUPLICATE KEY UPDATE
 
@@ -158,13 +179,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         section = VALUES(section),
 
+                        office_id = VALUES(office_id),
+
                         company_id = VALUES(company_id),
 
                         supervisor_id = VALUES(supervisor_id)
 
                 ");
 
-                $stmtStudent->execute([$userId, $studentNumber, $section, $companyId, $supervisorId]);
+                $stmtStudent->execute([$userId, $studentNumber, $section, $officeId, $companyId, $supervisorId]);
 
 
 
@@ -206,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $companyName    = trim($_POST['company_name'] ?? '');
 
-        $department     = trim($_POST['department'] ?? 'Main Office');
+        $officeName     = trim($_POST['department'] ?? '');
 
         $address        = trim($_POST['address'] ?? '');
 
@@ -242,17 +265,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
-                // 1. Insert Company
+                // 1. Find or create company by exact name
 
-                $stmtComp = $pdo->prepare("INSERT INTO companies (name, department, address) VALUES (?, ?, ?)");
+                $stmtFindComp = $pdo->prepare("SELECT id, status FROM companies WHERE name = ? LIMIT 1");
 
-                $stmtComp->execute([$companyName, $department ?: 'Main Office', $address !== '' ? $address : null]);
+                $stmtFindComp->execute([$companyName]);
 
-                $companyId = $pdo->lastInsertId();
+                $existingCompany = $stmtFindComp->fetch(PDO::FETCH_ASSOC);
+
+                if ($existingCompany && ($existingCompany['status'] ?? 'active') !== 'active') {
+
+                    throw new Exception("Company '{$companyName}' is archived. Restore it before adding a new office.");
+
+                }
+
+                if ($existingCompany) {
+
+                    $companyId = (int)$existingCompany['id'];
+
+                } else {
+
+                    $stmtComp = $pdo->prepare("INSERT INTO companies (name, department, address) VALUES (?, ?, ?)");
+
+                    $stmtComp->execute([$companyName, $officeName !== '' ? $officeName : 'Main Office', $address !== '' ? $address : null]);
+
+                    $companyId = $pdo->lastInsertId();
+
+                }
 
 
 
-                // 2. Insert or Reactivate Supervisor User
+                // 2. Find or create the office within the company
+
+                $officeName = $officeName !== '' ? $officeName : 'Main Office';
+
+                $stmtOff = $pdo->prepare("SELECT id FROM offices WHERE company_id = ? AND name = ? LIMIT 1");
+
+                $stmtOff->execute([$companyId, $officeName]);
+
+                $officeId = $stmtOff->fetchColumn() ?: null;
+
+                if (!$officeId) {
+
+                    $stmtOffIns = $pdo->prepare("INSERT INTO offices (company_id, name, address) VALUES (?, ?, ?)");
+
+                    $stmtOffIns->execute([$companyId, $officeName, $address !== '' ? $address : null]);
+
+                    $officeId = $pdo->lastInsertId();
+
+                }
+
+
+
+                // 3. Enforce 1 supervisor per office
+
+                $stmtOffSup = $pdo->prepare("SELECT id FROM supervisors WHERE office_id = ? LIMIT 1");
+
+                $stmtOffSup->execute([$officeId]);
+
+                if ($stmtOffSup->fetchColumn()) {
+
+                    throw new Exception("Office '{$officeName}' at '{$companyName}' already has a supervisor.");
+
+                }
+
+
+
+                // 4. Insert or Reactivate Supervisor User
 
                 $chkUser = $pdo->prepare("SELECT id FROM users WHERE email = ?");
 
@@ -280,17 +359,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
-                // 3. Link Supervisor to Company
+                // 5. Link Supervisor to Company + Office
 
                 $stmtSup = $pdo->prepare("
 
-                    INSERT INTO supervisors (user_id, company_id, job_title, contact_number)
+                    INSERT INTO supervisors (user_id, company_id, office_id, job_title, contact_number)
 
-                    VALUES (?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?)
 
                     ON DUPLICATE KEY UPDATE
 
                         company_id = VALUES(company_id),
+
+                        office_id = VALUES(office_id),
 
                         job_title = COALESCE(VALUES(job_title), job_title),
 
@@ -304,6 +385,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $companyId,
 
+                    $officeId,
+
                     $jobTitle !== '' ? $jobTitle : null,
 
                     $contactNumber !== '' ? $contactNumber : null
@@ -312,7 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
-                logActivity($pdo, $coordinatorId, 'coordinator', 'COMPANY_SUPERVISOR_CREATED', "Added {$companyName} with supervisor {$supervisorName} ({$supervisorMail}).");
+                logActivity($pdo, $coordinatorId, 'coordinator', 'COMPANY_SUPERVISOR_CREATED', "Added {$companyName} ({$officeName}) with supervisor {$supervisorName} ({$supervisorMail}).");
 
                 $pdo->commit();
 
@@ -449,6 +532,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $handle = fopen($file['tmp_name'], "r");
 
             $importedCount = 0;
+            $skippedRows   = [];
+            $seenEmails    = [];
+            $seenNumbers   = [];
 
            
 
@@ -486,13 +572,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
-                        if (!empty($stdName) && !empty($stdNumber) && !empty($stdEmail)) {
+                        // Validation
+                        if ($stdName === '' || $stdNumber === '' || $stdEmail === '') {
+                            $skippedRows[] = "Row {$rowNumber}: missing required fields";
+                            continue;
+                        }
+                        if (!filter_var($stdEmail, FILTER_VALIDATE_EMAIL)) {
+                            $skippedRows[] = "Row {$rowNumber}: invalid email '{$stdEmail}'";
+                            continue;
+                        }
+                        if (isset($seenEmails[$stdEmail])) {
+                            $skippedRows[] = "Row {$rowNumber}: duplicate email '{$stdEmail}' in file";
+                            continue;
+                        }
+                        if (isset($seenNumbers[$stdNumber])) {
+                            $skippedRows[] = "Row {$rowNumber}: duplicate student ID '{$stdNumber}' in file";
+                            continue;
+                        }
 
-                            $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        // Role conflict: email belongs to a non-student account
+                        $chkRole = $pdo->prepare("SELECT role FROM users WHERE email = ?");
+                        $chkRole->execute([$stdEmail]);
+                        $existingRole = $chkRole->fetchColumn();
+
+                        $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
 
                             $chk->execute([$stdEmail]);
 
                             $u = $chk->fetch(PDO::FETCH_ASSOC);
+
+                        if ($u && $existingRole !== 'student') {
+                            $skippedRows[] = "Row {$rowNumber}: email '{$stdEmail}' is already a {$existingRole} account";
+                            continue;
+                        }
+
+                        // Student number conflict: belongs to a different student
+                        $chkNum = $pdo->prepare("SELECT user_id FROM students WHERE student_number = ? LIMIT 1");
+                        $chkNum->execute([$stdNumber]);
+                        $numOwner = $chkNum->fetchColumn();
+                        if ($numOwner && (!$u || $numOwner != $u['id'])) {
+                            $skippedRows[] = "Row {$rowNumber}: student ID '{$stdNumber}' already belongs to another student";
+                            continue;
+                        }
 
 
 
@@ -526,13 +647,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             $insS->execute([$uid, $stdNumber, $stdSec ?: 'A']);
 
+                            $seenEmails[$stdEmail] = true;
+                            $seenNumbers[$stdNumber] = true;
                             $importedCount++;
 
 
 
                             $studentsToNotify[] = ['email' => $stdEmail, 'name' => $stdName];
-
-                        }
 
                     }
 
@@ -552,7 +673,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
-                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} student records!";
+                    $skipMsg = '';
+                    if (!empty($skippedRows)) {
+                        $preview = implode(' | ', array_slice($skippedRows, 0, 5));
+                        $skipMsg = ' Skipped ' . count($skippedRows) . ' row(s): ' . $preview . (count($skippedRows) > 5 ? '…' : '');
+                    }
+                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} student record(s)!{$skipMsg}";
 
                 } catch (Exception $e) {
 
@@ -570,6 +696,279 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         exit();
 
+    }
+
+
+
+    // Action C2: Bulk Import Coordinators (CSV)
+
+    if ($action === 'bulk_import_coordinators' && isset($_FILES['excel_file'])) {
+
+        $file = $_FILES['excel_file'];
+
+        if ($file['error'] === UPLOAD_ERR_OK) {
+
+            $handle = fopen($file['tmp_name'], "r");
+
+            $importedCount = 0;
+            $skippedRows   = [];
+            $seenEmails    = [];
+
+            if ($handle !== FALSE) {
+
+                $pdo->beginTransaction();
+
+                try {
+
+                    $rowNumber = 0;
+                    $coordinatorsToNotify = [];
+
+                    while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+
+                        $rowNumber++;
+
+                        if ($rowNumber === 1 && (stripos($data[0] ?? '', 'name') !== false || stripos($data[1] ?? '', 'email') !== false)) {
+                            continue;
+                        }
+
+                        $name  = trim($data[0] ?? '');
+                        $email = strtolower(trim($data[1] ?? ''));
+
+                        if ($name === '' || $email === '') {
+                            $skippedRows[] = "Row {$rowNumber}: missing required fields";
+                            continue;
+                        }
+                        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                            $skippedRows[] = "Row {$rowNumber}: invalid email '{$email}'";
+                            continue;
+                        }
+                        if (isset($seenEmails[$email])) {
+                            $skippedRows[] = "Row {$rowNumber}: duplicate email '{$email}' in file";
+                            continue;
+                        }
+
+                        // Role conflict: email belongs to a non-coordinator account
+                        $chkRole = $pdo->prepare("SELECT role FROM users WHERE email = ?");
+                        $chkRole->execute([$email]);
+                        $existingRole = $chkRole->fetchColumn();
+
+                        $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        $chk->execute([$email]);
+                        $u = $chk->fetch(PDO::FETCH_ASSOC);
+
+                        if ($u && $existingRole !== 'coordinator') {
+                            $skippedRows[] = "Row {$rowNumber}: email '{$email}' is already a {$existingRole} account";
+                            continue;
+                        }
+
+                        if ($u) {
+                            $uid = $u['id'];
+                            $pdo->prepare("UPDATE users SET name = ?, role = 'coordinator', status = 'active', archived_at = NULL WHERE id = ?")
+                                ->execute([$name, $uid]);
+                        } else {
+                            $insU = $pdo->prepare("INSERT INTO users (name, email, role, status, created_at) VALUES (?, ?, 'coordinator', 'active', NOW())");
+                            $insU->execute([$name, $email]);
+                            $uid = $pdo->lastInsertId();
+                        }
+
+                        $seenEmails[$email] = true;
+                        $importedCount++;
+                        $coordinatorsToNotify[] = ['email' => $email, 'name' => $name];
+                    }
+
+                    fclose($handle);
+
+                    logActivity($pdo, $coordinatorId, 'coordinator', 'BULK_IMPORT_COORDINATORS', "Imported {$importedCount} coordinator records via CSV.");
+
+                    $pdo->commit();
+
+                    foreach ($coordinatorsToNotify as $recipient) {
+                        $mailer->sendWelcomeEmail($recipient['email'], $recipient['name'], 'coordinator');
+                    }
+
+                    $skipMsg = '';
+                    if (!empty($skippedRows)) {
+                        $preview = implode(' | ', array_slice($skippedRows, 0, 5));
+                        $skipMsg = ' Skipped ' . count($skippedRows) . ' row(s): ' . $preview . (count($skippedRows) > 5 ? '…' : '');
+                    }
+                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} coordinator record(s)!{$skipMsg}";
+
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . $e->getMessage();
+                }
+            }
+        }
+
+        header("Location: users.php?tab=coordinators");
+        exit();
+    }
+
+
+
+    // Action C3: Bulk Import Companies & Supervisors (CSV)
+
+    if ($action === 'bulk_import_companies_supervisors' && isset($_FILES['excel_file'])) {
+
+        $file = $_FILES['excel_file'];
+
+        if ($file['error'] === UPLOAD_ERR_OK) {
+
+            $handle = fopen($file['tmp_name'], "r");
+
+            $importedCount = 0;
+            $skippedRows   = [];
+            $seenEmails    = [];
+
+            if ($handle !== FALSE) {
+
+                $pdo->beginTransaction();
+
+                try {
+
+                    $rowNumber = 0;
+                    $supervisorsToNotify = [];
+
+                    while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+
+                        $rowNumber++;
+
+                        if ($rowNumber === 1 && (stripos($data[0] ?? '', 'company') !== false || stripos($data[3] ?? '', 'supervisor') !== false)) {
+                            continue;
+                        }
+
+                        // Columns: company_name, office_name, address, supervisor_name, supervisor_email, job_title, contact_number
+                        $companyName    = trim($data[0] ?? '');
+                        $officeName     = trim($data[1] ?? '');
+                        $address        = trim($data[2] ?? '');
+                        $supervisorName = trim($data[3] ?? '');
+                        $supervisorMail = strtolower(trim($data[4] ?? ''));
+                        $jobTitle       = trim($data[5] ?? '');
+                        $contactNumber  = trim($data[6] ?? '');
+
+                        if ($companyName === '' || $supervisorName === '' || $supervisorMail === '') {
+                            $skippedRows[] = "Row {$rowNumber}: missing required fields (company, supervisor name, supervisor email)";
+                            continue;
+                        }
+                        if (!filter_var($supervisorMail, FILTER_VALIDATE_EMAIL)) {
+                            $skippedRows[] = "Row {$rowNumber}: invalid email '{$supervisorMail}'";
+                            continue;
+                        }
+                        if (isset($seenEmails[$supervisorMail])) {
+                            $skippedRows[] = "Row {$rowNumber}: duplicate supervisor email '{$supervisorMail}' in file";
+                            continue;
+                        }
+                        $contactError = validateSupervisorContact($jobTitle, $contactNumber);
+                        if ($contactError !== '') {
+                            $skippedRows[] = "Row {$rowNumber}: {$contactError}";
+                            continue;
+                        }
+                        if (mb_strlen($address) > 255) {
+                            $skippedRows[] = "Row {$rowNumber}: address must be 255 characters or fewer";
+                            continue;
+                        }
+
+                        // Find or create company by exact name
+                        $chkComp = $pdo->prepare("SELECT id FROM companies WHERE name = ? LIMIT 1");
+                        $chkComp->execute([$companyName]);
+                        $companyId = $chkComp->fetchColumn() ?: null;
+                        if (!$companyId) {
+                            $stmtComp = $pdo->prepare("INSERT INTO companies (name, department, address) VALUES (?, ?, ?)");
+                            $stmtComp->execute([$companyName, $officeName !== '' ? $officeName : 'Main Office', $address !== '' ? $address : null]);
+                            $companyId = $pdo->lastInsertId();
+                        }
+
+                        // Find or create office within the company
+                        $officeName = $officeName !== '' ? $officeName : 'Main Office';
+                        $stmtOff = $pdo->prepare("SELECT id FROM offices WHERE company_id = ? AND name = ? LIMIT 1");
+                        $stmtOff->execute([$companyId, $officeName]);
+                        $officeId = $stmtOff->fetchColumn() ?: null;
+                        if (!$officeId) {
+                            $stmtOffIns = $pdo->prepare("INSERT INTO offices (company_id, name, address) VALUES (?, ?, ?)");
+                            $stmtOffIns->execute([$companyId, $officeName, $address !== '' ? $address : null]);
+                            $officeId = $pdo->lastInsertId();
+                        }
+
+                        // Enforce 1 supervisor per office
+                        $stmtOffSup = $pdo->prepare("SELECT id FROM supervisors WHERE office_id = ? LIMIT 1");
+                        $stmtOffSup->execute([$officeId]);
+                        if ($stmtOffSup->fetchColumn()) {
+                            $skippedRows[] = "Row {$rowNumber}: office '{$officeName}' at '{$companyName}' already has a supervisor";
+                            continue;
+                        }
+
+                        // Role conflict: email belongs to a non-supervisor account
+                        $chkRole = $pdo->prepare("SELECT role FROM users WHERE email = ?");
+                        $chkRole->execute([$supervisorMail]);
+                        $existingRole = $chkRole->fetchColumn();
+
+                        $chkUser = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        $chkUser->execute([$supervisorMail]);
+                        $u = $chkUser->fetch(PDO::FETCH_ASSOC);
+
+                        if ($u && $existingRole !== 'supervisor') {
+                            $skippedRows[] = "Row {$rowNumber}: email '{$supervisorMail}' is already a {$existingRole} account";
+                            continue;
+                        }
+
+                        if ($u) {
+                            $userId = $u['id'];
+                            $pdo->prepare("UPDATE users SET name = ?, role = 'supervisor', status = 'active', archived_at = NULL WHERE id = ?")
+                                ->execute([$supervisorName, $userId]);
+                        } else {
+                            $insU = $pdo->prepare("INSERT INTO users (name, email, role, status, created_at) VALUES (?, ?, 'supervisor', 'active', NOW())");
+                            $insU->execute([$supervisorName, $supervisorMail]);
+                            $userId = $pdo->lastInsertId();
+                        }
+
+                        $stmtSup = $pdo->prepare("
+                            INSERT INTO supervisors (user_id, company_id, office_id, job_title, contact_number)
+                            VALUES (?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE
+                                company_id = VALUES(company_id),
+                                office_id = VALUES(office_id),
+                                job_title = COALESCE(VALUES(job_title), job_title),
+                                contact_number = COALESCE(VALUES(contact_number), contact_number)
+                        ");
+                        $stmtSup->execute([
+                            $userId,
+                            $companyId,
+                            $officeId,
+                            $jobTitle !== '' ? $jobTitle : null,
+                            $contactNumber !== '' ? $contactNumber : null
+                        ]);
+
+                        $seenEmails[$supervisorMail] = true;
+                        $importedCount++;
+                        $supervisorsToNotify[] = ['email' => $supervisorMail, 'name' => $supervisorName];
+                    }
+
+                    fclose($handle);
+
+                    logActivity($pdo, $coordinatorId, 'coordinator', 'BULK_IMPORT_COMPANIES_SUPERVISORS', "Imported {$importedCount} company/supervisor records via CSV.");
+
+                    $pdo->commit();
+
+                    foreach ($supervisorsToNotify as $recipient) {
+                        $mailer->sendWelcomeEmail($recipient['email'], $recipient['name'], 'supervisor');
+                    }
+
+                    $skipMsg = '';
+                    if (!empty($skippedRows)) {
+                        $preview = implode(' | ', array_slice($skippedRows, 0, 5));
+                        $skipMsg = ' Skipped ' . count($skippedRows) . ' row(s): ' . $preview . (count($skippedRows) > 5 ? '…' : '');
+                    }
+                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} company/supervisor record(s)!{$skipMsg}";
+
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . $e->getMessage();
+                }
+            }
+        }
+
+        header("Location: users.php?tab=companies");
+        exit();
     }
 
 
@@ -664,33 +1063,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($role === 'student') {
 
-                    $stdNumber    = trim($_POST['student_number'] ?? '');
+                    $stdNumber = trim($_POST['student_number'] ?? '');
+                    $section   = strtoupper(trim($_POST['section'] ?? 'A'));
+                    $officeId  = !empty($_POST['office_id']) ? intval($_POST['office_id']) : null;
 
-                    $section      = strtoupper(trim($_POST['section'] ?? 'A'));
+                    // Resolve company + supervisor from the office
+                    $companyId    = null;
+                    $supervisorId = null;
+                    if ($officeId) {
+                        $stmtOff = $pdo->prepare("SELECT company_id FROM offices WHERE id = ?");
+                        $stmtOff->execute([$officeId]);
+                        $companyId = $stmtOff->fetchColumn() ?: null;
 
-                    $companyId    = !empty($_POST['company_id']) ? intval($_POST['company_id']) : null;
+                        $stmtOffSup = $pdo->prepare("SELECT id FROM supervisors WHERE office_id = ? LIMIT 1");
+                        $stmtOffSup->execute([$officeId]);
+                        $supervisorId = $stmtOffSup->fetchColumn() ?: null;
+                    }
 
-                    $supervisorId = !empty($_POST['supervisor_id']) ? intval($_POST['supervisor_id']) : null;
 
 
+                    $pdo->prepare("UPDATE students SET student_number = ?, section = ?, office_id = ?, company_id = ?, supervisor_id = ? WHERE user_id = ?")
 
-                    $pdo->prepare("UPDATE students SET student_number = ?, section = ?, company_id = ?, supervisor_id = ? WHERE user_id = ?")
-
-                        ->execute([$stdNumber, $section, $companyId, $supervisorId, $userId]);
+                        ->execute([$stdNumber, $section, $officeId, $companyId, $supervisorId, $userId]);
 
                 } elseif ($role === 'supervisor') {
-
                     $companyId     = !empty($_POST['company_id']) ? intval($_POST['company_id']) : null;
-
                     $jobTitle      = trim($_POST['job_title'] ?? '');
-
                     $contactNumber = trim($_POST['contact_number'] ?? '');
 
-                    $pdo->prepare("UPDATE supervisors SET company_id = ?, job_title = ?, contact_number = ? WHERE user_id = ?")
+                    // The form posts office_id (a select); office_name is kept as a fallback
+                    $submittedOfficeId = !empty($_POST['office_id'])
+                        ? intval($_POST['office_id'])
+                        : null;
+                    $fallbackOfficeName = trim($_POST['office_name'] ?? '');
+
+                    // Current assignment for this supervisor
+                    $stmtCurrent = $pdo->prepare("SELECT company_id, office_id FROM supervisors WHERE user_id = ? LIMIT 1");
+                    $stmtCurrent->execute([$userId]);
+                    $current = $stmtCurrent->fetch(PDO::FETCH_ASSOC) ?: [];
+                    $currentOfficeId = !empty($current['office_id']) ? (int)$current['office_id'] : null;
+
+                    $pdo->beginTransaction();
+
+                    // Resolve the office being assigned
+                    $officeId = $submittedOfficeId;
+
+                    if ($officeId) {
+                        $stmtOffice = $pdo->prepare("SELECT id, company_id, name FROM offices WHERE id = ? LIMIT 1");
+                        $stmtOffice->execute([$officeId]);
+                        $office = $stmtOffice->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                        if (!$office) {
+                            throw new Exception("The selected office no longer exists. Refresh and try again.");
+                        }
+
+                        if ($companyId && (int)$office['company_id'] !== $companyId) {
+                            throw new Exception("The selected office does not belong to the selected company.");
+                        }
+
+                        $companyId = (int)$office['company_id'];
+                    } elseif ($companyId && $fallbackOfficeName !== '') {
+                        // Fallback: resolve (or create) by name within the company
+                        $stmtOff = $pdo->prepare("SELECT id FROM offices WHERE company_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+                        $stmtOff->execute([$companyId, $fallbackOfficeName]);
+                        $officeId = $stmtOff->fetchColumn() ?: null;
+
+                        if (!$officeId) {
+                            $stmtOffIns = $pdo->prepare("INSERT INTO offices (company_id, name) VALUES (?, ?)");
+                            $stmtOffIns->execute([$companyId, $fallbackOfficeName]);
+                            $officeId = $pdo->lastInsertId();
+                        }
+                    }
+
+                    // A supervisor belongs permanently to their office
+                    if ($currentOfficeId !== null && $officeId !== null && $currentOfficeId !== $officeId) {
+                        throw new Exception("A supervisor cannot be moved to a different office. Each office has its own supervisor.");
+                    }
+
+                    // One supervisor per office
+                    if ($officeId !== null && $currentOfficeId !== $officeId) {
+                        $stmtExisting = $pdo->prepare("SELECT id FROM supervisors WHERE office_id = ? AND user_id <> ? LIMIT 1");
+                        $stmtExisting->execute([$officeId, $userId]);
+
+                        if ($stmtExisting->fetchColumn()) {
+                            throw new Exception("That office already has its own supervisor.");
+                        }
+                    }
+
+                    $pdo->prepare("UPDATE supervisors SET company_id = ?, office_id = ?, job_title = ?, contact_number = ? WHERE user_id = ?")
 
                         ->execute([
 
                             $companyId,
+
+                            $officeId ?? $currentOfficeId,
 
                             $jobTitle !== '' ? $jobTitle : null,
 
@@ -700,6 +1166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         ]);
 
+                    $pdo->commit();
+
                 }
 
 
@@ -707,6 +1175,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['flash_success'] = "User details updated successfully.";
 
             } catch (Exception $e) {
+
+                if ($pdo->inTransaction()) {
+
+                    $pdo->rollBack();
+
+                }
 
                 $_SESSION['flash_error'] = "Update failed: " . $e->getMessage();
 
@@ -726,13 +1200,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'edit_company') {
 
-        $companyId   = (int)($_POST['company_id'] ?? 0);
+        $companyId = (int)($_POST['company_id'] ?? 0);
 
-        $companyName = trim($_POST['company_name'] ?? '');
+        // Company name/address are read-only here; only new offices are added
+        $stmtCompany = $pdo->prepare("SELECT name, address FROM companies WHERE id = ? LIMIT 1");
 
-        $department  = trim($_POST['department'] ?? '');
+        $stmtCompany->execute([$companyId]);
 
-        $address     = trim($_POST['address'] ?? '');
+        $companyRow = $stmtCompany->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $companyName = (string)($companyRow['name'] ?? '');
+
+        $address     = (string)($companyRow['address'] ?? '');
+
+        // One new office + its supervisor (flat field names from the form)
+        $newOfficeName = trim($_POST['office_name'] ?? '');
+
+        $newSupName    = trim($_POST['supervisor_name'] ?? '');
+
+        $newSupMail    = strtolower(trim($_POST['supervisor_email'] ?? ''));
+
+        $newSupJob     = trim($_POST['job_title'] ?? '');
+
+        $newSupContact = trim($_POST['contact_number'] ?? '');
 
 
 
@@ -740,39 +1230,481 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $_SESSION['flash_error'] = "Company name is required.";
 
-        } elseif (mb_strlen($companyName) > 255 || mb_strlen($department) > 255 || mb_strlen($address) > 255) {
+        } elseif (mb_strlen($companyName) > 255 || mb_strlen($address) > 255) {
 
-            $_SESSION['flash_error'] = "Company name, department and address must each be 255 characters or fewer.";
+            $_SESSION['flash_error'] = "Company name and address must each be 255 characters or fewer.";
 
         } else {
 
             try {
 
-                $pdo->prepare("UPDATE companies SET name = ?, department = ?, address = ? WHERE id = ?")
+                $pdo->beginTransaction();
 
-                    ->execute([
+                // Block a rename that collides with another company's name
+                // Company identity is not edited from here; nothing to update on the company row.
 
-                        $companyName,
 
-                        $department !== '' ? $department : 'Main Office',
 
-                        $address !== '' ? $address : null,
+                // ---- Add one new office with its own supervisor ----
 
-                        $companyId
+                $addedOffices = 0;
 
+                $addedSupervisors = [];
+
+                if ($newOfficeName !== '') {
+
+                    $newName = $newOfficeName;
+
+                    if (mb_strlen($newName) > 255) {
+
+                        throw new Exception("Office name must be 255 characters or fewer.");
+                    }
+
+                    $supName = $newSupName;
+
+                    $supMail = $newSupMail;
+
+                    $supJob = $newSupJob;
+
+                    $supContact = $newSupContact;
+
+                    if ($supName === '' || $supMail === '') {
+
+                        throw new Exception("Office '{$newName}' needs a supervisor name and email.");
+                    }
+
+                    if (!filter_var($supMail, FILTER_VALIDATE_EMAIL)) {
+
+                        throw new Exception("Supervisor email '{$supMail}' is not a valid email address.");
+                    }
+
+                    $contactIssue = validateSupervisorContact($supJob, $supContact);
+
+                    if ($contactIssue !== '') {
+
+                        throw new Exception($contactIssue);
+                    }
+
+                    // Office must be new within this company
+                    $chkOfficeDup = $pdo->prepare("SELECT id FROM offices WHERE company_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+
+                    $chkOfficeDup->execute([$companyId, $newName]);
+
+                    if ($chkOfficeDup->fetchColumn()) {
+
+                        throw new Exception("Office '{$newName}' already exists under this company.");
+                    }
+
+                    $pdo->prepare("INSERT INTO offices (company_id, name, address) VALUES (?, ?, ?)")
+                        ->execute([$companyId, $newName, $address !== '' ? $address : null]);
+
+                    $newOfficeId = (int)$pdo->lastInsertId();
+
+                    // The email must not belong to a student or coordinator account
+                    $chkSupRole = $pdo->prepare("SELECT id, role FROM users WHERE email = ? LIMIT 1");
+
+                    $chkSupRole->execute([$supMail]);
+
+                    $existingSupUser = $chkSupRole->fetch(PDO::FETCH_ASSOC);
+
+                    if ($existingSupUser && ($existingSupUser['role'] ?? '') !== 'supervisor') {
+
+                        throw new Exception("Email '{$supMail}' is already a {$existingSupUser['role']} account.");
+                    }
+
+                    if ($existingSupUser) {
+
+                        $supUserId = (int)$existingSupUser['id'];
+
+                        $pdo->prepare("UPDATE users SET name = ?, role = 'supervisor', status = 'active', archived_at = NULL WHERE id = ?")
+                            ->execute([$supName, $supUserId]);
+
+                    } else {
+
+                        $pdo->prepare("INSERT INTO users (name, email, role, status, created_at) VALUES (?, ?, 'supervisor', 'active', NOW())")
+                            ->execute([$supName, $supMail]);
+
+                        $supUserId = (int)$pdo->lastInsertId();
+
+                    }
+
+                    // This supervisor cannot already run another office
+                    $stmtPriorOffice = $pdo->prepare("SELECT id FROM supervisors WHERE user_id = ? AND office_id IS NOT NULL LIMIT 1");
+
+                    $stmtPriorOffice->execute([$supUserId]);
+
+                    if ($stmtPriorOffice->fetchColumn()) {
+
+                        throw new Exception("Supervisor '{$supName}' is already assigned to another office.");
+                    }
+
+                    $pdo->prepare("
+                        INSERT INTO supervisors (user_id, company_id, office_id, job_title, contact_number)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            company_id = VALUES(company_id),
+                            office_id = VALUES(office_id),
+                            job_title = COALESCE(VALUES(job_title), job_title),
+                            contact_number = COALESCE(VALUES(contact_number), contact_number)
+                    ")->execute([
+                        $supUserId,
+                        $companyId,
+                        $newOfficeId,
+                        $supJob !== '' ? $supJob : null,
+                        $supContact !== '' ? $supContact : null
                     ]);
+
+                    $addedOffices++;
+                    $addedSupervisors[] = ['email' => $supMail, 'name' => $supName];
+                }
+
+                $pdo->commit();
 
 
 
                 logActivity($pdo, $coordinatorId, 'coordinator', 'COMPANY_UPDATED', "Updated company '{$companyName}' (ID {$companyId}).");
 
-                $_SESSION['flash_success'] = "Company '{$companyName}' updated successfully.";
+                foreach ($addedSupervisors as $newRecipient) {
+
+                    $mailer->sendWelcomeEmail($newRecipient['email'], $newRecipient['name'], 'supervisor');
+
+                }
+
+                $_SESSION['flash_success'] = $addedOffices > 0
+                    ? "Added {$addedOffices} office(s) with their supervisors to '{$companyName}'."
+                    : "Company '{$companyName}' updated successfully.";
 
             } catch (Exception $e) {
+
+                if ($pdo->inTransaction()) {
+
+                    $pdo->rollBack();
+
+                }
 
                 $_SESSION['flash_error'] = "Failed to update company: " . $e->getMessage();
 
             }
+
+        }
+
+        header("Location: users.php?tab=companies");
+
+        exit();
+
+    }
+
+
+
+    // Action D3: Archive Company
+
+    if ($action === 'archive_company') {
+
+        $companyId = (int)($_POST['company_id'] ?? 0);
+
+        if ($companyId <= 0) {
+
+            $_SESSION['flash_error'] = "Invalid company selected.";
+
+            header("Location: users.php?tab=companies");
+
+            exit();
+
+        }
+
+        try {
+
+            $stmtName = $pdo->prepare("SELECT name, status FROM companies WHERE id = ?");
+
+            $stmtName->execute([$companyId]);
+
+            $company = $stmtName->fetch(PDO::FETCH_ASSOC);
+
+            if (!$company) {
+
+                $_SESSION['flash_error'] = "Company record could not be found.";
+
+            } elseif (($company['status'] ?? 'active') !== 'active') {
+
+                $_SESSION['flash_error'] = "Company '{$company['name']}' is already archived.";
+
+            } else {
+
+                // Guard: block archiving while interns are still assigned to this company's offices
+                $stmtAssigned = $pdo->prepare("
+                    SELECT COUNT(s.id) AS assigned_count
+                    FROM students s
+                    JOIN offices o ON s.office_id = o.id
+                    WHERE o.company_id = ?
+                      AND s.office_id IS NOT NULL
+                ");
+
+                $stmtAssigned->execute([$companyId]);
+
+                $assignedCount = (int)$stmtAssigned->fetchColumn();
+
+                if ($assignedCount > 0) {
+
+                    $_SESSION['flash_error'] = "Cannot archive '{$company['name']}': {$assignedCount} intern(s) are still assigned to its offices. Unassign them first.";
+
+                } else {
+
+                    $stmtArchive = $pdo->prepare("
+                        UPDATE companies
+                        SET status = 'archived', archived_at = NOW()
+                        WHERE id = ?
+                    ");
+
+                    $stmtArchive->execute([$companyId]);
+
+                    logActivity($pdo, $coordinatorId, 'coordinator', 'COMPANY_ARCHIVED', "Archived company '{$company['name']}' (ID {$companyId}).");
+
+                    $_SESSION['flash_success'] = "Company '{$company['name']}' archived successfully.";
+
+                }
+
+            }
+
+        } catch (Exception $e) {
+
+            $_SESSION['flash_error'] = "Failed to archive company: " . $e->getMessage();
+
+        }
+
+        header("Location: users.php?tab=companies");
+
+        exit();
+
+    }
+
+
+
+    // Action D4: Restore Company
+
+    if ($action === 'restore_company') {
+
+        $companyId = (int)($_POST['company_id'] ?? 0);
+
+        if ($companyId > 0) {
+
+            try {
+
+                $stmtName = $pdo->prepare("SELECT name FROM companies WHERE id = ?");
+
+                $stmtName->execute([$companyId]);
+
+                $company = $stmtName->fetch(PDO::FETCH_ASSOC);
+
+                $pdo->prepare("
+                    UPDATE companies
+                    SET status = 'active', archived_at = NULL
+                    WHERE id = ?
+                ")->execute([$companyId]);
+
+                logActivity($pdo, $coordinatorId, 'coordinator', 'COMPANY_RESTORED', "Restored company '{$company['name']}' (ID {$companyId}).");
+
+                $_SESSION['flash_success'] = "Company '{$company['name']}' restored to active status.";
+
+            } catch (Exception $e) {
+
+                $_SESSION['flash_error'] = "Failed to restore company: " . $e->getMessage();
+
+            }
+
+        }
+
+        header("Location: users.php?tab=archived");
+
+        exit();
+
+    }
+
+
+
+    // Action D5: Permanently Delete Company (archived only, must be empty)
+
+    if ($action === 'delete_company_permanently') {
+
+        $companyId = (int)($_POST['company_id'] ?? 0);
+
+        if ($companyId <= 0) {
+
+            $_SESSION['flash_error'] = "Invalid company selected.";
+
+            header("Location: users.php?tab=archived");
+
+            exit();
+
+        }
+
+        try {
+
+            $stmtName = $pdo->prepare("SELECT name, status FROM companies WHERE id = ?");
+
+            $stmtName->execute([$companyId]);
+
+            $company = $stmtName->fetch(PDO::FETCH_ASSOC);
+
+            if (!$company) {
+
+                $_SESSION['flash_error'] = "Company record could not be found.";
+
+            } elseif (($company['status'] ?? 'active') !== 'archived') {
+
+                $_SESSION['flash_error'] = "Only archived companies can be permanently deleted. Archive '{$company['name']}' first.";
+
+            } else {
+
+                // Guard: refuse deletion while anything is still linked
+                $stmtLinks = $pdo->prepare("
+                    SELECT
+                        (SELECT COUNT(*) FROM supervisors sup WHERE sup.company_id = ?)
+                        +
+                        (SELECT COUNT(*) FROM supervisors sup WHERE sup.office_id IN (SELECT o.id FROM offices o WHERE o.company_id = ?))
+                        AS linked_supervisors,
+                        (SELECT COUNT(*) FROM students s WHERE s.company_id = ?)
+                        +
+                        (SELECT COUNT(*) FROM students s WHERE s.office_id IN (SELECT o.id FROM offices o WHERE o.company_id = ?))
+                        AS linked_students
+                ");
+
+                $stmtLinks->execute([$companyId, $companyId, $companyId, $companyId]);
+
+                $links = $stmtLinks->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                $linkedSupervisors = (int)($links['linked_supervisors'] ?? 0);
+
+                $linkedStudents    = (int)($links['linked_students'] ?? 0);
+
+                if ($linkedSupervisors > 0 || $linkedStudents > 0) {
+
+                    $parts = [];
+
+                    if ($linkedSupervisors > 0) {
+
+                        $parts[] = "{$linkedSupervisors} supervisor(s)";
+
+                    }
+
+                    if ($linkedStudents > 0) {
+
+                        $parts[] = "{$linkedStudents} intern(s)";
+
+                    }
+
+                    $_SESSION['flash_error'] = "Cannot delete '{$company['name']}': still linked to " . implode(' and ', $parts) . ". Unlink them first.";
+
+                } else {
+
+                    // Offices are removed automatically via ON DELETE CASCADE
+                    $pdo->prepare("DELETE FROM companies WHERE id = ?")->execute([$companyId]);
+
+                    logActivity($pdo, $coordinatorId, 'coordinator', 'COMPANY_DELETED', "Permanently deleted company '{$company['name']}' (ID {$companyId}).");
+
+                    $_SESSION['flash_success'] = "Company '{$company['name']}' permanently deleted.";
+
+                }
+
+            }
+
+        } catch (Exception $e) {
+
+            $_SESSION['flash_error'] = "Failed to delete company: " . $e->getMessage();
+
+        }
+
+        header("Location: users.php?tab=archived");
+
+        exit();
+
+    }
+
+
+
+    // Action D6: Delete Office
+
+    if ($action === 'delete_office') {
+
+        $officeId = (int)($_POST['office_id'] ?? 0);
+
+        if ($officeId <= 0) {
+
+            $_SESSION['flash_error'] = "Invalid office selected.";
+
+            header("Location: users.php?tab=companies");
+
+            exit();
+
+        }
+
+        try {
+
+            $stmtOffice = $pdo->prepare("
+                SELECT o.id, o.name AS office_name, c.name AS company_name
+                FROM offices o
+                JOIN companies c ON c.id = o.company_id
+                WHERE o.id = ?
+                LIMIT 1
+            ");
+
+            $stmtOffice->execute([$officeId]);
+
+            $office = $stmtOffice->fetch(PDO::FETCH_ASSOC);
+
+            if (!$office) {
+
+                $_SESSION['flash_error'] = "Office record could not be found.";
+
+            } else {
+
+                // Guard: refuse deletion while anything is still linked to the office
+                $stmtLinks = $pdo->prepare("
+                    SELECT
+                        (SELECT COUNT(*) FROM supervisors sup WHERE sup.office_id = ?) AS linked_supervisors,
+                        (SELECT COUNT(*) FROM students s WHERE s.office_id = ?) AS linked_students
+                ");
+
+                $stmtLinks->execute([$officeId, $officeId]);
+
+                $links = $stmtLinks->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                $linkedSupervisors = (int)($links['linked_supervisors'] ?? 0);
+
+                $linkedStudents    = (int)($links['linked_students'] ?? 0);
+
+                if ($linkedSupervisors > 0 || $linkedStudents > 0) {
+
+                    $parts = [];
+
+                    if ($linkedSupervisors > 0) {
+
+                        $parts[] = "{$linkedSupervisors} supervisor(s)";
+
+                    }
+
+                    if ($linkedStudents > 0) {
+
+                        $parts[] = "{$linkedStudents} intern(s)";
+
+                    }
+
+                    $_SESSION['flash_error'] = "Cannot delete office '{$office['office_name']}': still linked to " . implode(' and ', $parts) . ". Unlink them first.";
+
+                } else {
+
+                    $pdo->prepare("DELETE FROM offices WHERE id = ?")->execute([$officeId]);
+
+                    logActivity($pdo, $coordinatorId, 'coordinator', 'OFFICE_DELETED', "Deleted office '{$office['office_name']}' at '{$office['company_name']}' (ID {$officeId}).");
+
+                    $_SESSION['flash_success'] = "Office '{$office['office_name']}' deleted successfully.";
+
+                }
+
+            }
+
+        } catch (Exception $e) {
+
+            $_SESSION['flash_error'] = "Failed to delete office: " . $e->getMessage();
 
         }
 
@@ -896,6 +1828,8 @@ $companies      = [];
 
 $archivedUsers  = [];
 
+$archivedCompanies = [];
+
 $activeSections = [];
 
 $coordinators   = [];
@@ -952,6 +1886,8 @@ try {
 
             s.supervisor_id,
 
+            s.office_id,
+
             u.name,
 
             u.email,
@@ -997,6 +1933,8 @@ try {
             sup.id,
 
             sup.company_id,
+
+            sup.office_id,
 
             sup.job_title,
 
@@ -1056,6 +1994,8 @@ try {
 
         LEFT JOIN students s ON sup.id = s.supervisor_id
 
+        WHERE c.status = 'active'
+
         GROUP BY c.id, c.name, c.department, c.address
 
         ORDER BY c.name ASC
@@ -1092,11 +2032,31 @@ try {
 
 
 
+    // Query Offices (for placement dropdowns and the office-grouped company cards)
+    $stmtOffices = $pdo->query("
+        SELECT
+            o.id,
+            o.name AS office_name,
+            o.company_id,
+            c.name AS company_name,
+            (SELECT COUNT(*) FROM supervisors sup WHERE sup.office_id = o.id) AS linked_supervisors,
+            (SELECT COUNT(*) FROM students s WHERE s.office_id = o.id) AS linked_students
+        FROM offices o
+        JOIN companies c ON o.company_id = c.id
+        WHERE c.status = 'active'
+        ORDER BY c.name ASC, o.name ASC
+    ");
+    $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+
+
     // Group supervisors under their company; leftovers go to "Unassigned"
 
     $supervisorsByCompany   = [];
 
     $unassignedSupervisors  = [];
+
+    $supervisorByOffice     = [];
 
     $knownCompanyIds        = array_map('intval', array_column($companies, 'id'));
 
@@ -1105,6 +2065,12 @@ try {
         $sup['interns'] = $internsBySupervisor[(int)$sup['id']] ?? [];
 
         $cid = (int)($sup['company_id'] ?? 0);
+
+        if (!empty($sup['office_id'])) {
+
+            $supervisorByOffice[(int)$sup['office_id']] = $sup;
+
+        }
 
         if ($cid > 0 && in_array($cid, $knownCompanyIds, true)) {
 
@@ -1117,6 +2083,54 @@ try {
         }
 
     }
+
+
+
+    // Group offices under their company, each carrying its single supervisor
+
+    $officesByCompany = [];
+
+    $orphanOffices    = [];
+
+    foreach ($offices as $office) {
+
+        $officeSupervisor = $supervisorByOffice[(int)$office['id']] ?? null;
+
+        if ($officeSupervisor !== null) {
+
+            $office['supervisor'] = $officeSupervisor;
+
+            $office['interns']    = $officeSupervisor['interns'];
+
+        } else {
+
+            $office['supervisor'] = null;
+
+            $office['interns']    = [];
+
+        }
+
+        $office['intern_count'] = count($office['interns']);
+
+        $cid = (int)($office['company_id'] ?? 0);
+
+        if ($cid > 0 && in_array($cid, $knownCompanyIds, true)) {
+
+            $officesByCompany[$cid][] = $office;
+
+        } else {
+
+            $orphanOffices[] = $office;
+
+        }
+
+    }
+
+    usort($orphanOffices, static function ($a, $b) {
+
+        return strcasecmp((string)$a['office_name'], (string)$b['office_name']);
+
+    });
 
 
 
@@ -1173,6 +2187,22 @@ try {
     ");
 
     $coordinators = $stmtCoord->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+
+
+    // Archived Companies
+    $stmtArchivedCompanies = $pdo->query("
+        SELECT
+            c.id,
+            c.name,
+            c.department,
+            c.address,
+            c.archived_at
+        FROM companies c
+        WHERE c.status = 'archived'
+        ORDER BY c.archived_at DESC
+    ");
+    $archivedCompanies = $stmtArchivedCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 
 

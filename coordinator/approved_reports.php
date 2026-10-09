@@ -23,7 +23,7 @@ $activeSections = [];
 
 try {
     // Distinct Companies
-    $stmtCompanies = $pdo->query("SELECT id, name FROM companies WHERE name IS NOT NULL AND name != '' ORDER BY name ASC");
+    $stmtCompanies = $pdo->query("SELECT id, name FROM companies WHERE status = 'active' AND name IS NOT NULL AND name != '' ORDER BY name ASC");
     $companiesList = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     // Distinct Sections
@@ -63,6 +63,7 @@ try {
             u.email AS student_email,
             u.avatar_url AS student_avatar,
             COALESCE(c.name, 'Host Company') AS company_name,
+            o.name AS office_name,
             u_sup.name AS supervisor_name,
             (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved') AS approved_reports_count,
             SUM(CASE WHEN re.activity_type != 'Clerical' AND re.activity_type != '' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS tech_count,
@@ -70,6 +71,7 @@ try {
         FROM students s
         JOIN users u ON s.user_id = u.id
         LEFT JOIN companies c ON s.company_id = c.id
+        LEFT JOIN offices o ON s.office_id = o.id
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN reports r ON r.student_id = s.id AND r.status = 'approved'

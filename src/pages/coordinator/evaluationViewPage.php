@@ -79,6 +79,7 @@ $scorecardVariant = 'uniform';
                             <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Industry Supervisor / HTE</span>
                             <p class="font-bold text-slate-900 text-sm"><?= htmlspecialchars($evaluation['supervisor_name']); ?></p>
                             <p class="text-slate-500"><?= htmlspecialchars($evaluation['company_name'] ?? 'Host Company'); ?></p>
+                            <p class="text-slate-500"><?= htmlspecialchars($evaluation['office_name'] ?? ''); ?></p>
                             <p class="text-slate-500"><?= htmlspecialchars($evaluation['supervisor_email']); ?></p>
                         </div>
                     </div>

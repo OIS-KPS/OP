@@ -207,7 +207,7 @@
                                             <td class="py-4 px-6 align-middle">
                                                 <?php if (!empty($s['company_name'])): ?>
                                                     <p class="font-bold text-slate-900 text-xs company-name"><?= htmlspecialchars($s['company_name']); ?></p>
-                                                    <p class="text-[11px] text-slate-600 font-medium mt-0.5"><?= htmlspecialchars($s['company_dept'] ?? 'Main Office'); ?></p>
+                                                    <p class="text-[11px] text-slate-600 font-medium mt-0.5"><?= htmlspecialchars($s['office_name'] ?? $s['company_dept'] ?? 'Main Office'); ?></p>
                                                 <?php else: ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Unassigned
@@ -229,7 +229,7 @@
                                             <td class="py-4 px-6 text-right whitespace-nowrap align-middle">
                                                 <button 
                                                     type="button"
-                                                    onclick="quickAssign(<?= $s['id']; ?>, '<?= addslashes($s['name']); ?>', <?= intval($s['company_id'] ?? 0); ?>, <?= intval($s['supervisor_id'] ?? 0); ?>)" 
+                                                    onclick="quickAssign(<?= $s['id']; ?>, '<?= addslashes($s['name']); ?>', <?= intval($s['office_id'] ?? 0); ?>)" 
                                                     class="px-3.5 py-1.5 text-xs font-bold <?= $hasPlacement ? 'text-slate-800 bg-white hover:bg-slate-100 border border-slate-300' : 'text-white bg-[#0F2854] hover:bg-blue-900 border border-[#0F2854]'; ?> rounded-xl shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
                                                     <span><?= $hasPlacement ? 'Edit Link' : 'Assign Now →' ?></span>
                                                 </button>
@@ -270,7 +270,7 @@
 
             <div class="border-b border-slate-200/70 pb-3">
                 <h3 class="text-sm font-black text-slate-950">Assign Student Placement</h3>
-                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Select a company first to load its registered supervisors.</p>
+                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Select a company office — each office has one supervisor.</p>
             </div>
 
             <form method="POST" action="assignments.php" class="space-y-4 text-xs">
@@ -290,23 +290,24 @@
                     </select>
                 </div>
 
-                <!-- 2. Select Host Company -->
+                <!-- 2. Select Company Office -->
                 <div class="space-y-1">
-                    <label class="block font-bold text-slate-700 mb-1">Partner Company</label>
-                    <select id="companySelect" name="company_id" required onchange="filterSupervisorsByCompany()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854]">
-                        <option value="" disabled selected>-- Choose Partner Company --</option>
-                        <?php foreach ($companies as $c): ?>
-                            <option value="<?= $c['id']; ?>"><?= htmlspecialchars($c['name']); ?> - <?= htmlspecialchars($c['department'] ?? 'Main Office'); ?></option>
+                    <label class="block font-bold text-slate-700 mb-1">Company Office</label>
+                    <select id="officeSelect" name="office_id" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854]">
+                        <option value="" disabled selected>-- Choose Company Office --</option>
+                        <?php
+                        $lastCompany = null;
+                        foreach ($offices as $off):
+                            if ($lastCompany !== $off['company_name']):
+                                if ($lastCompany !== null): ?></optgroup><?php endif; ?>
+                                <optgroup label="<?= htmlspecialchars($off['company_name']); ?>">
+                                <?php $lastCompany = $off['company_name']; ?>
+                            <?php endif; ?>
+                            <option value="<?= $off['id']; ?>"><?= htmlspecialchars($off['office_name']); ?></option>
                         <?php endforeach; ?>
+                        <?php if ($lastCompany !== null): ?></optgroup><?php endif; ?>
                     </select>
-                </div>
-
-                <!-- 3. Select Supervisor -->
-                <div class="space-y-1">
-                    <label class="block font-bold text-slate-700 mb-1">Company Supervisor</label>
-                    <select id="supervisorSelect" name="supervisor_id" required disabled class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] disabled:bg-slate-100 disabled:text-slate-400">
-                        <option value="" disabled selected>-- Select Partner Company First --</option>
-                    </select>
+                    <p class="text-[11px] text-slate-500 mt-1">Each office has exactly one supervisor; selecting an office assigns that supervisor.</p>
                 </div>
 
                 <div class="flex items-center justify-between pt-3 border-t border-slate-200/70">
@@ -338,9 +339,7 @@
 
         function openAssignModal() {
             document.getElementById('studentSelect').value = '';
-            document.getElementById('companySelect').value = '';
-            document.getElementById('supervisorSelect').innerHTML = '<option value="" disabled selected>-- Select Partner Company First --</option>';
-            document.getElementById('supervisorSelect').disabled = true;
+            document.getElementById('officeSelect').value = '';
             document.getElementById('actionType').value = 'assign';
             document.getElementById('unassignBtn').classList.add('hidden');
             openModal('assignModal');
@@ -374,22 +373,15 @@
             }
         }
 
-        function quickAssign(studentId, studentName, companyId, supervisorId) {
+        function quickAssign(studentId, studentName, officeId) {
             document.getElementById('studentSelect').value = studentId;
             document.getElementById('actionType').value = 'assign';
 
-            if (companyId > 0) {
-                document.getElementById('companySelect').value = companyId;
-                filterSupervisorsByCompany(supervisorId);
-            } else {
-                document.getElementById('companySelect').value = '';
-                document.getElementById('supervisorSelect').innerHTML = '<option value="" disabled selected>-- Select Partner Company First --</option>';
-                document.getElementById('supervisorSelect').disabled = true;
-            }
-
-            if (companyId > 0 || supervisorId > 0) {
+            if (officeId > 0) {
+                document.getElementById('officeSelect').value = officeId;
                 document.getElementById('unassignBtn').classList.remove('hidden');
             } else {
+                document.getElementById('officeSelect').value = '';
                 document.getElementById('unassignBtn').classList.add('hidden');
             }
 
@@ -399,8 +391,7 @@
         function submitUnassign() {
             if (confirm("Are you sure you want to remove this student's placement link?")) {
                 document.getElementById('actionType').value = 'unassign';
-                document.getElementById('companySelect').removeAttribute('required');
-                document.getElementById('supervisorSelect').removeAttribute('required');
+                document.getElementById('officeSelect').removeAttribute('required');
                 document.getElementById('assignModal').querySelector('form').submit();
             }
         }

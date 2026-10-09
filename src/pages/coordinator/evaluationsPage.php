@@ -571,6 +571,11 @@ if (!function_exists('e')) {
                                                 </p>
 
                                                 <p class="text-[11px] text-slate-600 font-medium truncate mt-0.5">
+                                                    Office:
+                                                    <?= e($eval['office_name'] ?? 'Unassigned'); ?>
+                                                </p>
+
+                                                <p class="text-[11px] text-slate-600 font-medium truncate mt-0.5">
 
                                                     Sup:
                                                     <?= e($eval['supervisor_name'] ?? 'Pending Assignment'); ?>

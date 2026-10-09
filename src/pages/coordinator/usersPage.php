@@ -66,7 +66,15 @@
 
                         <!-- Action Buttons -->
                         <div class="flex items-center gap-2.5 shrink-0">
-                            <button type="button" onclick="toggleModal('bulkImportModal')" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-slate-300 shadow-2xs cursor-pointer">
+                            <?php
+                            $importModalId = 'bulkImportModal';
+                            if (($tab ?? 'students') === 'coordinators') {
+                                $importModalId = 'bulkImportCoordinatorsModal';
+                            } elseif (($tab ?? 'students') === 'companies') {
+                                $importModalId = 'bulkImportCompaniesSupervisorsModal';
+                            }
+                            ?>
+                            <button type="button" onclick="toggleModal('<?= $importModalId; ?>')" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-slate-300 shadow-2xs cursor-pointer">
                                 <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                                 <span>Import CSV</span>
                             </button>
@@ -295,8 +303,9 @@
                             <div class="p-4 space-y-4 bg-slate-50/40">
 
                                 <?php foreach ($companies as $comp):
+                                    $compOffices    = $officesByCompany[(int)$comp['id']] ?? [];
                                     $compSupervisors = $supervisorsByCompany[(int)$comp['id']] ?? [];
-                                    $detailLine = trim(($comp['department'] ?? '') . (!empty($comp['address']) ? ' · ' . $comp['address'] : ''), ' ·');
+                                    $detailLine = trim(($comp['address'] ?? ''), ' ·');
                                 ?>
                                     <div class="company-card bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden" data-name="<?= htmlspecialchars(strtolower($comp['name']), ENT_QUOTES); ?>">
                                         <div class="flex items-stretch bg-slate-50/60">
@@ -312,27 +321,75 @@
                                                         <?= intval($comp['total_interns']); ?> Intern(s)
                                                     </span>
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
-                                                        <?= count($compSupervisors); ?> Supervisor(s)
+                                                        <?= count($compOffices); ?> Office(s)
                                                     </span>
                                                     <svg class="company-chevron w-4 h-4 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
                                                 </div>
                                             </button>
                                             <div class="flex items-center pr-6">
-                                                <button type="button" onclick='openEditCompanyModal(<?= json_encode(['id' => (int)$comp['id'], 'name' => $comp['name'], 'department' => $comp['department'] ?? '', 'address' => $comp['address'] ?? ''], JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_TAG); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
-                                                    Edit
+                                                <button type="button" onclick='openEditCompanyModal(<?= json_encode(['id' => (int)$comp['id'], 'name' => $comp['name'], 'address' => $comp['address'] ?? '', 'offices' => array_map(static function ($o) { return ['id' => (int)$o['id'], 'office_name' => $o['office_name'], 'intern_count' => (int)$o['intern_count']]; }, $compOffices)], JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_TAG); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
+                                                    Manage
                                                 </button>
+                                                <form method="POST" action="users.php" class="inline ml-1.5" onsubmit="return confirm('Archive company <?= htmlspecialchars(addslashes($comp['name'])); ?>? It will be hidden from the Companies list and can be restored later.');">
+                                                    <input type="hidden" name="action" value="archive_company">
+                                                    <input type="hidden" name="company_id" value="<?= (int)$comp['id']; ?>">
+                                                    <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-300 shadow-2xs transition-colors cursor-pointer">
+                                                        Archive
+                                                    </button>
+                                                </form>
                                             </div>
                                         </div>
 
                                         <div class="company-body divide-y divide-slate-200/80 border-t border-slate-200/70">
-                                            <?php if (!empty($compSupervisors)): ?>
-                                                <?php foreach ($compSupervisors as $sup) { $renderSupervisorRow($sup); } ?>
+                                            <?php if (!empty($compOffices)): ?>
+                                                <?php foreach ($compOffices as $off): ?>
+                                                    <div class="office-block px-6 py-5">
+                                                        <!-- Office Sub-Header -->
+                                                        <div class="flex items-center justify-between gap-3 pb-3">
+                                                            <div class="flex items-center gap-2 min-w-0">
+                                                                <div class="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg>
+                                                                </div>
+                                                                <p class="text-xs font-black text-slate-900 uppercase tracking-wider truncate">
+                                                                    <?= htmlspecialchars($off['office_name']); ?>
+                                                                </p>
+                                                            </div>
+                                                            <div class="flex items-center gap-2 shrink-0">
+                                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-blue-50 text-[#0F2854] font-bold text-[11px] border border-blue-200">
+                                                                    <?= (int)$off['intern_count']; ?> Intern(s)
+                                                                </span>
+                                                                <?php if ((int)$off['linked_supervisors'] === 0 && (int)$off['linked_students'] === 0): ?>
+                                                                    <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Delete office <?= htmlspecialchars(addslashes($off['office_name'])); ?>? This cannot be undone.');">
+                                                                        <input type="hidden" name="action" value="delete_office">
+                                                                        <input type="hidden" name="office_id" value="<?= (int)$off['id']; ?>">
+                                                                        <button type="submit" class="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-300 transition-colors cursor-pointer">
+                                                                            Delete
+                                                                        </button>
+                                                                    </form>
+                                                                <?php else: ?>
+                                                                    <button type="button" disabled class="px-2.5 py-1 text-[11px] font-bold text-slate-400 bg-slate-100 rounded-lg border border-slate-200 cursor-not-allowed" title="Unlink the supervisor and interns before deleting this office">
+                                                                        Delete
+                                                                    </button>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Office Supervisor -->
+                                                        <?php if (!empty($off['supervisor'])): ?>
+                                                            <?php $renderSupervisorRow($off['supervisor']); ?>
+                                                        <?php else: ?>
+                                                            <div class="rounded-xl bg-amber-50/70 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3">
+                                                                <p class="text-[11px] font-bold text-amber-900">Supervisor required, add one.</p>
+                                                                <button type="button" onclick="openAddSupervisorForOffice(<?= (int)$comp['id']; ?>, '<?= htmlspecialchars(addslashes($off['office_name'])); ?>', '<?= htmlspecialchars(addslashes($comp['name'])); ?>')" class="px-3.5 py-1.5 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 rounded-xl border border-amber-300 transition-colors cursor-pointer">
+                                                                    + Add Supervisor
+                                                                </button>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endforeach; ?>
                                             <?php else: ?>
-                                                <div class="px-6 py-5 flex items-center justify-between bg-amber-50/50 border-t border-amber-200">
-                                                    <p class="text-[11px] font-bold text-amber-900">Supervisor required, add one.</p>
-                                                    <button type="button" onclick="openAddSupervisorToCompanyModal(<?= (int)$comp['id']; ?>, '<?= htmlspecialchars(addslashes($comp['name'])); ?>')" class="px-3.5 py-1.5 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 rounded-xl border border-amber-300 transition-colors cursor-pointer">
-                                                        + Add Supervisor
-                                                    </button>
+                                                <div class="px-6 py-5">
+                                                    <p class="text-[11px] font-bold text-slate-500">No offices registered for this company yet.</p>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -429,6 +486,46 @@
 
                     <!-- TAB 4: ARCHIVED TABLE -->
                     <?php elseif ($tab === 'archived'): ?>
+
+                        <!-- Archived Companies -->
+                        <?php if (!empty($archivedCompanies)): ?>
+                            <div class="p-4 border-b border-slate-200/70 bg-slate-50/60">
+                                <h3 class="text-xs font-black uppercase tracking-wider text-slate-700 mb-3">Archived Companies</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <?php foreach ($archivedCompanies as $ac): ?>
+                                        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-4 py-3 flex items-center justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="text-xs font-extrabold text-slate-950 truncate"><?= htmlspecialchars($ac['name']); ?></p>
+                                                <p class="text-[11px] text-slate-600 font-medium mt-0.5 truncate">
+                                                    <?= htmlspecialchars($ac['department'] ?? ''); ?>
+                                                    <?php if (!empty($ac['address'])): ?>
+                                                        &bull; <?= htmlspecialchars($ac['address']); ?>
+                                                    <?php endif; ?>
+                                                </p>
+                                                <p class="text-[10px] text-slate-500 mt-0.5">
+                                                    Archived: <?= date("M d, Y", strtotime($ac['archived_at'] ?? 'now')); ?>
+                                                </p>
+                                            </div>
+                                            <form method="POST" action="users.php" class="shrink-0" onsubmit="return confirm('Restore company <?= htmlspecialchars(addslashes($ac['name'])); ?> back to active status?');">
+                                                <input type="hidden" name="action" value="restore_company">
+                                                <input type="hidden" name="company_id" value="<?= (int)$ac['id']; ?>">
+                                                <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-emerald-900 bg-emerald-100/80 hover:bg-emerald-200 rounded-xl border border-emerald-300 shadow-2xs transition-colors cursor-pointer">
+                                                    Restore
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="users.php" class="shrink-0 ml-1.5" onsubmit="return confirm('⚠️ WARNING: Permanently delete company <?= htmlspecialchars(addslashes($ac['name'])); ?>? This action CANNOT be undone.');">
+                                                <input type="hidden" name="action" value="delete_company_permanently">
+                                                <input type="hidden" name="company_id" value="<?= (int)$ac['id']; ?>">
+                                                <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-rose-900 bg-rose-100/80 hover:bg-rose-200 rounded-xl border border-rose-300 shadow-2xs transition-colors cursor-pointer">
+                                                    Delete
+                                                </button>
+                                            </form>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
                         <?php if (!empty($archivedUsers)): ?>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-left border-collapse text-xs">
@@ -480,9 +577,9 @@
                                     </tbody>
                                 </table>
                             </div>
-                        <?php else: ?>
+                        <?php elseif (empty($archivedCompanies)): ?>
                             <div class="py-16 text-center text-slate-500 text-xs font-semibold">
-                                No archived accounts found.
+                                No archived accounts or companies found.
                             </div>
                         <?php endif; ?>
                     <?php endif; ?>
@@ -530,23 +627,23 @@
                 </div>
 
                 <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Company Placement (Optional)</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Host Company</label>
-                            <select id="add_student_company" name="company_id" onchange="filterModalSupervisors('add_student')" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-800 font-bold focus:outline-none focus:border-[#0F2854]">
-                                <option value="">-- Unassigned --</option>
-                                <?php foreach ($companies as $comp): ?>
-                                    <option value="<?= $comp['id']; ?>"><?= htmlspecialchars($comp['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Supervisor</label>
-                            <select id="add_student_supervisor" name="supervisor_id" disabled class="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-800 font-bold focus:outline-none focus:border-[#0F2854] disabled:bg-slate-100 disabled:text-slate-400">
-                                <option value="">-- Select Company First --</option>
-                            </select>
-                        </div>
+                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Office Placement (Optional)</span>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Company Office</label>
+                        <select name="office_id" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-800 font-bold focus:outline-none focus:border-[#0F2854]">
+                            <option value="">-- Unassigned --</option>
+                            <?php
+                            $lastCompany = null;
+                            foreach ($offices as $off):
+                                if ($lastCompany !== $off['company_name']):
+                                    if ($lastCompany !== null): ?></optgroup><?php endif; ?>
+                                    <optgroup label="<?= htmlspecialchars($off['company_name']); ?>">
+                                    <?php $lastCompany = $off['company_name']; ?>
+                                <?php endif; ?>
+                                <option value="<?= $off['id']; ?>"><?= htmlspecialchars($off['office_name']); ?></option>
+                            <?php endforeach; ?>
+                            <?php if ($lastCompany !== null): ?></optgroup><?php endif; ?>
+                        </select>
                     </div>
                 </div>
 
@@ -576,16 +673,26 @@
                     <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Company Information</span>
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Company / Office Name <span class="text-rose-600">*</span></label>
-                        <input type="text" name="company_name" required maxlength="255" placeholder="Enter company name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        <input type="text" name="company_name" id="add_cs_company_name" list="existingCompaniesList" oninput="syncOfficeSuggestions()" required maxlength="255" placeholder="Enter or pick a company name" autocomplete="off" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        <datalist id="existingCompaniesList">
+                            <?php foreach ($companies as $comp): ?>
+                                <option value="<?= htmlspecialchars($comp['name'], ENT_QUOTES); ?>"></option>
+                            <?php endforeach; ?>
+                        </datalist>
+                        <p class="text-[10px] text-slate-500 mt-1">Pick an existing company to add another office under it.</p>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Department / Branch <span class="text-rose-600">*</span></label>
-                            <input type="text" name="department" required maxlength="255" placeholder="Enter department" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                            <label class="block font-bold text-slate-700 mb-1">Office / Branch Name <span class="text-rose-600">*</span></label>
+                            <input type="text" name="department" id="add_cs_office_name" list="existingOfficesList" oninput="syncOfficeSuggestions()" required maxlength="255" placeholder="Enter office or branch name" autocomplete="off" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                            <datalist id="existingOfficesList"></datalist>
+                            <p class="text-[10px] text-slate-500 mt-1" id="add_cs_office_hint">Suggestions appear once a company is picked.</p>
                         </div>
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Company Address <span class="text-rose-600">*</span></label>
-                            <input type="text" name="address" required maxlength="255" placeholder="Enter company address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                            <input type="text" name="address_display" id="add_cs_address" oninput="syncAddressCarrier()" required maxlength="255" placeholder="Enter company address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                            <input type="hidden" name="address" id="add_cs_address_value">
+                            <p class="text-[10px] text-slate-500 mt-1" id="add_cs_address_hint"></p>
                         </div>
                     </div>
                 </div>
@@ -649,6 +756,63 @@
         </div>
     </div>
 
+    <!-- MODAL 3B: BULK IMPORT COORDINATORS -->
+    <div id="bulkImportCoordinatorsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full m-auto p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+                <h3 class="text-sm font-black text-slate-950">Bulk Import Coordinators (.csv)</h3>
+                <button type="button" onclick="toggleModal('bulkImportCoordinatorsModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
+            </div>
+            <p class="text-xs text-slate-600 font-medium leading-relaxed">
+                Upload a CSV file formatted with these 2 columns: <br>
+                <span class="font-extrabold text-slate-900">Full Name, Email Address</span>
+            </p>
+
+            <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                <input type="hidden" name="action" value="bulk_import_coordinators">
+                <div class="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center bg-slate-50 hover:border-[#0F2854] transition-colors">
+                    <input type="file" name="excel_file" accept=".csv, .txt" required class="block w-full text-xs text-slate-600 font-medium file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0F2854] file:text-white hover:file:bg-blue-900 cursor-pointer">
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
+                    <button type="button" onclick="toggleModal('bulkImportCoordinatorsModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+                        <span>Process Import</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3C: BULK IMPORT COMPANIES & SUPERVISORS -->
+    <div id="bulkImportCompaniesSupervisorsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-2xl w-full m-auto p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+                <h3 class="text-sm font-black text-slate-950">Bulk Import Companies &amp; Supervisors (.csv)</h3>
+                <button type="button" onclick="toggleModal('bulkImportCompaniesSupervisorsModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
+            </div>
+            <p class="text-xs text-slate-600 font-medium leading-relaxed">
+                Upload a CSV file formatted with these 7 columns: <br>
+                <span class="font-extrabold text-slate-900">Company Name, Office / Branch, Address, Supervisor Name, Supervisor Email, Job Title, Contact Number</span>
+            </p>
+            <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] font-medium leading-relaxed">
+                Companies are matched by exact name (existing companies are reused). Each office can only have <strong>one supervisor</strong> — rows for an office that already has a supervisor are skipped.
+            </div>
+
+            <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                <input type="hidden" name="action" value="bulk_import_companies_supervisors">
+                <div class="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center bg-slate-50 hover:border-[#0F2854] transition-colors">
+                    <input type="file" name="excel_file" accept=".csv, .txt" required class="block w-full text-xs text-slate-600 font-medium file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0F2854] file:text-white hover:file:bg-blue-900 cursor-pointer">
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
+                    <button type="button" onclick="toggleModal('bulkImportCompaniesSupervisorsModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+                        <span>Process Import</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL 4: EDIT STUDENT -->
     <div id="editStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
         <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full m-auto p-6 space-y-4">
@@ -689,23 +853,23 @@
                 </div>
 
                 <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Company Placement</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Host Company</label>
-                            <select id="edit_student_company" name="company_id" onchange="filterModalSupervisors('edit_student')" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-800 font-bold focus:outline-none focus:border-[#0F2854]">
-                                <option value="">-- Unassigned --</option>
-                                <?php foreach ($companies as $comp): ?>
-                                    <option value="<?= $comp['id']; ?>"><?= htmlspecialchars($comp['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Supervisor</label>
-                            <select id="edit_student_supervisor" name="supervisor_id" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-800 font-bold focus:outline-none focus:border-[#0F2854]">
-                                <option value="">-- Unassigned --</option>
-                            </select>
-                        </div>
+                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Office Placement</span>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Company Office</label>
+                        <select name="office_id" id="edit_student_office" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-800 font-bold focus:outline-none focus:border-[#0F2854]">
+                            <option value="">-- Unassigned --</option>
+                            <?php
+                            $lastCompany = null;
+                            foreach ($offices as $off):
+                                if ($lastCompany !== $off['company_name']):
+                                    if ($lastCompany !== null): ?></optgroup><?php endif; ?>
+                                    <optgroup label="<?= htmlspecialchars($off['company_name']); ?>">
+                                    <?php $lastCompany = $off['company_name']; ?>
+                                <?php endif; ?>
+                                <option value="<?= $off['id']; ?>"><?= htmlspecialchars($off['office_name']); ?></option>
+                            <?php endforeach; ?>
+                            <?php if ($lastCompany !== null): ?></optgroup><?php endif; ?>
+                        </select>
                     </div>
                 </div>
 
@@ -741,12 +905,20 @@
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Assigned Company</label>
-                    <select name="company_id" id="edit_supervisor_company" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    <select name="company_id" id="edit_supervisor_company" onchange="filterSupervisorOffices()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                         <option value="">-- Select Partner Company --</option>
                         <?php foreach ($companies as $comp): ?>
                             <option value="<?= $comp['id']; ?>"><?= htmlspecialchars($comp['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Office / Branch</label>
+                    <select name="office_id" id="edit_supervisor_office" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                        <option value="">-- Select Office --</option>
+                    </select>
+                    <input type="hidden" name="office_id" id="edit_supervisor_office_locked" value="">
+                    <p class="text-[10px] text-slate-500 mt-1" id="edit_supervisor_office_hint"></p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -768,26 +940,80 @@
 
     <!-- MODAL 5B: EDIT COMPANY -->
     <div id="editCompanyModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto z-50 p-4">
-        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full m-auto p-6 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full m-auto p-6 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
-                <h3 class="text-sm font-black text-slate-950">Edit Company</h3>
-                <button type="button" onclick="toggleModal('editCompanyModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
+                <div>
+                    <h3 class="text-sm font-black text-slate-950">Manage Company</h3>
+                    <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Edit the company details and its offices.</p>
+                </div>
+                <button type="button" onclick="toggleModal('editCompanyModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0">✕</button>
             </div>
-            <form action="users.php" method="POST" class="space-y-3 text-xs">
+            <form action="users.php" method="POST" class="space-y-3.5 text-xs">
                 <input type="hidden" name="action" value="edit_company">
                 <input type="hidden" name="company_id" id="edit_company_id">
+
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Company / Office Name <span class="text-rose-600">*</span></label>
-                    <input type="text" name="company_name" id="edit_company_name" required maxlength="255" placeholder="Enter company name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Department / Branch</label>
-                    <input type="text" name="department" id="edit_company_department" maxlength="255" placeholder="Enter department" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    <label class="block font-bold text-slate-700 mb-1">Company Name</label>
+                    <input type="text" id="edit_company_name" disabled value="" class="w-full bg-slate-100 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-500 cursor-not-allowed">
+                    <p class="text-[10px] text-slate-500 mt-1">Company details cannot be changed. Archive and re-create to rename.</p>
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Company Address</label>
-                    <input type="text" name="address" id="edit_company_address" maxlength="255" placeholder="Enter company address" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
+                    <input type="text" id="edit_company_address" disabled value="" class="w-full bg-slate-100 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-500 cursor-not-allowed">
                 </div>
+
+                <!-- Offices (read-only) -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Offices</span>
+                        <span class="text-[10px] font-semibold text-slate-500"><?= count($offices) > 0 ? 'Existing offices cannot be renamed here' : ''; ?></span>
+                    </div>
+
+                    <div id="editCompanyOffices" class="space-y-2"></div>
+
+                    <div id="editCompanyNoOffices" class="hidden text-[11px] italic text-slate-400 font-semibold">
+                        No offices yet — add one below.
+                    </div>
+                </div>
+
+                <!-- Add Office & Supervisor -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                    <span class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Add Office &amp; Supervisor</span>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Office / Branch Name <span class="text-rose-600">*</span></label>
+                        <input type="text" name="office_name" maxlength="255" placeholder="Enter office or branch name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    </div>
+
+                    <div class="pt-1 border-t border-slate-200/80">
+                        <span class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Supervisor Information</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
+                            <input type="text" name="supervisor_name" maxlength="255" placeholder="Enter full name" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Email Address <span class="text-rose-600">*</span></label>
+                            <input type="email" name="supervisor_email" maxlength="255" placeholder="Enter email address" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Job Title / Position</label>
+                            <input type="text" name="job_title" maxlength="150" placeholder="Enter job title" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Contact Number</label>
+                            <input type="tel" name="contact_number" maxlength="20" pattern="[0-9+\-\s()]{7,20}" title="7-20 characters: digits, +, -, spaces or parentheses" placeholder="Enter contact number" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] text-slate-500">Each office can only have one supervisor. Office removal is available on the company card.</p>
+                </div>
+
                 <div class="flex justify-end gap-2 pt-3 border-t border-slate-200/70">
                     <button type="button" onclick="toggleModal('editCompanyModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer">Save Changes</button>
@@ -860,6 +1086,7 @@
     <!-- Scripts -->
     <script>
         const allSupervisors = <?= json_encode($supervisors ?? []); ?>;
+        const allOffices = <?= json_encode($offices ?? []); ?>;
 
         function toggleStudentsMenu(event) {
             if (event) event.stopPropagation();
@@ -892,6 +1119,108 @@
                 document.getElementById('studentsMenuChevron')?.classList.remove('rotate-180');
             }
         });
+
+        // Suggest existing offices + address for the company name typed in the modal
+        const companyOfficesMap = <?= json_encode(array_reduce($offices ?? [], function ($map, $office) {
+            $key = strtolower((string)($office['company_name'] ?? ''));
+            $map[$key][] = (string)($office['office_name'] ?? '');
+            return $map;
+        }, [])); ?>;
+
+        const companyAddressesMap = <?= json_encode(array_reduce($companies ?? [], function ($map, $company) {
+            $map[strtolower((string)($company['name'] ?? ''))] = (string)($company['address'] ?? '');
+            return $map;
+        }, [])); ?>;
+
+        function setAddressLocked(locked, value) {
+            const addressInput = document.getElementById('add_cs_address');
+            const addressCarrier = document.getElementById('add_cs_address_value');
+            const addressHint = document.getElementById('add_cs_address_hint');
+            if (!addressInput) return;
+
+            if (locked) {
+                addressInput.value = value || '';
+                // A disabled input is not submitted, so mirror the value into the hidden field
+                if (addressCarrier) addressCarrier.value = value || '';
+                addressInput.disabled = true;
+                addressInput.classList.add('bg-slate-100', 'text-slate-500', 'cursor-not-allowed');
+                if (addressHint) {
+                    addressHint.textContent = 'Address taken from the existing company record.';
+                }
+            } else {
+                addressInput.disabled = false;
+                addressInput.classList.remove('bg-slate-100', 'text-slate-500', 'cursor-not-allowed');
+                if (addressCarrier) addressCarrier.value = addressInput.value || '';
+                if (addressHint) {
+                    addressHint.textContent = '';
+                }
+            }
+        }
+
+        // Keeps the hidden carrier in sync while the coordinator types a new address
+        function syncAddressCarrier() {
+            const addressInput = document.getElementById('add_cs_address');
+            const addressCarrier = document.getElementById('add_cs_address_value');
+            if (addressInput && addressCarrier && !addressInput.disabled) {
+                addressCarrier.value = addressInput.value || '';
+            }
+        }
+
+        function syncOfficeSuggestions() {
+            const companyInput = document.getElementById('add_cs_company_name');
+            const officeInput = document.getElementById('add_cs_office_name');
+            const datalist = document.getElementById('existingOfficesList');
+            const hint = document.getElementById('add_cs_office_hint');
+            if (!companyInput || !officeInput || !datalist) return;
+
+            const typedName = companyInput.value.trim();
+            const key = typedName.toLowerCase();
+            const matches = key && companyOfficesMap[key] ? companyOfficesMap[key] : [];
+            const existingAddress = key && Object.prototype.hasOwnProperty.call(companyAddressesMap, key)
+                ? companyAddressesMap[key]
+                : null;
+            const isExistingCompany = existingAddress !== null;
+
+            datalist.innerHTML = '';
+            matches.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                datalist.appendChild(opt);
+            });
+
+            if (isExistingCompany) {
+                setAddressLocked(true, existingAddress);
+            } else {
+                setAddressLocked(false);
+            }
+
+            if (matches.length > 0) {
+                hint.textContent = 'Existing offices at this company: ' + matches.join(', ');
+            } else if (key) {
+                hint.textContent = 'No existing offices found for "' + typedName + '" — this will be a new company.';
+            } else {
+                hint.textContent = 'Suggestions appear once a company is picked.';
+            }
+        }
+
+        // Opens the Add Company & Supervisor modal pre-filled for a specific office
+        function openAddSupervisorForOffice(companyId, officeName, companyName) {
+            const form = document.querySelector('#addCompanySupervisorModal form');
+            if (form) {
+                form.reset();
+                form.querySelector('[name="company_name"]').value = companyName || '';
+                form.querySelector('[name="department"]').value = officeName || '';
+            }
+            // This button always targets an existing company, so its address is read-only
+            const key = (companyName || '').trim().toLowerCase();
+            const knownAddress = Object.prototype.hasOwnProperty.call(companyAddressesMap, key)
+                ? companyAddressesMap[key]
+                : '';
+            setAddressLocked(true, knownAddress);
+
+            toggleModal('addCompanySupervisorModal');
+            syncOfficeSuggestions();
+        }
 
         // Dynamic Filtering: Select Company in Modal -> Loads Supervisors
         function filterModalSupervisors(prefix, preselectedSupId = null) {
@@ -928,17 +1257,41 @@
             }
         }
 
+        // Dynamic Filtering: Select Company in Edit Supervisor Modal -> Loads Offices
+        function filterSupervisorOffices(preselectedOfficeId = null) {
+            const companySelect = document.getElementById('edit_supervisor_company');
+            const officeSelect  = document.getElementById('edit_supervisor_office');
+            const companyId     = parseInt(companySelect.value);
+
+            officeSelect.innerHTML = '<option value="">-- Select Office --</option>';
+
+            if (!companyId) {
+                return;
+            }
+
+            const filtered = allOffices.filter(o => parseInt(o.company_id) === companyId);
+
+            if (filtered.length > 0) {
+                filtered.forEach(off => {
+                    const opt = document.createElement('option');
+                    opt.value = off.id;
+                    opt.textContent = off.office_name;
+                    if (preselectedOfficeId && parseInt(off.id) === preselectedOfficeId) {
+                        opt.selected = true;
+                    }
+                    officeSelect.appendChild(opt);
+                });
+            }
+        }
+
         function openEditStudentModal(student) {
             document.getElementById('edit_student_user_id').value = student.user_id;
             document.getElementById('edit_student_name').value = student.name;
             document.getElementById('edit_student_number').value = student.student_number;
             document.getElementById('edit_student_email').value = student.email;
             document.getElementById('edit_student_section').value = student.section || 'A';
+            document.getElementById('edit_student_office').value = student.office_id || '';
             
-            const compSelect = document.getElementById('edit_student_company');
-            compSelect.value = student.company_id || '';
-            filterModalSupervisors('edit_student', parseInt(student.supervisor_id || 0));
-
             toggleModal('editStudentModal');
         }
 
@@ -949,14 +1302,85 @@
             document.getElementById('edit_supervisor_company').value = supervisor.company_id || '';
             document.getElementById('edit_supervisor_job_title').value = supervisor.job_title || '';
             document.getElementById('edit_supervisor_contact_number').value = supervisor.contact_number || '';
+            filterSupervisorOffices(parseInt(supervisor.office_id || 0));
+
+            // A supervisor is permanently attached to their office once assigned
+            const currentOfficeId = parseInt(supervisor.office_id || 0);
+            const officeSelect = document.getElementById('edit_supervisor_office');
+            const officeHint = document.getElementById('edit_supervisor_office_hint');
+            const companySelect = document.getElementById('edit_supervisor_company');
+
+            if (officeSelect) {
+                if (currentOfficeId > 0) {
+                    officeSelect.disabled = true;
+                    officeSelect.classList.add('bg-slate-100', 'text-slate-500');
+                } else {
+                    officeSelect.disabled = false;
+                    officeSelect.classList.remove('bg-slate-100', 'text-slate-500');
+                }
+            }
+
+            // A disabled select is not submitted, so carry the locked value in a hidden field
+            const lockedOfficeField = document.getElementById('edit_supervisor_office_locked');
+            if (lockedOfficeField) {
+                lockedOfficeField.disabled = !(currentOfficeId > 0);
+                lockedOfficeField.value = currentOfficeId > 0 ? currentOfficeId : '';
+            }
+
+            if (officeHint) {
+                officeHint.textContent = currentOfficeId > 0
+                    ? 'Locked to this office — a supervisor cannot be moved.'
+                    : 'Pick the office this supervisor manages.';
+            }
+
+            if (companySelect) {
+                companySelect.disabled = currentOfficeId > 0;
+                if (currentOfficeId > 0) {
+                    companySelect.classList.add('bg-slate-100', 'text-slate-500');
+                } else {
+                    companySelect.classList.remove('bg-slate-100', 'text-slate-500');
+                }
+            }
+
             toggleModal('editSupervisorModal');
+        }
+
+        // Renders one read-only office row inside the Manage Company modal
+        function addEditCompanyOfficeRow(officeId, officeName, internCount) {
+            const container = document.getElementById('editCompanyOffices');
+            const emptyNote = document.getElementById('editCompanyNoOffices');
+            if (!container) return;
+
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2';
+
+            row.innerHTML = '<span class="text-xs font-bold text-slate-800 truncate">' +
+                String(officeName || '').replace(/[<>&]/g, '') + '</span>' +
+                '<span class="text-[10px] font-bold text-slate-500 shrink-0">' +
+                parseInt(internCount || 0, 10) + ' Intern(s)</span>';
+
+            container.appendChild(row);
+            if (emptyNote) emptyNote.classList.add('hidden');
         }
 
         function openEditCompanyModal(company) {
             document.getElementById('edit_company_id').value = company.id;
             document.getElementById('edit_company_name').value = company.name || '';
-            document.getElementById('edit_company_department').value = company.department || '';
             document.getElementById('edit_company_address').value = company.address || '';
+
+            const container = document.getElementById('editCompanyOffices');
+            const emptyNote = document.getElementById('editCompanyNoOffices');
+            if (container) container.innerHTML = '';
+
+            const offices = company.offices || [];
+            offices.forEach(function (off) {
+                addEditCompanyOfficeRow(off.id, off.office_name, off.intern_count);
+            });
+
+            if (emptyNote) {
+                emptyNote.classList.toggle('hidden', offices.length > 0);
+            }
+
             toggleModal('editCompanyModal');
         }
 
