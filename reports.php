@@ -19,6 +19,7 @@ try {
             s.id, 
             s.student_number, 
             s.program, 
+            s.company_id,
             s.completion_requested,
             s.evaluation_triggered, 
             e.id AS evaluation_id,

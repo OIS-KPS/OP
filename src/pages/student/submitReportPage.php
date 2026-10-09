@@ -56,6 +56,7 @@
                 <?php endif; ?>
 
                 <!-- Submission Form -->
+                <?php if (!empty($isAssigned)): ?>
                 <form action="submit_report.php?week=<?= htmlspecialchars($weekNumber); ?>" method="POST" enctype="multipart/form-data" class="space-y-5">
 
                     <!-- Drag & Drop PDF Box -->
@@ -81,6 +82,25 @@
                     </button>
 
                 </form>
+                <?php else: ?>
+                    <!-- Not Assigned Blocking Notice -->
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-8 text-center space-y-4">
+                        <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto text-xl font-black">
+                            🔒
+                        </div>
+                        <div class="space-y-1">
+                            <h3 class="font-extrabold text-sm text-slate-950">No Placement Assigned Yet</h3>
+                            <p class="text-xs text-slate-600 leading-relaxed">
+                                Your OJT Coordinator has not assigned your internship placement yet. You can submit your weekly accomplishment reports once your company and supervisor have been assigned.
+                            </p>
+                        </div>
+                        <div class="pt-2">
+                            <a href="reports.php" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all inline-block shadow-xs">
+                                Return to Reports Dashboard
+                            </a>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
             </main>
         </div>

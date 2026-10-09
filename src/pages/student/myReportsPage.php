@@ -6,6 +6,7 @@ unset($_SESSION['flash_message']);
 
 $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
+$isAssigned  = !empty($student['company_id']);
 $nextWeekToSubmit = count($reports ?? []) + 1;
 ?>
 <!DOCTYPE html>
@@ -161,11 +162,16 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                         </div>
 
                         <div class="flex items-center gap-2.5">
-                            <?php if (!$isEvaluated && $totalApproved < 12): ?>
+                            <?php if (!$isEvaluated && $totalApproved < 12 && $isAssigned): ?>
                                 <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                                     <span>Submit Week <?= $nextWeekToSubmit; ?></span>
                                 </a>
+                            <?php elseif (!$isAssigned): ?>
+                                <span class="px-4 py-2 bg-white text-slate-500 font-semibold rounded-xl text-xs border border-slate-300 shadow-2xs inline-flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    <span>Waiting for placement assignment</span>
+                                </span>
                             <?php endif; ?>
                             
                             <span class="text-xs font-bold text-slate-800 bg-white px-3.5 py-2 rounded-xl border border-slate-300 shadow-2xs">
@@ -311,7 +317,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                         <?php endif; ?>
 
                                                         <!-- Submit / Re-upload Button -->
-                                                        <?php if (!$isApproved && !$isEvaluated): ?>
+                                                        <?php if (!$isApproved && !$isEvaluated && $isAssigned): ?>
                                                             <a href="submit_report.php?week=<?= (int)$report['week_number']; ?>" class="px-3.5 py-1.5 <?= $isRejected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0F2854] hover:bg-blue-900'; ?> text-white text-xs font-bold rounded-xl transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
                                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                                                                 <span><?= $isRejected ? 'Upload Revision' : (!empty($filePath) ? 'Re-upload' : 'Submit'); ?></span>
@@ -342,10 +348,14 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                 📄
                             </div>
                             <h4 class="text-sm font-black text-slate-900">No accomplishment reports logged</h4>
-                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto mb-3">Start tracking your weekly OJT progress by submitting your first report.</p>
-                            <a href="submit_report.php?week=1" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs inline-block">
-                                Submit Week 1 Report &rarr;
-                            </a>
+                            <?php if ($isAssigned): ?>
+                                <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto mb-3">Start tracking your weekly OJT progress by submitting your first report.</p>
+                                <a href="submit_report.php?week=1" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs inline-block">
+                                    Submit Week 1 Report &rarr;
+                                </a>
+                            <?php else: ?>
+                                <p class="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 max-w-xs mx-auto">Waiting for your OJT Coordinator to assign your placement.</p>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>

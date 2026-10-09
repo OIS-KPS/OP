@@ -18,6 +18,7 @@ $stmtStudent = $pdo->prepare("
         s.id, 
         u.name, 
         s.student_number, 
+        s.company_id,
         s.evaluation_triggered,
         e.id AS evaluation_id 
     FROM students s 
@@ -38,6 +39,9 @@ if (!$studentRow) {
 // ONLY lock if the coordinator specifically triggered the evaluation
 $isLocked = !empty($studentRow['evaluation_triggered']) && (int)$studentRow['evaluation_triggered'] === 1;
 
+// Block report submission until the student has an assigned placement
+$isAssigned = !empty($studentRow['company_id']);
+
 $student_id  = (int)$studentRow['id'];
 $studentName = $studentRow['name'] ?? 'Student';
 $weekNumber  = isset($_GET['week']) ? intval($_GET['week']) : (isset($_POST['week']) ? intval($_POST['week']) : 1);
@@ -54,7 +58,7 @@ if ($existingStatus === 'approved') {
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
     if ($isLocked) {
         $_SESSION['error_message'] = "Account locked for final evaluation.";
         header("Location: reports.php");
