@@ -4,6 +4,7 @@
 
 $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
+$isAssigned  = !empty($student['company_id']);
 
 /*
  * The controller may provide $recentReports with one of these entity keys:
@@ -321,6 +322,7 @@ foreach ($reviewReports as $index => $report) {
                                  SUBMIT WEEKLY REPORT
                             ================================================== -->
 
+                            <?php if ($isAssigned): ?>
                             <a
                                 href="submit_report.php?week=<?= htmlspecialchars($nextWeek ?? '1'); ?>"
                                 class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2"
@@ -349,6 +351,12 @@ foreach ($reviewReports as $index => $report) {
                                 </svg>
 
                             </a>
+                            <?php else: ?>
+                            <span class="shrink-0 px-5 py-3 bg-white text-slate-700 font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2 border border-slate-300">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span>Waiting for placement assignment</span>
+                            </span>
+                            <?php endif; ?>
 
                         </div>
 

@@ -30,12 +30,7 @@ try {
             c.name AS company_name,
             c.address AS company_address,
             sup_user.name AS supervisor_name,
-            sup_user.email AS supervisor_email,
-            s.requested_company_name,
-            s.requested_supervisor_name,
-            s.requested_supervisor_email,
-            s.placement_request_status,
-            s.placement_rejection_reason
+            sup_user.email AS supervisor_email
         FROM users u
         INNER JOIN students s ON s.user_id = u.id
         LEFT JOIN companies c ON s.company_id = c.id
@@ -59,58 +54,19 @@ try {
             'program'                   => 'BSIT',
             'company_name'              => null,
             'supervisor_name'           => null,
-            'supervisor_email'          => null,
-            'placement_request_status'  => 'none',
-            'requested_company_name'    => null,
-            'requested_supervisor_name' => null,
-            'requested_supervisor_email'=> null
+            'supervisor_email'          => null
         ];
-    }
-
-    // Handle Placement Request Submission
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'request_placement_update') {
-        $companyName     = trim($_POST['company_name'] ?? '');
-        $supervisorName  = trim($_POST['supervisor_name'] ?? '');
-        $supervisorEmail = trim($_POST['supervisor_email'] ?? '');
-
-        if ($companyName === '') {
-            $_SESSION['flash_error'] = 'Company or Agency name is required.';
-            header("Location: profile.php");
-            exit();
-        }
-
-        $stmtReq = $pdo->prepare("
-            UPDATE students 
-            SET 
-                requested_company_name = ?,
-                requested_supervisor_name = ?,
-                requested_supervisor_email = ?,
-                placement_request_status = 'pending',
-                placement_rejection_reason = NULL
-            WHERE user_id = ?
-        ");
-        $stmtReq->execute([
-            $companyName,
-            $supervisorName !== '' ? $supervisorName : null,
-            $supervisorEmail !== '' ? $supervisorEmail : null,
-            $sessionUserId
-        ]);
-
-        $_SESSION['flash_success'] = 'Your internship placement request has been submitted to the OJT Coordinator.';
-        header("Location: profile.php");
-        exit();
     }
 
 } catch (Exception $e) {
     error_log("Profile Page Error: " . $e->getMessage());
     $student = [
-        'student_name'             => 'Student',
-        'student_email'            => $_SESSION['email'] ?? '',
-        'student_number'           => 'N/A',
-        'program'                  => 'BSIT',
-        'company_name'             => null,
-        'supervisor_name'          => null,
-        'placement_request_status' => 'none'
+        'student_name'    => 'Student',
+        'student_email'   => $_SESSION['email'] ?? '',
+        'student_number'  => 'N/A',
+        'program'         => 'BSIT',
+        'company_name'    => null,
+        'supervisor_name' => null
     ];
 }
 
