@@ -209,6 +209,9 @@ $exportParamsAll = http_build_query([
                                             <td class="py-4 px-6 whitespace-nowrap align-middle">
                                                 <p class="font-bold text-slate-900 text-xs"><?= htmlspecialchars($student['company_name'] ?? 'Host Company'); ?></p>
                                                 <p class="text-[11px] text-slate-600 font-medium mt-0.5">
+                                                    Office: <span class="font-bold text-slate-800"><?= htmlspecialchars($student['office_name'] ?? 'Unassigned'); ?></span>
+                                                </p>
+                                                <p class="text-[11px] text-slate-600 font-medium mt-0.5">
                                                     Supervisor: <span class="font-bold text-slate-800"><?= !empty($student['supervisor_name']) ? htmlspecialchars($student['supervisor_name']) : 'Unassigned'; ?></span>
                                                 </p>
                                             </td>

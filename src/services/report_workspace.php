@@ -58,10 +58,12 @@ if (!function_exists('reportWorkspaceLoadStudent')) {
                 COALESCE(s.section, "A") AS section,
                 u.name AS student_name, u.email AS student_email, u.avatar_url AS student_avatar,
                 c.name AS company_name, c.department AS company_dept,
+                o.name AS office_name,
                 u_sup.name AS supervisor_name
              FROM students s
              JOIN users u ON s.user_id = u.id
              LEFT JOIN companies c ON s.company_id = c.id
+             LEFT JOIN offices o ON s.office_id = o.id
              LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
              LEFT JOIN users u_sup ON sup.user_id = u_sup.id
              WHERE s.id = ?

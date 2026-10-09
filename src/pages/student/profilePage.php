@@ -144,6 +144,9 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
                                     <p class="text-xs font-extrabold text-slate-950 mt-0.5">
                                         <?= !empty($student['company_name']) ? htmlspecialchars($student['company_name']) : '<span class="text-slate-400 font-semibold italic">Not Assigned Yet</span>'; ?>
                                     </p>
+                                    <?php if (!empty($student['office_name'])): ?>
+                                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Office: <?= htmlspecialchars($student['office_name']); ?></p>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div>

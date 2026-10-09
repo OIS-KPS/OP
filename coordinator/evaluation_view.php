@@ -51,7 +51,8 @@ try {
             u_sup.name AS supervisor_name,
             u_sup.email AS supervisor_email,
             c.name AS company_name,
-            c.department AS company_department
+            c.department AS company_department,
+            o.name AS office_name
 
         FROM evaluations e
         JOIN students s ON e.student_id = s.id
@@ -59,6 +60,7 @@ try {
         JOIN supervisors sup ON e.supervisor_id = sup.id
         JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN companies c ON sup.company_id = c.id
+        LEFT JOIN offices o ON sup.office_id = o.id
         WHERE e.id = ?
         LIMIT 1
     ";

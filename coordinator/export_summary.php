@@ -44,6 +44,7 @@ $sql = "
         COALESCE(s.section, 'A') AS section,
         u.name AS student_name,
         COALESCE(c.name, 'Host Company') AS company_name,
+        o.name AS office_name,
         COALESCE(u_sup.name, 'Unassigned') AS supervisor_name,
         (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved') AS approved_reports_count,
         SUM(CASE WHEN re.activity_type != 'Clerical' AND re.activity_type != '' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS tech_count,
@@ -51,6 +52,7 @@ $sql = "
     FROM students s
     JOIN users u ON s.user_id = u.id
     LEFT JOIN companies c ON s.company_id = c.id
+    LEFT JOIN offices o ON s.office_id = o.id
     LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
     LEFT JOIN users u_sup ON sup.user_id = u_sup.id
     LEFT JOIN reports r ON r.student_id = s.id AND r.status = 'approved'
@@ -85,7 +87,7 @@ if ($format === 'csv') {
     $output = fopen('php://output', 'w');
     fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
-    fputcsv($output, ['Section', 'Student Name', 'Student ID', 'Host Company', 'Approved Reports', 'IT Percentage (%)', 'Clerical Percentage (%)']);
+    fputcsv($output, ['Section', 'Student Name', 'Student ID', 'Host Company', 'Office', 'Approved Reports', 'IT Percentage (%)', 'Clerical Percentage (%)']);
 
     foreach ($studentsData as $st) {
         fputcsv($output, [
@@ -93,6 +95,7 @@ if ($format === 'csv') {
             $st['student_name'],
             $st['student_number'],
             $st['company_name'],
+            $st['office_name'] ?? '',
             $st['approved_reports_count'] . ' Approved',
             $st['it_pct'] . '%',
             $st['clerical_pct'] . '%'
@@ -160,6 +163,7 @@ if ($format === 'csv') {
                         </td>
                         <td>
                             <?= htmlspecialchars($st['company_name']); ?><br>
+                            <span style="color: #64748b; font-size: 10px;">Office: <?= htmlspecialchars($st['office_name'] ?? ''); ?></span><br>
                             <span style="color: #64748b; font-size: 10px;">Supervisor: <?= htmlspecialchars($st['supervisor_name']); ?></span>
                         </td>
                         <td><strong><?= (int)$st['approved_reports_count']; ?> Approved</strong></td>

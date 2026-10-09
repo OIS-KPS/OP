@@ -29,11 +29,13 @@ try {
             s.section,
             c.name AS company_name,
             c.address AS company_address,
+            o.name AS office_name,
             sup_user.name AS supervisor_name,
             sup_user.email AS supervisor_email
         FROM users u
         INNER JOIN students s ON s.user_id = u.id
         LEFT JOIN companies c ON s.company_id = c.id
+        LEFT JOIN offices o ON s.office_id = o.id
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users sup_user ON sup.user_id = sup_user.id
         WHERE u.id = ?
