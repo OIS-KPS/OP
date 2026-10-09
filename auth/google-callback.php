@@ -144,7 +144,7 @@ if (isset($_GET['code'])) {
         // STEP 5: Role-Based Dashboard Redirection
         // -------------------------------------------------------------
         if ($userRole === 'student') {
-            header("Location: ../reports.php");
+            header("Location: ../dashboard.php");
             exit();
         } elseif ($userRole === 'supervisor') {
             header("Location: ../supervisor/dashboard.php");
