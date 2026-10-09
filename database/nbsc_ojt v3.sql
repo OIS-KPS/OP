@@ -64,6 +64,8 @@ CREATE TABLE `companies` (
   `name` varchar(255) NOT NULL,
   `department` varchar(255) DEFAULT 'Main Office',
   `address` text DEFAULT NULL,
+  `status` enum('active','archived') NOT NULL DEFAULT 'active',
+  `archived_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -73,6 +75,25 @@ CREATE TABLE `companies` (
 
 INSERT INTO `companies` (`id`, `name`, `department`, `address`, `created_at`) VALUES
 (1, 'NBSC IT Dept', 'College of Computer Studies', 'Tankulan, Manolo Fortich, Bukidnon', '2026-08-19 07:00:29');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `offices`
+--
+-- Office model: one company has many offices; each office has
+-- exactly one supervisor and many interns.
+
+CREATE TABLE `offices` (
+  `id` int(11) NOT NULL,
+  `company_id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `address` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_office_company_name` (`company_id`, `name`),
+  CONSTRAINT `fk_office_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -233,6 +254,7 @@ CREATE TABLE `students` (
   `section` varchar(20) NOT NULL DEFAULT 'A',
   `company_id` int(11) DEFAULT NULL,
   `supervisor_id` int(11) DEFAULT NULL,
+  `office_id` int(11) DEFAULT NULL,
   `completion_requested` tinyint(1) DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -255,7 +277,8 @@ CREATE TABLE `supervisors` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `company_id` int(11) DEFAULT NULL,
-`job_title` varchar(150) DEFAULT NULL,
+  `office_id` int(11) DEFAULT NULL,
+  `job_title` varchar(150) DEFAULT NULL,
   `contact_number` varchar(30) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -379,6 +402,7 @@ ALTER TABLE `students`
 ALTER TABLE `supervisors`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_supervisor_user` (`user_id`),
+  ADD UNIQUE KEY `uq_supervisor_office` (`office_id`),
   ADD KEY `fk_supervisor_company` (`company_id`);
 
 --
