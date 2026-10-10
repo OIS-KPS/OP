@@ -7,6 +7,7 @@ session_start();
 
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/csrf.php';
 
 require_once __DIR__ . '/../src/services/MailerService.php';
 
@@ -23,6 +24,14 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
     header("Location: ../auth/login.php");
 
     exit();
+
+}
+
+// CSRF Guard: covers the whole POST surface of this controller, including
+// the CSV bulk-import branches and every create/edit/archive/delete action.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    csrf_verify(__DIR__ . '/users.php');
 
 }
 
@@ -205,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->rollBack();
 
-                $_SESSION['flash_error'] = "Failed to add student: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Failed to add student: " . userFacingError($e, 'users.php:create_student');
 
             }
 
@@ -333,13 +342,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // 4. Insert or Reactivate Supervisor User
 
-                $chkUser = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                // The email must not belong to a student or coordinator account.
+                // Without checking the existing role, creating a supervisor with
+                // someone's email silently rewrites their role to 'supervisor'.
+                $chkUser = $pdo->prepare("SELECT id, role FROM users WHERE email = ? LIMIT 1");
 
                 $chkUser->execute([$supervisorMail]);
 
                 $existingUser = $chkUser->fetch(PDO::FETCH_ASSOC);
 
+                if ($existingUser && ($existingUser['role'] ?? '') !== 'supervisor') {
 
+                    throw new Exception("Email '{$supervisorMail}' is already a " . ($existingUser['role'] ?: 'unknown') . " account.");
+
+                }
 
                 if ($existingUser) {
 
@@ -409,7 +425,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->rollBack();
 
-                $_SESSION['flash_error'] = "Failed to register company and supervisor: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Failed to register company and supervisor: " . userFacingError($e, 'users.php:create_company_supervisor');
 
             }
 
@@ -503,7 +519,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->rollBack();
 
-                $_SESSION['flash_error'] = "Failed to add coordinator: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Failed to add coordinator: " . userFacingError($e, 'users.php:create_coordinator');
 
             }
 
@@ -535,6 +551,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $skippedRows   = [];
             $seenEmails    = [];
             $seenNumbers   = [];
+
+            $newAccountCount  = 0;
+            $reactivatedCount = 0;
+            $alreadyExistsCount = 0;
 
            
 
@@ -595,7 +615,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $chkRole->execute([$stdEmail]);
                         $existingRole = $chkRole->fetchColumn();
 
-                        $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        $chk = $pdo->prepare("SELECT id, status FROM users WHERE email = ?");
 
                             $chk->execute([$stdEmail]);
 
@@ -617,11 +637,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
+                            if ($u && strtolower((string)($u['status'] ?? 'active')) === 'active') {
+
+                                // Already registered and active: skip entirely, nothing is overwritten
+                                $alreadyExistsCount++;
+
+                                continue;
+
+                            }
+
                             if ($u) {
 
+                                // Archived account: reactivate and refresh the name
                                 $uid = $u['id'];
 
                                 $pdo->prepare("UPDATE users SET name = ?, status = 'active', archived_at = NULL WHERE id = ?")->execute([$stdName, $uid]);
+
+                                $reactivatedCount++;
+
+                                $studentsToNotify[] = ['email' => $stdEmail, 'name' => $stdName];
 
                             } else {
 
@@ -630,6 +664,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $insU->execute([$stdName, $stdEmail]);
 
                                 $uid = $pdo->lastInsertId();
+
+                                $newAccountCount++;
+
+                                $studentsToNotify[] = ['email' => $stdEmail, 'name' => $stdName];
 
                             }
 
@@ -650,10 +688,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $seenEmails[$stdEmail] = true;
                             $seenNumbers[$stdNumber] = true;
                             $importedCount++;
-
-
-
-                            $studentsToNotify[] = ['email' => $stdEmail, 'name' => $stdName];
 
                     }
 
@@ -678,13 +712,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $preview = implode(' | ', array_slice($skippedRows, 0, 5));
                         $skipMsg = ' Skipped ' . count($skippedRows) . ' row(s): ' . $preview . (count($skippedRows) > 5 ? '…' : '');
                     }
-                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} student record(s)!{$skipMsg}";
+
+                    $breakdown = [];
+                    if ($newAccountCount > 0) {
+                        $breakdown[] = "{$newAccountCount} new (emailed)";
+                    }
+                    if ($reactivatedCount > 0) {
+                        $breakdown[] = "{$reactivatedCount} reactivated (emailed)";
+                    }
+                    if ($alreadyExistsCount > 0) {
+                        $breakdown[] = "{$alreadyExistsCount} already existed — skipped, nothing changed";
+                    }
+
+                    $breakdownMsg = !empty($breakdown) ? ': ' . implode(', ', $breakdown) : '';
+
+                    $_SESSION['flash_success'] = "Imported {$importedCount} student record(s){$breakdownMsg}.{$skipMsg}";
 
                 } catch (Exception $e) {
 
                     $pdo->rollBack();
 
-                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . $e->getMessage();
+                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . userFacingError($e, 'users.php:bulk_import_students');
 
                 }
 
@@ -713,6 +761,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $importedCount = 0;
             $skippedRows   = [];
             $seenEmails    = [];
+
+            $newAccountCount  = 0;
+            $reactivatedCount = 0;
+            $alreadyExistsCount = 0;
 
             if ($handle !== FALSE) {
 
@@ -752,7 +804,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $chkRole->execute([$email]);
                         $existingRole = $chkRole->fetchColumn();
 
-                        $chk = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        $chk = $pdo->prepare("SELECT id, status FROM users WHERE email = ?");
                         $chk->execute([$email]);
                         $u = $chk->fetch(PDO::FETCH_ASSOC);
 
@@ -761,19 +813,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             continue;
                         }
 
+                        if ($u && strtolower((string)($u['status'] ?? 'active')) === 'active') {
+
+                            // Already registered and active: skip entirely
+                            $alreadyExistsCount++;
+
+                            continue;
+
+                        }
+
                         if ($u) {
                             $uid = $u['id'];
                             $pdo->prepare("UPDATE users SET name = ?, role = 'coordinator', status = 'active', archived_at = NULL WHERE id = ?")
                                 ->execute([$name, $uid]);
+
+                            $reactivatedCount++;
+                            $coordinatorsToNotify[] = ['email' => $email, 'name' => $name];
                         } else {
                             $insU = $pdo->prepare("INSERT INTO users (name, email, role, status, created_at) VALUES (?, ?, 'coordinator', 'active', NOW())");
                             $insU->execute([$name, $email]);
                             $uid = $pdo->lastInsertId();
+
+                            $newAccountCount++;
+                            $coordinatorsToNotify[] = ['email' => $email, 'name' => $name];
                         }
 
                         $seenEmails[$email] = true;
                         $importedCount++;
-                        $coordinatorsToNotify[] = ['email' => $email, 'name' => $name];
                     }
 
                     fclose($handle);
@@ -791,11 +857,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $preview = implode(' | ', array_slice($skippedRows, 0, 5));
                         $skipMsg = ' Skipped ' . count($skippedRows) . ' row(s): ' . $preview . (count($skippedRows) > 5 ? '…' : '');
                     }
-                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} coordinator record(s)!{$skipMsg}";
+                    $breakdown = [];
+                    if ($newAccountCount > 0) {
+                        $breakdown[] = "{$newAccountCount} new (emailed)";
+                    }
+                    if ($reactivatedCount > 0) {
+                        $breakdown[] = "{$reactivatedCount} reactivated (emailed)";
+                    }
+                    if ($alreadyExistsCount > 0) {
+                        $breakdown[] = "{$alreadyExistsCount} already existed — skipped, nothing changed";
+                    }
+                    $breakdownMsg = !empty($breakdown) ? ': ' . implode(', ', $breakdown) : '';
+
+                    $_SESSION['flash_success'] = "Imported {$importedCount} coordinator record(s){$breakdownMsg}.{$skipMsg}";
 
                 } catch (Exception $e) {
                     $pdo->rollBack();
-                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . $e->getMessage();
+                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . userFacingError($e, 'users.php:bulk_import_coordinators');
                 }
             }
         }
@@ -828,6 +906,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $rowNumber = 0;
                     $supervisorsToNotify = [];
+
+                    $newAccountCount  = 0;
+                    $reactivatedCount = 0;
+                    $alreadyExistsCount = 0;
 
                     while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
 
@@ -902,7 +984,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $chkRole->execute([$supervisorMail]);
                         $existingRole = $chkRole->fetchColumn();
 
-                        $chkUser = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        $chkUser = $pdo->prepare("SELECT id, status FROM users WHERE email = ?");
                         $chkUser->execute([$supervisorMail]);
                         $u = $chkUser->fetch(PDO::FETCH_ASSOC);
 
@@ -911,14 +993,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             continue;
                         }
 
-                        if ($u) {
+                        if ($u && strtolower((string)($u['status'] ?? 'active')) === 'active') {
+
+                            // Existing active supervisor: keep the account untouched and send no email.
+                            // The office/supervisor link below still runs for this row.
+                            $alreadyExistsCount++;
+
                             $userId = $u['id'];
+
+                        } elseif ($u) {
+
+                            // Archived account: reactivate and notify
+                            $userId = $u['id'];
+
                             $pdo->prepare("UPDATE users SET name = ?, role = 'supervisor', status = 'active', archived_at = NULL WHERE id = ?")
                                 ->execute([$supervisorName, $userId]);
+
+                            $reactivatedCount++;
+                            $supervisorsToNotify[] = ['email' => $supervisorMail, 'name' => $supervisorName];
+
                         } else {
+
                             $insU = $pdo->prepare("INSERT INTO users (name, email, role, status, created_at) VALUES (?, ?, 'supervisor', 'active', NOW())");
                             $insU->execute([$supervisorName, $supervisorMail]);
                             $userId = $pdo->lastInsertId();
+
+                            $newAccountCount++;
+                            $supervisorsToNotify[] = ['email' => $supervisorMail, 'name' => $supervisorName];
+
                         }
 
                         $stmtSup = $pdo->prepare("
@@ -940,7 +1042,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $seenEmails[$supervisorMail] = true;
                         $importedCount++;
-                        $supervisorsToNotify[] = ['email' => $supervisorMail, 'name' => $supervisorName];
                     }
 
                     fclose($handle);
@@ -958,11 +1059,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $preview = implode(' | ', array_slice($skippedRows, 0, 5));
                         $skipMsg = ' Skipped ' . count($skippedRows) . ' row(s): ' . $preview . (count($skippedRows) > 5 ? '…' : '');
                     }
-                    $_SESSION['flash_success'] = "Successfully imported {$importedCount} company/supervisor record(s)!{$skipMsg}";
+                    $breakdown = [];
+                    if ($newAccountCount > 0) {
+                        $breakdown[] = "{$newAccountCount} new supervisor account(s) emailed";
+                    }
+                    if ($reactivatedCount > 0) {
+                        $breakdown[] = "{$reactivatedCount} reactivated (emailed)";
+                    }
+                    if ($alreadyExistsCount > 0) {
+                        $breakdown[] = "{$alreadyExistsCount} already existed (no email)";
+                    }
+                    $breakdownMsg = !empty($breakdown) ? ': ' . implode(', ', $breakdown) : '';
+
+                    $_SESSION['flash_success'] = "Imported {$importedCount} company/supervisor record(s){$breakdownMsg}.{$skipMsg}";
 
                 } catch (Exception $e) {
                     $pdo->rollBack();
-                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . $e->getMessage();
+                    $_SESSION['flash_error'] = "Import failed on row {$rowNumber}: " . userFacingError($e, 'users.php:bulk_import_companies');
                 }
             }
         }
@@ -1024,6 +1137,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($userId > 0 && !empty($name) && !empty($email)) {
 
             try {
+
+                // Open the transaction BEFORE the first write. Previously the
+                // users UPDATE below ran in autocommit mode, so a later failure
+                // (e.g. "That office already has its own supervisor.") rolled
+                // back nothing and left the name/email changed.
+
+                $pdo->beginTransaction();
 
                 $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ? WHERE id = ?");
 
@@ -1103,7 +1223,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $current = $stmtCurrent->fetch(PDO::FETCH_ASSOC) ?: [];
                     $currentOfficeId = !empty($current['office_id']) ? (int)$current['office_id'] : null;
 
-                    $pdo->beginTransaction();
+                    // Already inside the transaction opened at the top of this
+                    // try block; nesting another one would fail on MySQL.
 
                     // Resolve the office being assigned
                     $officeId = $submittedOfficeId;
@@ -1166,11 +1287,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         ]);
 
-                    $pdo->commit();
-
                 }
 
+                // Single commit for every role branch (student, supervisor, coordinator)
 
+                $pdo->commit();
 
                 $_SESSION['flash_success'] = "User details updated successfully.";
 
@@ -1182,7 +1303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 }
 
-                $_SESSION['flash_error'] = "Update failed: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Update failed: " . userFacingError($e, 'users.php:edit_user');
 
             }
 
@@ -1382,7 +1503,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 }
 
-                $_SESSION['flash_error'] = "Failed to update company: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Failed to update company: " . userFacingError($e, 'users.php:edit_company');
 
             }
 
@@ -1467,7 +1588,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (Exception $e) {
 
-            $_SESSION['flash_error'] = "Failed to archive company: " . $e->getMessage();
+            $_SESSION['flash_error'] = "Failed to archive company: " . userFacingError($e, 'users.php:archive_company');
 
         }
 
@@ -1507,7 +1628,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             } catch (Exception $e) {
 
-                $_SESSION['flash_error'] = "Failed to restore company: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Failed to restore company: " . userFacingError($e, 'users.php:restore_company');
 
             }
 
@@ -1609,7 +1730,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (Exception $e) {
 
-            $_SESSION['flash_error'] = "Failed to delete company: " . $e->getMessage();
+            $_SESSION['flash_error'] = "Failed to delete company: " . userFacingError($e, 'users.php:delete_company_permanently');
 
         }
 
@@ -1704,7 +1825,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (Exception $e) {
 
-            $_SESSION['flash_error'] = "Failed to delete office: " . $e->getMessage();
+            $_SESSION['flash_error'] = "Failed to delete office: " . userFacingError($e, 'users.php:delete_office');
 
         }
 
@@ -1780,6 +1901,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $userId = (int)($_POST['user_id'] ?? 0);
 
+        // Require archived-first, mirroring delete_company_permanently: an
+        // active account must go through the Archive tab before it can be
+        // removed. Also captures the identity for the audit entry below.
+        $stmtTargetUser = $pdo->prepare("SELECT id, name, email, status FROM users WHERE id = ? LIMIT 1");
+
+        $stmtTargetUser->execute([$userId]);
+
+        $targetUser = $stmtTargetUser->fetch(PDO::FETCH_ASSOC);
+
+        if (!$targetUser) {
+
+            $_SESSION['flash_error'] = "User record could not be found.";
+
+            header("Location: users.php?tab=archived");
+
+            exit();
+
+        }
+
+        if (($targetUser['status'] ?? 'active') !== 'archived') {
+
+            $_SESSION['flash_error'] = "Only archived accounts can be permanently deleted. Archive '{$targetUser['name']}' first.";
+
+            header("Location: users.php?tab=archived");
+
+            exit();
+
+        }
+
         if ($userId > 0 && $userId !== $coordinatorId) {
 
             try {
@@ -1796,13 +1946,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
 
+                logActivity($pdo, $coordinatorId, 'coordinator', 'USER_DELETED', "Permanently deleted account {$targetUser['name']} ({$targetUser['email']}).");
+
                 $_SESSION['flash_success'] = "Account permanently deleted.";
 
             } catch (Exception $e) {
 
                 $pdo->rollBack();
 
-                $_SESSION['flash_error'] = "Deletion failed: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Deletion failed: " . userFacingError($e, 'users.php:delete_user_permanently');
 
             }
 

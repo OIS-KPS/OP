@@ -80,7 +80,7 @@
                                 <!-- All Interns + Sections Dropdown -->
                                 <div class="relative inline-block text-left">
                                     <div class="inline-flex items-center">
-                                        <button type="button" onclick="filterByStatus('all', this)" class="filter-tab px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]">
+                                        <button type="button" id="allFilterTab" onclick="filterByStatus('all', this)" class="filter-tab px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]">
                                             <span>All Interns<?= ($selectedSection ?? 'all') !== 'all' ? ' · Sec ' . htmlspecialchars($selectedSection) : ''; ?></span>
                                             <span class="ml-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white"><?= count($students ?? []); ?></span>
                                         </button>
@@ -138,16 +138,24 @@
 
                     <!-- 3. Placement Table -->
                     <?php if (!empty($students)): ?>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
+                        <div class="overflow-hidden">
+                            <table class="w-full table-fixed text-left border-collapse text-xs">
+                                <colgroup>
+                                    <col style="width: 24%;">
+                                    <col style="width: 9%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 17%;">
+                                    <col style="width: 16%;">
+                                    <col style="width: 19%;">
+                                </colgroup>
                                 <thead>
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                        <th class="py-4 px-6">Student Intern</th>
-                                        <th class="py-4 px-6">Section</th>
-                                        <th class="py-4 px-6">Status</th>
-                                        <th class="py-4 px-6">Company</th>
-                                        <th class="py-4 px-6">Supervisor</th>
-                                        <th class="py-4 px-6 text-right">Action</th>
+                                        <th class="py-4 px-4">Student Intern</th>
+                                        <th class="py-4 px-4">Section</th>
+                                        <th class="py-4 px-4">Status</th>
+                                        <th class="py-4 px-4">Company</th>
+                                        <th class="py-4 px-4">Supervisor</th>
+                                        <th class="py-4 px-4 text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800">
@@ -160,8 +168,8 @@
                                         <tr class="hover:bg-slate-50 transition-colors group assignment-row" data-status="<?= $rowStatus; ?>" data-status-label="<?= $hasPlacement ? 'assigned' : 'not assigned'; ?>">
                                             
                                             <!-- Student Info -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                <div class="flex items-center gap-3">
+                                            <td class="py-4 px-4 align-middle">
+                                                <div class="flex items-center gap-3 min-w-0">
                                                     <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-black text-xs shrink-0 overflow-hidden border border-slate-300">
                                                         <?php if (!empty($s['avatar_url'])): ?>
                                                             <img src="<?= htmlspecialchars($s['avatar_url']); ?>" class="w-full h-full object-cover" alt="Avatar">
@@ -169,22 +177,22 @@
                                                             <?= strtoupper(substr($s['name'] ?? 'S', 0, 1)); ?>
                                                         <?php endif; ?>
                                                     </div>
-                                                    <div>
-                                                        <p class="font-extrabold text-slate-950 text-sm intern-name"><?= htmlspecialchars($s['name']); ?></p>
-                                                        <p class="text-[11px] text-slate-600 font-semibold mt-0.5 intern-id">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($s['email']); ?></p>
+                                                    <div class="min-w-0">
+                                                        <p class="font-extrabold text-slate-950 text-sm intern-name break-words"><?= htmlspecialchars($s['name']); ?></p>
+                                                        <p class="text-[11px] text-slate-600 font-semibold mt-0.5 intern-id">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?></p>
                                                     </div>
                                                 </div>
                                             </td>
 
                                             <!-- Section Badge -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                            <td class="py-4 px-4 whitespace-nowrap align-middle">
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
                                                     Section <?= htmlspecialchars($s['section'] ?? 'A'); ?>
                                                 </span>
                                             </td>
 
                                             <!-- Assignment Status -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                            <td class="py-4 px-4 align-middle">
                                                 <?php if ($hasPlacement): ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Assigned
@@ -204,10 +212,10 @@
                                             </td>
 
                                             <!-- Host Company -->
-                                            <td class="py-4 px-6 align-middle">
+                                            <td class="py-4 px-4 align-middle">
                                                 <?php if (!empty($s['company_name'])): ?>
-                                                    <p class="font-bold text-slate-900 text-xs company-name"><?= htmlspecialchars($s['company_name']); ?></p>
-                                                    <p class="text-[11px] text-slate-600 font-medium mt-0.5"><?= htmlspecialchars($s['office_name'] ?? $s['company_dept'] ?? 'Main Office'); ?></p>
+                                                    <p class="font-bold text-slate-900 text-xs company-name break-words"><?= htmlspecialchars($s['company_name']); ?></p>
+                                                    <p class="text-[11px] text-slate-600 font-medium mt-0.5 break-words"><?= htmlspecialchars($s['office_name'] ?? $s['company_dept'] ?? 'Main Office'); ?></p>
                                                 <?php else: ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Unassigned
@@ -216,9 +224,9 @@
                                             </td>
 
                                             <!-- Assigned Supervisor -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                            <td class="py-4 px-4 align-middle">
                                                 <?php if (!empty($s['supervisor_name'])): ?>
-                                                    <p class="font-bold text-slate-900 text-xs supervisor-name"><?= htmlspecialchars($s['supervisor_name']); ?></p>
+                                                    <p class="font-bold text-slate-900 text-xs supervisor-name break-words"><?= htmlspecialchars($s['supervisor_name']); ?></p>
                                                     <p class="text-[11px] text-slate-600 font-medium mt-0.5">Company Supervisor</p>
                                                 <?php else: ?>
                                                     <span class="text-slate-500 text-xs font-semibold italic">Pending Assignment</span>
@@ -226,10 +234,10 @@
                                             </td>
 
                                             <!-- Action Button -->
-                                            <td class="py-4 px-6 text-right whitespace-nowrap align-middle">
+                                            <td class="py-4 px-4 text-right whitespace-nowrap align-middle">
                                                 <button 
                                                     type="button"
-                                                    onclick="quickAssign(<?= $s['id']; ?>, '<?= addslashes($s['name']); ?>', <?= intval($s['office_id'] ?? 0); ?>)" 
+                                                    onclick="quickAssign(<?= $s['id']; ?>, '<?= htmlspecialchars(addslashes($s['name']), ENT_QUOTES, 'UTF-8'); ?>', <?= intval($s['office_id'] ?? 0); ?>)" 
                                                     class="px-3.5 py-1.5 text-xs font-bold <?= $hasPlacement ? 'text-slate-800 bg-white hover:bg-slate-100 border border-slate-300' : 'text-white bg-[#0F2854] hover:bg-blue-900 border border-[#0F2854]'; ?> rounded-xl shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
                                                     <span><?= $hasPlacement ? 'Edit Link' : 'Assign Now →' ?></span>
                                                 </button>
@@ -263,7 +271,7 @@
     </div>
 
     <!-- MODAL: LINK STUDENT TO COMPANY & SUPERVISOR -->
-    <div id="assignModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+    <div id="assignModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4 relative my-auto">
             
             <button type="button" onclick="closeModal('assignModal')" class="absolute top-5 right-5 w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center cursor-pointer">✕</button>
@@ -274,6 +282,7 @@
             </div>
 
             <form method="POST" action="assignments.php" class="space-y-4 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="assign_student" value="1">
                 <input type="hidden" id="actionType" name="action_type" value="assign">
 
@@ -326,7 +335,7 @@
 
     <!-- Scripts -->
     <script>
-        const allSupervisors = <?= json_encode($supervisors ?? []); ?>;
+        const allSupervisors = <?= json_encode($supervisors ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         let currentStatusFilter = 'all';
 
         function openModal(id) {
@@ -403,7 +412,11 @@
             document.querySelectorAll('.filter-tab').forEach(tab => {
                 tab.className = 'filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer inline-flex items-center gap-2';
             });
-            btnElement.className = 'filter-tab px-3.5 py-1.5 text-xs font-bold cursor-pointer inline-flex items-center gap-2 bg-[#0F2854] text-white rounded-lg border border-[#0F2854]';
+            // The "All Interns" tab is fused to the sections chevron, so it needs its
+// own shape back (rounded-l-lg rounded-r-none) whenever it is the active tab.
+btnElement.className = (status === 'all')
+                ? 'filter-tab px-3.5 py-1.5 text-xs font-bold cursor-pointer inline-flex items-center gap-2 bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]'
+                : 'filter-tab px-3.5 py-1.5 text-xs font-bold cursor-pointer inline-flex items-center gap-2 bg-[#0F2854] text-white rounded-lg border border-[#0F2854]';
 
             const chevronBtn = document.querySelector('button[aria-label="Toggle sections"]');
             if (chevronBtn) {

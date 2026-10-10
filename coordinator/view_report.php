@@ -4,10 +4,16 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../src/services/report_workspace.php';
+require_once __DIR__ . '/../config/csrf.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
     header('Location: ../auth/login.php');
     exit();
+}
+
+// CSRF Guard: covers the whole POST surface of this controller.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify(__DIR__ . '/view_report.php');
 }
 
 $pageTitle = 'Report Inspection & Entities';
@@ -270,29 +276,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['flash_success'] = 'Missing entity added successfully.';
                 }
             } catch (Throwable $exception) {
-                $_SESSION['flash_error'] = 'Failed to add entity: ' . $exception->getMessage();
+                $_SESSION['flash_error'] = 'Failed to add entity: ' . userFacingError($exception, 'view_report.php:add_entity');
             }
         }
     } elseif ($action === 'delete_entity') {
         $entityId = (int) ($_POST['entity_id'] ?? 0);
         if ($entityId > 0) {
             try {
-                $stmtArchive = $pdo->prepare('UPDATE report_entities SET is_archived = 1 WHERE id = ?');
-                $stmtArchive->execute([$entityId]);
-                $_SESSION['flash_success'] = 'Entity archived successfully.';
+                // Scoped to the student whose report is open, so a stale tab or a
+                // hand-crafted entity_id cannot touch another student's record.
+                $stmtArchive = $pdo->prepare('UPDATE report_entities
+                                              SET is_archived = 1
+                                              WHERE id = ?
+                                                AND report_id IN (SELECT id FROM reports WHERE student_id = ?)');
+                $stmtArchive->execute([$entityId, $studentId]);
+                if ($stmtArchive->rowCount() === 0) {
+                    $_SESSION['flash_error'] = 'That entity does not belong to this student report.';
+                } else {
+                    $_SESSION['flash_success'] = 'Entity archived successfully.';
+                }
             } catch (Throwable $exception) {
                 error_log('Archive entity error: ' . $exception->getMessage());
+                $_SESSION['flash_error'] = 'Failed to archive entity: ' . userFacingError($exception, 'view_report.php:delete_entity');
             }
         }
     } elseif ($action === 'restore_entity') {
         $entityId = (int) ($_POST['entity_id'] ?? 0);
         if ($entityId > 0) {
             try {
-                $stmtRestore = $pdo->prepare('UPDATE report_entities SET is_archived = 0 WHERE id = ?');
-                $stmtRestore->execute([$entityId]);
-                $_SESSION['flash_success'] = 'Entity restored successfully.';
+                $stmtRestore = $pdo->prepare('UPDATE report_entities
+                                              SET is_archived = 0
+                                              WHERE id = ?
+                                                AND report_id IN (SELECT id FROM reports WHERE student_id = ?)');
+                $stmtRestore->execute([$entityId, $studentId]);
+                if ($stmtRestore->rowCount() === 0) {
+                    $_SESSION['flash_error'] = 'That entity does not belong to this student report.';
+                } else {
+                    $_SESSION['flash_success'] = 'Entity restored successfully.';
+                }
             } catch (Throwable $exception) {
-                $_SESSION['flash_error'] = 'Failed to restore entity: ' . $exception->getMessage();
+                $_SESSION['flash_error'] = 'Failed to restore entity: ' . userFacingError($exception, 'view_report.php:restore_entity');
             }
         }
     } elseif ($action === 'permanent_delete_entity') {
@@ -300,11 +323,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $entityId = (int) ($_POST['entity_id'] ?? 0);
         if ($entityId > 0) {
             try {
-                $stmtPermDel = $pdo->prepare('DELETE FROM report_entities WHERE id = ?');
-                $stmtPermDel->execute([$entityId]);
-                $_SESSION['flash_success'] = 'Entity permanently deleted.';
+                $stmtPermDel = $pdo->prepare('DELETE FROM report_entities
+                                              WHERE id = ?
+                                                AND report_id IN (SELECT id FROM reports WHERE student_id = ?)');
+                $stmtPermDel->execute([$entityId, $studentId]);
+                if ($stmtPermDel->rowCount() === 0) {
+                    $_SESSION['flash_error'] = 'That entity does not belong to this student report.';
+                } else {
+                    $_SESSION['flash_success'] = 'Entity permanently deleted.';
+                }
             } catch (Throwable $exception) {
-                $_SESSION['flash_error'] = 'Failed to permanently delete entity: ' . $exception->getMessage();
+                $_SESSION['flash_error'] = 'Failed to permanently delete entity: ' . userFacingError($exception, 'view_report.php:permanent_delete_entity');
             }
         }
     } elseif ($action === 'update_entity_type') {
@@ -313,11 +342,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (in_array($newActivityType, ['Software', 'Hardware', 'Clerical', 'Other'], true) && $entityId > 0) {
             try {
                 $newItRelated = ($newActivityType === 'Clerical') ? 'no' : 'yes';
-                $stmtUpd = $pdo->prepare("UPDATE report_entities SET activity_type = ?, it_related = ? WHERE id = ?");
-                $stmtUpd->execute([$newActivityType, $newItRelated, $entityId]);
-                $_SESSION['flash_success'] = 'Entity classification updated successfully.';
+                $stmtUpd = $pdo->prepare("UPDATE report_entities
+                                              SET activity_type = ?, it_related = ?
+                                              WHERE id = ?
+                                                AND report_id IN (SELECT id FROM reports WHERE student_id = ?)");
+                $stmtUpd->execute([$newActivityType, $newItRelated, $entityId, $studentId]);
+                if ($stmtUpd->rowCount() === 0) {
+                    $_SESSION['flash_error'] = 'That entity does not belong to this student report.';
+                } else {
+                    $_SESSION['flash_success'] = 'Entity classification updated successfully.';
+                }
             } catch (Throwable $e) {
-                $_SESSION['flash_error'] = 'Failed to update classification: ' . $e->getMessage();
+                $_SESSION['flash_error'] = 'Failed to update classification: ' . userFacingError($e, 'view_report.php:update_entity_type');
             }
         }
     } 
