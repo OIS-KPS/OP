@@ -23,6 +23,13 @@
 
 require_once __DIR__ . '/../../services/report_workspace.php';
 
+// This view is shared across roles. Only the coordinator controller verifies
+// the CSRF token today, but every POST form here carries one so that adding
+// verification to the student/supervisor controllers later needs no markup
+// change. The include keeps csrf_field() safe regardless of which role renders
+// this file.
+require_once __DIR__ . '/../../../config/csrf.php';
+
 $viewContext = $viewContext ?? 'coordinator';
 $selfPath = $selfPath ?? 'view_report.php';
 $backUrl = $backUrl ?? 'reports.php';
@@ -194,7 +201,7 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
                                     <select name="report_id" onchange="this.form.submit()" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
                                         <option value="" disabled <?= $activeReport ? '' : 'selected'; ?>>-- Select Submitted Week Report --</option>
                                         <?php foreach ($reportsList as $rep):
-                                            $isActive = $activeReport && (int)$rep['id'] === (int)$rep['id'];
+                                            $isActive = $activeReport && (int)$rep['id'] === (int)$activeReport['id'];
                                         ?>
                                             <option value="<?= (int)$rep['id']; ?>" <?= $isActive ? 'selected' : ''; ?>>
                                                 Week <?= (int)$rep['week_number']; ?> [<?= htmlspecialchars(ucfirst((string)$rep['status'])); ?>]
@@ -266,6 +273,7 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
 
                                 <?php if ($activeStatus !== 'approved'): ?>
                                     <form method="POST" action="<?= htmlspecialchars($selfPath . '?student_id=' . $studentId . '&report_id=' . (int)$activeReport['id']); ?>" class="space-y-3" id="verdictForm">
+                                        <?= csrf_field(); ?>
                                         <input type="hidden" name="action" value="approve">
                                         <input type="hidden" name="report_id" value="<?= (int)$activeReport['id']; ?>">
                                         <div class="space-y-1.5">
@@ -384,6 +392,7 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
                                                             </span>
                                                         <?php endif; ?>
                                                         <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" onsubmit="return confirm('Archive this entity?');">
+                                        <?= csrf_field(); ?>
                                                             <input type="hidden" name="action" value="delete_entity">
                                                             <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
                                                             <input type="hidden" name="entity_id" value="<?= (int)$ent['id']; ?>">
@@ -400,6 +409,7 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
                                             <!-- Reclassification Form (coordinator only) -->
                                             <?php if ($canManageEntities): ?>
                                                 <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" class="flex items-center gap-2 pt-1 border-t border-slate-200/80">
+                                        <?= csrf_field(); ?>
                                                     <input type="hidden" name="action" value="update_entity_type">
                                                     <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
                                                     <input type="hidden" name="entity_id" value="<?= (int)$ent['id']; ?>">
@@ -427,7 +437,7 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
 
     <!-- Add Missing Entity Modal (coordinator only) -->
     <?php if ($canManageEntities): ?>
-    <div id="addEntityModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div id="addEntityModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex overflow-y-auto items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
             <div class="flex items-center justify-between">
                 <h3 class="font-extrabold text-sm text-slate-950">Add Missing Entity / Keyword</h3>
@@ -435,6 +445,7 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
             </div>
 
             <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" class="space-y-4 text-xs">
+                                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="add_entity">
                 <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
 
@@ -498,12 +509,14 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
                             <div class="flex items-center gap-2">
                                 <!-- Restore Action -->
                                 <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>">
+                                        <?= csrf_field(); ?>
                                     <input type="hidden" name="action" value="restore_entity">
                                     <input type="hidden" name="entity_id" value="<?= (int)$arch['id']; ?>">
                                     <button type="submit" class="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded-lg cursor-pointer transition-colors">Restore</button>
                                 </form>
                                 <!-- Permanent Delete Action -->
                                 <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" onsubmit="return confirm('Permanently delete this entity? This cannot be undone.');">
+                                        <?= csrf_field(); ?>
                                     <input type="hidden" name="action" value="permanent_delete_entity">
                                     <input type="hidden" name="entity_id" value="<?= (int)$arch['id']; ?>">
                                     <button type="submit" class="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-900 font-bold rounded-lg cursor-pointer transition-colors">Delete</button>

@@ -80,6 +80,23 @@ foreach ($rawRows as $row) {
 
 // CSV Export
 if ($format === 'csv') {
+    /**
+     * Neutralise spreadsheet formula injection. A leading =, +, -, @, tab or
+     * CR makes Excel / Sheets treat the cell as a formula when the file is
+     * opened, so those values are prefixed with a single quote.
+     */
+    if (!function_exists('csvSafe')) {
+        function csvSafe($value) {
+            $str = (string)$value;
+
+            if ($str !== '' && strpbrk($str[0], "=+-@\t\r") !== false) {
+                return "'" . $str;
+            }
+
+            return $str;
+        }
+    }
+
     $filenameSuffix = ($selectedSection !== 'all') ? 'Section_' . $selectedSection : 'All_Sections';
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=OJT_Performance_' . $filenameSuffix . '_' . date('Y-m-d') . '.csv');
@@ -92,10 +109,10 @@ if ($format === 'csv') {
     foreach ($studentsData as $st) {
         fputcsv($output, [
             'Section ' . $st['section'],
-            $st['student_name'],
-            $st['student_number'],
-            $st['company_name'],
-            $st['office_name'] ?? '',
+            csvSafe($st['student_name']),
+            csvSafe($st['student_number']),
+            csvSafe($st['company_name']),
+            csvSafe($st['office_name'] ?? ''),
             $st['approved_reports_count'] . ' Approved',
             $st['it_pct'] . '%',
             $st['clerical_pct'] . '%'

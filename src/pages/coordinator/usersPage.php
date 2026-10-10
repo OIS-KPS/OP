@@ -90,7 +90,7 @@
                                     <button type="button" onclick="toggleAddMenu(); toggleModal('addStudentModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors cursor-pointer">
                                         <span>Student Intern</span>
                                     </button>
-                                    <button type="button" onclick="toggleAddMenu(); toggleModal('addCompanySupervisorModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors cursor-pointer">
+                                    <button type="button" onclick="toggleAddMenu(); openAddSupervisorModal();" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors cursor-pointer">
                                         <span>Company &amp; Supervisor</span>
                                     </button>
                                     <button type="button" onclick="toggleAddMenu(); toggleModal('addCoordinatorModal');" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors cursor-pointer">
@@ -168,21 +168,27 @@
                     <!-- TAB 1: STUDENTS TABLE -->
                     <?php if (($tab ?? 'students') === 'students'): ?>
                         <?php if (!empty($students)): ?>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse text-xs">
+                            <div class="overflow-hidden">
+                                <table class="w-full table-fixed text-left border-collapse text-xs">
+                                    <colgroup>
+                                        <col style="width: 30%;">
+                                        <col style="width: 12%;">
+                                        <col style="width: 40%;">
+                                        <col style="width: 18%;">
+                                    </colgroup>
                                     <thead>
                                         <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                            <th class="py-4 px-6">Student Intern</th>
-                                            <th class="py-4 px-6">Section</th>
-                                            <th class="py-4 px-6">Company &amp; Supervisor</th>
-                                            <th class="py-4 px-6 text-right">Actions</th>
+                                            <th class="py-4 px-4">Student Intern</th>
+                                            <th class="py-4 px-4">Section</th>
+                                            <th class="py-4 px-4">Company &amp; Supervisor</th>
+                                            <th class="py-4 px-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                         <?php foreach ($students as $s): ?>
                                             <tr class="hover:bg-slate-50 transition-colors user-row">
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <div class="flex items-center gap-3">
+                                                <td class="py-4 px-4 align-middle">
+                                                    <div class="flex items-center gap-3 min-w-0">
                                                         <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-black text-xs shrink-0 overflow-hidden border border-slate-300">
                                                             <?php if (!empty($s['avatar_url'])): ?>
                                                                 <img src="<?= htmlspecialchars($s['avatar_url']); ?>" class="w-full h-full object-cover">
@@ -190,26 +196,27 @@
                                                                 <?= strtoupper(substr($s['name'] ?? 'S', 0, 1)); ?>
                                                             <?php endif; ?>
                                                         </div>
-                                                        <div>
-                                                            <p class="font-extrabold text-slate-950 text-sm row-name"><?= htmlspecialchars($s['name']); ?></p>
-                                                            <p class="text-[11px] text-slate-600 font-semibold mt-0.5 row-sub">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($s['email']); ?></p>
+                                                        <div class="min-w-0">
+                                                            <p class="font-extrabold text-slate-950 text-sm row-name break-words"><?= htmlspecialchars($s['name']); ?></p>
+                                                            <p class="text-[11px] text-slate-600 font-semibold mt-0.5 row-sub">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?></p>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                                <td class="py-4 px-4 whitespace-nowrap align-middle">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
                                                         Section <?= htmlspecialchars($s['section'] ?? 'A'); ?>
                                                     </span>
                                                 </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <p class="font-bold text-slate-900 text-xs"><?= htmlspecialchars($s['company_name'] ?? 'Unassigned'); ?></p>
-                                                    <p class="text-[11px] text-slate-600 font-medium mt-0.5">Supervisor: <span class="font-bold text-slate-800"><?= htmlspecialchars($s['supervisor_name'] ?? 'Pending Assignment'); ?></span></p>
+                                                <td class="py-4 px-4 align-middle">
+                                                    <p class="font-bold text-slate-900 text-xs break-words"><?= htmlspecialchars($s['company_name'] ?? 'Unassigned'); ?></p>
+                                                    <p class="text-[11px] text-slate-600 font-medium mt-0.5 break-words">Supervisor: <span class="font-bold text-slate-800"><?= htmlspecialchars($s['supervisor_name'] ?? 'Pending Assignment'); ?></span></p>
                                                 </td>
-                                                <td class="py-4 px-6 text-right whitespace-nowrap align-middle space-x-1.5">
-                                                    <button onclick='openEditStudentModal(<?= json_encode($s); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
+                                                <td class="py-4 px-4 text-right whitespace-nowrap align-middle space-x-1.5">
+                                                    <button onclick='openEditStudentModal(<?= json_encode($s, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
                                                         Edit
                                                     </button>
                                                     <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Archive student <?= htmlspecialchars(addslashes($s['name'])); ?>?');">
+                        <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="archive_user">
                                                         <input type="hidden" name="redirect_tab" value="students">
                                                         <input type="hidden" name="user_id" value="<?= $s['user_id']; ?>">
@@ -286,6 +293,7 @@
                                         Edit
                                     </button>
                                     <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Archive supervisor <?= htmlspecialchars(addslashes($sup['name'])); ?>?');">
+                        <?= csrf_field(); ?>
                                         <input type="hidden" name="action" value="archive_user">
                                         <input type="hidden" name="redirect_tab" value="companies">
                                         <input type="hidden" name="user_id" value="<?= (int)$sup['user_id']; ?>">
@@ -331,6 +339,7 @@
                                                     Manage
                                                 </button>
                                                 <form method="POST" action="users.php" class="inline ml-1.5" onsubmit="return confirm('Archive company <?= htmlspecialchars(addslashes($comp['name'])); ?>? It will be hidden from the Companies list and can be restored later.');">
+                        <?= csrf_field(); ?>
                                                     <input type="hidden" name="action" value="archive_company">
                                                     <input type="hidden" name="company_id" value="<?= (int)$comp['id']; ?>">
                                                     <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-300 shadow-2xs transition-colors cursor-pointer">
@@ -360,6 +369,7 @@
                                                                 </span>
                                                                 <?php if ((int)$off['linked_supervisors'] === 0 && (int)$off['linked_students'] === 0): ?>
                                                                     <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Delete office <?= htmlspecialchars(addslashes($off['office_name'])); ?>? This cannot be undone.');">
+                        <?= csrf_field(); ?>
                                                                         <input type="hidden" name="action" value="delete_office">
                                                                         <input type="hidden" name="office_id" value="<?= (int)$off['id']; ?>">
                                                                         <button type="submit" class="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-300 transition-colors cursor-pointer">
@@ -427,21 +437,27 @@
                     <!-- TAB 3B: COORDINATORS TABLE -->
                     <?php elseif ($tab === 'coordinators'): ?>
                         <?php if (!empty($coordinators)): ?>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse text-xs">
+                            <div class="overflow-hidden">
+                                <table class="w-full table-fixed text-left border-collapse text-xs">
+                                    <colgroup>
+                                        <col style="width: 30%;">
+                                        <col style="width: 30%;">
+                                        <col style="width: 20%;">
+                                        <col style="width: 20%;">
+                                    </colgroup>
                                     <thead>
                                         <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                            <th class="py-4 px-6">Coordinator</th>
-                                            <th class="py-4 px-6">Email</th>
-                                            <th class="py-4 px-6">Status</th>
-                                            <th class="py-4 px-6 text-right">Actions</th>
+                                            <th class="py-4 px-4">Coordinator</th>
+                                            <th class="py-4 px-4">Email</th>
+                                            <th class="py-4 px-4">Status</th>
+                                            <th class="py-4 px-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                         <?php foreach ($coordinators as $coord): ?>
                                             <tr class="hover:bg-slate-50 transition-colors user-row">
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                    <div class="flex items-center gap-3">
+                                                <td class="py-4 px-4 align-middle">
+                                                    <div class="flex items-center gap-3 min-w-0">
                                                         <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] flex items-center justify-center font-black text-xs shrink-0 overflow-hidden border border-slate-300">
                                                             <?php if (!empty($coord['avatar_url'])): ?>
                                                                 <img src="<?= htmlspecialchars($coord['avatar_url']); ?>" class="w-full h-full object-cover">
@@ -449,22 +465,23 @@
                                                                 <?= strtoupper(substr($coord['name'] ?? 'C', 0, 1)); ?>
                                                             <?php endif; ?>
                                                         </div>
-                                                        <p class="font-extrabold text-slate-950 text-sm row-name"><?= htmlspecialchars($coord['name']); ?></p>
+                                                        <p class="font-extrabold text-slate-950 text-sm row-name break-words"><?= htmlspecialchars($coord['name']); ?></p>
                                                     </div>
                                                 </td>
-                                                <td class="py-4 px-6 whitespace-nowrap text-slate-600 text-xs font-semibold row-sub align-middle">
+                                                <td class="py-4 px-4 text-slate-600 text-xs font-semibold row-sub align-middle break-all">
                                                     <?= htmlspecialchars($coord['email']); ?>
                                                 </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                                <td class="py-4 px-4 whitespace-nowrap align-middle">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold text-[11px] border border-emerald-200">
                                                         <?= htmlspecialchars(ucfirst($coord['status'] ?? 'active')); ?>
                                                     </span>
                                                 </td>
-                                                <td class="py-4 px-6 text-right whitespace-nowrap align-middle space-x-1.5">
-                                                    <button onclick='openEditCoordinatorModal(<?= json_encode($coord); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
+                                                <td class="py-4 px-4 text-right whitespace-nowrap align-middle space-x-1.5">
+                                                    <button onclick='openEditCoordinatorModal(<?= json_encode($coord, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG); ?>)' class="px-3.5 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer">
                                                         Edit
                                                     </button>
                                                     <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Archive coordinator <?= htmlspecialchars(addslashes($coord['name'])); ?>?');">
+                        <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="archive_user">
                                                         <input type="hidden" name="redirect_tab" value="coordinators">
                                                         <input type="hidden" name="user_id" value="<?= $coord['user_id']; ?>">
@@ -507,6 +524,7 @@
                                                 </p>
                                             </div>
                                             <form method="POST" action="users.php" class="shrink-0" onsubmit="return confirm('Restore company <?= htmlspecialchars(addslashes($ac['name'])); ?> back to active status?');">
+                        <?= csrf_field(); ?>
                                                 <input type="hidden" name="action" value="restore_company">
                                                 <input type="hidden" name="company_id" value="<?= (int)$ac['id']; ?>">
                                                 <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-emerald-900 bg-emerald-100/80 hover:bg-emerald-200 rounded-xl border border-emerald-300 shadow-2xs transition-colors cursor-pointer">
@@ -514,6 +532,7 @@
                                                 </button>
                                             </form>
                                             <form method="POST" action="users.php" class="shrink-0 ml-1.5" onsubmit="return confirm('⚠️ WARNING: Permanently delete company <?= htmlspecialchars(addslashes($ac['name'])); ?>? This action CANNOT be undone.');">
+                        <?= csrf_field(); ?>
                                                 <input type="hidden" name="action" value="delete_company_permanently">
                                                 <input type="hidden" name="company_id" value="<?= (int)$ac['id']; ?>">
                                                 <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-rose-900 bg-rose-100/80 hover:bg-rose-200 rounded-xl border border-rose-300 shadow-2xs transition-colors cursor-pointer">
@@ -527,36 +546,44 @@
                         <?php endif; ?>
 
                         <?php if (!empty($archivedUsers)): ?>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse text-xs">
+                            <div class="overflow-hidden">
+                                <table class="w-full table-fixed text-left border-collapse text-xs">
+                                    <colgroup>
+                                        <col style="width: 24%;">
+                                        <col style="width: 28%;">
+                                        <col style="width: 14%;">
+                                        <col style="width: 16%;">
+                                        <col style="width: 18%;">
+                                    </colgroup>
                                     <thead>
                                         <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                            <th class="py-4 px-6">Account Name</th>
-                                            <th class="py-4 px-6">Email</th>
-                                            <th class="py-4 px-6">Role</th>
-                                            <th class="py-4 px-6">Archived Date</th>
-                                            <th class="py-4 px-6 text-right">Actions</th>
+                                            <th class="py-4 px-4">Account Name</th>
+                                            <th class="py-4 px-4">Email</th>
+                                            <th class="py-4 px-4">Role</th>
+                                            <th class="py-4 px-4">Archived Date</th>
+                                            <th class="py-4 px-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                         <?php foreach ($archivedUsers as $au): ?>
                                             <tr class="hover:bg-slate-50 transition-colors user-row">
-                                                <td class="py-4 px-6 whitespace-nowrap font-extrabold text-slate-950 text-sm row-name align-middle">
+                                                <td class="py-4 px-4 font-extrabold text-slate-950 text-sm row-name align-middle break-words">
                                                     <?= htmlspecialchars($au['name']); ?>
                                                 </td>
-                                                <td class="py-4 px-6 whitespace-nowrap text-slate-600 text-xs font-semibold row-sub align-middle">
+                                                <td class="py-4 px-4 text-slate-600 text-xs font-semibold row-sub align-middle break-all">
                                                     <?= htmlspecialchars($au['email']); ?>
                                                 </td>
-                                                <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                                <td class="py-4 px-4 whitespace-nowrap align-middle">
                                                     <span class="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-[10px] font-bold uppercase border border-slate-300">
                                                         <?= htmlspecialchars($au['role']); ?>
                                                     </span>
                                                 </td>
-                                                <td class="py-4 px-6 whitespace-nowrap text-slate-600 text-xs font-semibold align-middle">
+                                                <td class="py-4 px-4 whitespace-nowrap text-slate-600 text-xs font-semibold align-middle">
                                                     <?= date("M d, Y \a\\t g:i A", strtotime($au['archived_at'] ?? 'now')); ?>
                                                 </td>
-                                                <td class="py-4 px-6 text-right whitespace-nowrap align-middle space-x-1.5">
+                                                <td class="py-4 px-4 text-right whitespace-nowrap align-middle space-x-1.5">
                                                     <form method="POST" action="users.php" class="inline" onsubmit="return confirm('Restore user <?= htmlspecialchars(addslashes($au['name'])); ?> back to active status?');">
+                        <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="restore_user">
                                                         <input type="hidden" name="user_id" value="<?= $au['id']; ?>">
                                                         <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-emerald-900 bg-emerald-100/80 hover:bg-emerald-200 rounded-xl border border-emerald-300 shadow-2xs transition-colors cursor-pointer">
@@ -565,6 +592,7 @@
                                                     </form>
 
                                                     <form method="POST" action="users.php" class="inline" onsubmit="return confirm('⚠️ WARNING: Permanently delete <?= htmlspecialchars(addslashes($au['name'])); ?>? This action CANNOT be undone.');">
+                        <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="delete_user_permanently">
                                                         <input type="hidden" name="user_id" value="<?= $au['id']; ?>">
                                                         <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-rose-900 bg-rose-100/80 hover:bg-rose-200 rounded-xl border border-rose-300 shadow-2xs transition-colors cursor-pointer">
@@ -598,6 +626,7 @@
                 <button type="button" onclick="toggleModal('addStudentModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
             </div>
             <form action="users.php" method="POST" class="space-y-3.5 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="create_student">
 
                 <div class="space-y-2.5">
@@ -667,6 +696,7 @@
             </div>
 
             <form action="users.php" method="POST" class="space-y-4 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="create_company_supervisor">
 
                 <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
@@ -742,6 +772,7 @@
             </p>
             
             <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="bulk_import_students">
                 <div class="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center bg-slate-50 hover:border-[#0F2854] transition-colors">
                     <input type="file" name="excel_file" accept=".csv, .txt" required class="block w-full text-xs text-slate-600 font-medium file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0F2854] file:text-white hover:file:bg-blue-900 cursor-pointer">
@@ -769,6 +800,7 @@
             </p>
 
             <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="bulk_import_coordinators">
                 <div class="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center bg-slate-50 hover:border-[#0F2854] transition-colors">
                     <input type="file" name="excel_file" accept=".csv, .txt" required class="block w-full text-xs text-slate-600 font-medium file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0F2854] file:text-white hover:file:bg-blue-900 cursor-pointer">
@@ -799,6 +831,7 @@
             </div>
 
             <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="bulk_import_companies_supervisors">
                 <div class="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center bg-slate-50 hover:border-[#0F2854] transition-colors">
                     <input type="file" name="excel_file" accept=".csv, .txt" required class="block w-full text-xs text-slate-600 font-medium file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0F2854] file:text-white hover:file:bg-blue-900 cursor-pointer">
@@ -821,6 +854,7 @@
                 <button type="button" onclick="toggleModal('editStudentModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
             </div>
             <form action="users.php" method="POST" class="space-y-3.5 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="edit_user">
                 <input type="hidden" name="role" value="student">
                 <input type="hidden" name="redirect_tab" value="students">
@@ -889,6 +923,7 @@
                 <button type="button" onclick="toggleModal('editSupervisorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
             </div>
             <form action="users.php" method="POST" class="space-y-3 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="edit_user">
                 <input type="hidden" name="role" value="supervisor">
                 <input type="hidden" name="redirect_tab" value="companies">
@@ -949,6 +984,7 @@
                 <button type="button" onclick="toggleModal('editCompanyModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0">✕</button>
             </div>
             <form action="users.php" method="POST" class="space-y-3.5 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="edit_company">
                 <input type="hidden" name="company_id" id="edit_company_id">
 
@@ -1030,6 +1066,7 @@
                 <button type="button" onclick="toggleModal('addCoordinatorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
             </div>
             <form action="users.php" method="POST" class="space-y-3 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="create_coordinator">
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Full Name <span class="text-rose-600">*</span></label>
@@ -1055,6 +1092,7 @@
                 <button type="button" onclick="toggleModal('editCoordinatorModal')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">✕</button>
             </div>
             <form action="users.php" method="POST" class="space-y-3 text-xs">
+                        <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="edit_user">
                 <input type="hidden" name="role" value="coordinator">
                 <input type="hidden" name="redirect_tab" value="coordinators">
@@ -1085,8 +1123,8 @@
 
     <!-- Scripts -->
     <script>
-        const allSupervisors = <?= json_encode($supervisors ?? []); ?>;
-        const allOffices = <?= json_encode($offices ?? []); ?>;
+        const allSupervisors = <?= json_encode($supervisors ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const allOffices = <?= json_encode($offices ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
         function toggleStudentsMenu(event) {
             if (event) event.stopPropagation();
@@ -1121,16 +1159,17 @@
         });
 
         // Suggest existing offices + address for the company name typed in the modal
+        // JSON_HEX_TAG stops a company or office name from closing this script block.
         const companyOfficesMap = <?= json_encode(array_reduce($offices ?? [], function ($map, $office) {
             $key = strtolower((string)($office['company_name'] ?? ''));
             $map[$key][] = (string)($office['office_name'] ?? '');
             return $map;
-        }, [])); ?>;
+        }, []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
         const companyAddressesMap = <?= json_encode(array_reduce($companies ?? [], function ($map, $company) {
             $map[strtolower((string)($company['name'] ?? ''))] = (string)($company['address'] ?? '');
             return $map;
-        }, [])); ?>;
+        }, []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
         function setAddressLocked(locked, value) {
             const addressInput = document.getElementById('add_cs_address');
@@ -1201,6 +1240,17 @@
             } else {
                 hint.textContent = 'Suggestions appear once a company is picked.';
             }
+        }
+
+        // Opens the Add Company & Supervisor modal from the "+ Add New" menu.
+        // Must re-enable the address field, otherwise it stays disabled from a
+        // previous openAddSupervisorForOffice() call and new companies save blank.
+        function openAddSupervisorModal() {
+            const form = document.querySelector('#addCompanySupervisorModal form');
+            if (form) form.reset();
+            setAddressLocked(false);
+            syncOfficeSuggestions();
+            toggleModal('addCompanySupervisorModal');
         }
 
         // Opens the Add Company & Supervisor modal pre-filled for a specific office

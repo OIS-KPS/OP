@@ -80,11 +80,20 @@ if (!password_verify($password, $user['password_hash'])) {
 $userId   = $user['id'];
 $userRole = strtolower($user['role'] ?? 'student');
 
+// Issue a brand new session ID on privilege change, so a session ID captured
+// before login cannot be reused against the authenticated session.
+session_regenerate_id(true);
+
 $_SESSION['user_id']      = $userId;
 $_SESSION['user_name']    = $user['name'];
 $_SESSION['email']        = $user['email'];
 $_SESSION['user_picture'] = $user['avatar_url'] ?? null;
 $_SESSION['role']         = $userRole;
+
+// Issue a fresh CSRF token for the authenticated session, so a token planted
+// before login cannot be reused afterwards.
+require_once __DIR__ . '/../config/csrf.php';
+csrf_rotate();
 
 // Audit Log: Successful Login
 logActivity($pdo, $userId, $userRole, 'USER_LOGIN', "User {$user['name']} ({$user['email']}) logged in successfully.");

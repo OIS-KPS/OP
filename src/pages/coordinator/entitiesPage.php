@@ -209,14 +209,16 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                                         <td class="py-4 px-3 align-middle">
                                             <div class="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap">
                                                 <?php if ($view === 'archived'): ?>
-                                                    <form method="POST" action="entities.php?view=archived" class="inline-block" onsubmit="return confirm('Restore <?= e($ent['entity_name']); ?> to the active entity list?');">
+                                                    <form method="POST" action="entities.php?view=archived" class="inline-block" onsubmit="return confirm('Restore <?= htmlspecialchars(addslashes($ent['entity_name'])); ?> to the active entity list?');">
+                        <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="restore">
                                                         <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
                                                         <button type="submit" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg text-[10px] transition-colors border border-emerald-300 shadow-2xs cursor-pointer">
                                                             Restore
                                                         </button>
                                                     </form>
-                                                    <form method="POST" action="entities.php?view=archived" class="inline-block" onsubmit="return confirm('Permanently delete <?= e($ent['entity_name']); ?>? This cannot be undone.');">
+                                                    <form method="POST" action="entities.php?view=archived" class="inline-block" onsubmit="return confirm('Permanently delete <?= htmlspecialchars(addslashes($ent['entity_name'])); ?>? This cannot be undone.');">
+                        <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="permanent_delete">
                                                         <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
                                                         <button type="submit" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-900 font-bold rounded-lg text-[10px] transition-colors border border-rose-300 shadow-2xs cursor-pointer">
@@ -227,7 +229,8 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                                                     <button type="button" onclick='openEditModal(<?= json_encode($ent, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg text-[10px] transition-colors border border-slate-300 shadow-2xs cursor-pointer">
                                                         Edit
                                                     </button>
-                                                    <form method="POST" action="entities.php" class="inline-block" onsubmit="return confirm('Archive <?= e($ent['entity_name']); ?>? It will stop being used for entity matching but stay in the Archive tab.');">
+                                                    <form method="POST" action="entities.php" class="inline-block" onsubmit="return confirm('Archive <?= htmlspecialchars(addslashes($ent['entity_name'])); ?>? It will stop being used for entity matching but stay in the Archive tab.');">
+                        <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="archive">
                                                         <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
                                                         <button type="submit" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-lg text-[10px] transition-colors border border-amber-300 shadow-2xs cursor-pointer">
@@ -256,7 +259,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
 <!-- ==========================================
      ADD Entity MODAL
      ========================================== -->
-<div id="addEntityModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+<div id="addEntityModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full p-6 space-y-4">
         <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
             <h3 class="text-sm font-black text-slate-950">Add New Entity</h3>
@@ -264,6 +267,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
         </div>
 
         <form method="POST" action="entities.php" class="space-y-3.5 text-xs">
+                        <?= csrf_field(); ?>
             <input type="hidden" name="action" value="create">
 
             <div>
@@ -316,7 +320,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
 <!-- ==========================================
      EDIT Entity MODAL
      ========================================== -->
-<div id="editEntityModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+<div id="editEntityModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full p-6 space-y-4">
         <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
             <h3 class="text-sm font-black text-slate-950">Edit Entity</h3>
@@ -324,6 +328,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
         </div>
 
         <form method="POST" action="entities.php" class="space-y-3.5 text-xs">
+                        <?= csrf_field(); ?>
             <input type="hidden" name="action" value="update">
             <input type="hidden" name="id" id="edit_id">
 

@@ -79,11 +79,22 @@ if (isset($_GET['code'])) {
         logActivity($pdo, $userId,$userRole, 'GOOGLE_LOGIN', "User {$name} ({$email}) logged in via Google OAuth.");
 
         // Establish Core Base Sessions
+
+        // Issue a brand new session ID on privilege change, so a session ID
+        // captured before this callback cannot be reused afterwards.
+        session_regenerate_id(true);
+
         $_SESSION['user_id']      =$userId;
         $_SESSION['user_name']    = $user['name'] ?? $name;
         $_SESSION['email']        =$email;
         $_SESSION['user_picture'] =$picture;
         $_SESSION['role']         =$userRole;
+
+        // Issue a fresh CSRF token for the authenticated session. This path was
+        // previously missing it, which left every Google-authenticated session
+        // (i.e. every student) running on a pre-authentication token.
+        require_once __DIR__ . '/../config/csrf.php';
+        csrf_rotate();
 
         // -------------------------------------------------------------
         // STEP 3: Student Extension Check / Auto-Linking

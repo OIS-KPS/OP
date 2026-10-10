@@ -666,7 +666,7 @@ if (!function_exists('e')) {
                                                             type="button"
                                                             onclick="openCancelEvaluationModal(
                                                                 <?= (int)$eval['student_id']; ?>,
-                                                                '<?= e($eval['student_name']); ?>'
+                                                                '<?= htmlspecialchars(addslashes($eval['student_name'])); ?>'
                                                             )"
                                                             class="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-300 transition-colors cursor-pointer"
                                                         >
@@ -694,7 +694,7 @@ if (!function_exists('e')) {
                                                             type="button"
                                                             onclick="openSingleConfirmModal(
                                                                 <?= (int)$eval['student_id']; ?>,
-                                                                '<?= e($eval['student_name']); ?>'
+                                                                '<?= htmlspecialchars(addslashes($eval['student_name'])); ?>'
                                                             )"
                                                             class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer"
                                                         >
@@ -723,7 +723,7 @@ if (!function_exists('e')) {
                                                         type="button"
                                                         onclick="openSingleConfirmModal(
                                                             <?= (int)$eval['student_id']; ?>,
-                                                            '<?= e($eval['student_name']); ?>'
+                                                            '<?= htmlspecialchars(addslashes($eval['student_name'])); ?>'
                                                         )"
                                                         class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer"
                                                     >
@@ -784,7 +784,7 @@ if (!function_exists('e')) {
 
     <div
         id="triggerEvalModal"
-        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden overflow-y-auto items-center justify-center z-50 p-4"
     >
 
         <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
@@ -823,6 +823,7 @@ if (!function_exists('e')) {
                 action="evaluations.php"
                 class="p-6 space-y-4 text-xs flex flex-col flex-1 overflow-hidden"
             >
+                        <?= csrf_field(); ?>
 
                 <input
                     type="hidden"
@@ -961,7 +962,7 @@ if (!function_exists('e')) {
 
     <div
         id="singleConfirmModal"
-        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden overflow-y-auto items-center justify-center z-50 p-4"
     >
 
         <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden flex flex-col">
@@ -1000,6 +1001,7 @@ if (!function_exists('e')) {
                 action="evaluations.php"
                 class="p-6 space-y-4 text-xs"
             >
+                        <?= csrf_field(); ?>
 
                 <input
                     type="hidden"
@@ -1084,7 +1086,7 @@ if (!function_exists('e')) {
 
     <div
         id="cancelEvalModal"
-        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden overflow-y-auto items-center justify-center z-50 p-4"
     >
 
         <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full overflow-hidden flex flex-col">
@@ -1123,6 +1125,7 @@ if (!function_exists('e')) {
                 action="evaluations.php"
                 class="p-6 space-y-4 text-xs"
             >
+                        <?= csrf_field(); ?>
 
                 <input
                     type="hidden"
@@ -1211,7 +1214,7 @@ if (!function_exists('e')) {
 
     ?>
 
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto items-center justify-center z-50 p-4">
 
             <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
 
