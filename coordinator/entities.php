@@ -3,11 +3,18 @@
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/csrf.php';
 
 // Authorization Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
     header("Location: ../auth/login.php");
     exit();
+}
+
+// CSRF Guard: covers the whole POST surface of this controller.
+// This page renders its error from entity_error, not flash_error.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify(__DIR__ . '/entities.php', 'entity_error');
 }
 
 $message = $_SESSION['entity_message'] ?? '';
@@ -40,7 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$name, $aliases ?: null, $category ?: 'Other', $activity, $it_related, $description ?: null]);
                 $_SESSION['entity_message'] = "Entity '{$name}' created in database.";
             } catch (PDOException $e) {
-                $_SESSION['entity_error'] = "Database Error: " . (str_contains($e->getMessage(), 'Duplicate') ? 'Entity name already exists.' : $e->getMessage());
+                $_SESSION['entity_error'] = str_contains($e->getMessage(), 'Duplicate')
+                            ? 'Entity name already exists.'
+                            : 'Database Error: ' . userFacingError($e, 'entities.php:create');
             }
         }
         header("Location: entities.php");
@@ -113,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($pdo->inTransaction()) {
                     $pdo->rollBack();
                 }
-                $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
+                $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:update');
             }
         }
         header("Location: entities.php");
@@ -129,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$id]);
                 $_SESSION['entity_message'] = "Entity archived. Restore or permanently delete it from the Archive tab.";
             } catch (PDOException $e) {
-                $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
+                $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:archive');
             }
         }
         header("Location: entities.php");
@@ -145,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$id]);
                 $_SESSION['entity_message'] = "Entity restored from archive.";
             } catch (PDOException $e) {
-                $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
+                $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:restore');
             }
         }
         header("Location: entities.php?view=archived");
@@ -161,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$id]);
                 $_SESSION['entity_message'] = "Entity permanently deleted from the archive.";
             } catch (PDOException $e) {
-                $_SESSION['entity_error'] = "Database Error: " . $e->getMessage();
+                $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:permanent_delete');
             }
         }
         header("Location: entities.php?view=archived");

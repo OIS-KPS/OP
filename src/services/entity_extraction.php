@@ -334,51 +334,30 @@ function normalizeExtractedEntity(array $entity): ?array
      *
      * Otherwise derive it from the entity category.
      */
-    $activityType = trim(
-        (string) (
-            $entity['activity_type']
-            ?? ''
-        )
-    );
+    $activityType = ucfirst(strtolower(trim((string) ($entity['activity_type'] ?? ''))));
+    $categoryUpper = strtoupper($category);
 
-    if ($activityType === '') {
-
-        $categoryUpper = strtoupper($category);
-
-        if (
-            str_contains($categoryUpper, 'HARDWARE')
-        ) {
+    // FastAPI may return the generic defaults Other/unknown for model-only
+    // entities. Derive the portal classification from the category in that
+    // case; otherwise every model entity is stored as unclassified.
+    if (
+        $activityType === '' ||
+        $activityType === 'Other' ||
+        !in_array($activityType, ['Software', 'Hardware', 'Clerical', 'Other'], true)
+    ) {
+        if (str_contains($categoryUpper, 'HARDWARE')) {
             $activityType = 'Hardware';
-
-        } elseif (
-            str_contains($categoryUpper, 'CLERICAL')
-        ) {
+        } elseif (str_contains($categoryUpper, 'CLERICAL')) {
             $activityType = 'Clerical';
-
         } elseif (
             str_contains($categoryUpper, 'IT') ||
-            str_contains($categoryUpper, 'SOFTWARE')
+            str_contains($categoryUpper, 'SOFTWARE') ||
+            str_contains($categoryUpper, 'TECHNICAL')
         ) {
             $activityType = 'Software';
-
         } else {
             $activityType = 'Other';
         }
-    }
-
-    if (
-        !in_array(
-            $activityType,
-            [
-                'Software',
-                'Hardware',
-                'Clerical',
-                'Other'
-            ],
-            true
-        )
-    ) {
-        $activityType = 'Other';
     }
 
     /**
@@ -395,39 +374,21 @@ function normalizeExtractedEntity(array $entity): ?array
         )
     );
 
-    if ($itRelated === '') {
-
-        $categoryUpper = strtoupper($category);
-
-        if (
-            str_contains($categoryUpper, 'CLERICAL')
-        ) {
+    // Treat unknown as missing when activity_type/category gives a safe answer.
+    if ($itRelated === '' || $itRelated === 'unknown' || !in_array($itRelated, ['yes', 'no'], true)) {
+        if ($activityType === 'Clerical' || str_contains($categoryUpper, 'CLERICAL')) {
             $itRelated = 'no';
-
         } elseif (
+            in_array($activityType, ['Software', 'Hardware'], true) ||
             str_contains($categoryUpper, 'IT') ||
             str_contains($categoryUpper, 'SOFTWARE') ||
-            str_contains($categoryUpper, 'HARDWARE')
+            str_contains($categoryUpper, 'HARDWARE') ||
+            str_contains($categoryUpper, 'TECHNICAL')
         ) {
             $itRelated = 'yes';
-
         } else {
             $itRelated = 'unknown';
         }
-    }
-
-    if (
-        !in_array(
-            $itRelated,
-            [
-                'yes',
-                'no',
-                'unknown'
-            ],
-            true
-        )
-    ) {
-        $itRelated = 'unknown';
     }
 
     /**

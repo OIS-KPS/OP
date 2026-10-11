@@ -5,11 +5,18 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/evaluation_criteria.php';
+require_once __DIR__ . '/../config/csrf.php';
 
 // 1. Authorization Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
     header("Location: ../auth/login.php");
     exit();
+}
+
+// CSRF Guard: placed once here so it covers both POST branches below
+// (request_evaluation at :56 and cancel_evaluation at :192).
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify(__DIR__ . '/evaluations.php');
 }
 
 $pageTitle = "Final Evaluations";
