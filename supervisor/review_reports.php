@@ -769,96 +769,44 @@ if ($review_id) {
         } else {
 
             // =================================================
-            // CHECK SAVED ENTITIES
+            // ALWAYS RUN FASTAPI EXTRACTION on every view
+            // to pick up new predefined entities
             // =================================================
 
-            $checkSavedStmt =
-                $pdo->prepare("
+            $extractionResult =
+                extractEntitiesWithFastAPI(
+                    $pdfPath,
+                    (int) $activeReport['id'],
+                    $pdo
+                );
 
-                    SELECT *
-
-                    FROM report_entities
-
-                    WHERE report_id = ?
-
-                    ORDER BY entity_name ASC
-                ");
-
-            $checkSavedStmt->execute([
-                $activeReport['id']
-            ]);
-
-            $existingSaved =
-                $checkSavedStmt->fetchAll(
-                    PDO::FETCH_ASSOC
-                ) ?: [];
+            $activeReport[
+                'extraction_result'
+            ] = $extractionResult;
 
 
-            // =================================================
-            // USE SAVED ENTITIES
-            // =================================================
-
-            if (!empty($existingSaved)) {
-
-                $activeReport[
-                    'extracted_entities'
-                ] = $existingSaved;
-
-                $activeReport[
-                    'extraction_result'
-                ] = [
-
-                    'success' => true,
-
-                    'entities' => $existingSaved,
-
-                    'content' => '',
-
-                    'summary' => []
-
-                ];
-
-            } else {
-
-                // =============================================
-                // RUN FASTAPI EXTRACTION
-                // =============================================
-
-                $extractionResult =
-                    extractEntitiesWithFastAPI(
-                        $pdfPath,
-                        (int) $activeReport['id'],
-                        $pdo
-                    );
+            $activeReport[
+                'extracted_entities'
+            ] =
+                $extractionResult[
+                    'entities'
+                ] ?? [];
 
 
-                $activeReport[
-                    'extraction_result'
-                ] = $extractionResult;
+            $activeReport[
+                'extracted_content'
+            ] =
+                $extractionResult[
+                    'content'
+                ] ?? '';
 
 
-                $activeReport[
-                    'extracted_entities'
-                ] =
-                    $extractionResult[
-                        'entities'
-                    ] ?? [];
-
-
-                $activeReport[
-                    'extracted_content'
-                ] =
-                    $extractionResult[
-                        'content'
-                    ] ?? '';
-
-
-                $activeReport[
-                    'extraction_summary'
-                ] =
-                    $extractionResult[
-                        'summary'
-                    ] ?? [];
+            $activeReport[
+                'extraction_summary'
+            ] =
+                $extractionResult[
+                    'summary'
+                ] ?? [];
 
 
                 // ---------------------------------------------
@@ -1212,7 +1160,6 @@ if ($review_id) {
             ]
         ];
     }
-}
 
 
 // ============================================================

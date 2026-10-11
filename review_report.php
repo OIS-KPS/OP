@@ -559,11 +559,8 @@ try {
     $entityStmt->execute([':report_id' => $reportId]);
     $entities = $entityStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $forceExtract =
-        (isset($_GET['extract']) && $_GET['extract'] === '1') ||
-        (isset($_GET['refresh']) && $_GET['refresh'] === '1');
-
-    if ($forceExtract || !$entities) {
+    // Always extract on every view to pick up new predefined entities
+    if (true) {
         $predefinedRows = rr_load_predefined_entities($pdo);
         $catalog = rr_build_entity_catalog($predefinedRows);
 

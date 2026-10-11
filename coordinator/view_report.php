@@ -4,6 +4,7 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../src/services/report_workspace.php';
+require_once __DIR__ . '/../src/services/entity_extraction.php';
 require_once __DIR__ . '/../config/csrf.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
@@ -404,6 +405,35 @@ try {
     $weekClericalPct = $workspace['weekClericalPct'];
     $weekTotalCount = $workspace['weekTotalCount'];
     $pdfUrl = $workspace['pdfUrl'];
+
+    // Auto-extract entities on every view to pick up new predefined entities
+    if (!empty($activeReport) && (int)$activeReport['id'] > 0) {
+        $reportIdActive = (int)$activeReport['id'];
+        $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
+        if ($pdfPath !== false) {
+            extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
+
+            // Rebuild workspace to get updated entities
+            $workspace = reportWorkspaceBuild($pdo, $studentId, [
+                'reportId' => $selectedReportId > 0 ? $selectedReportId : $reportId,
+                'status' => 'approved',
+            ]);
+            $student = $workspace['student'];
+            $reportsList = $workspace['reportsList'];
+            $activeReport = $workspace['activeReport'];
+            $allEntities = $workspace['allEntities'];
+            $weekEntities = $workspace['weekEntities'];
+            $archivedEntities = $workspace['archivedEntities'];
+            $itPct = $workspace['itPct'];
+            $clericalPct = $workspace['clericalPct'];
+            $technicalCount = $workspace['technicalCount'];
+            $clericalCount = $workspace['clericalCount'];
+            $weekItPct = $workspace['weekItPct'];
+            $weekClericalPct = $workspace['weekClericalPct'];
+            $weekTotalCount = $workspace['weekTotalCount'];
+            $pdfUrl = $workspace['pdfUrl'];
+        }
+    }
 
     if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         reportWorkspaceExportCsv($student, $reportsList, $allEntities);
