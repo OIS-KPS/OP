@@ -122,36 +122,30 @@ try {
     $weekTotalCount = $workspace['weekTotalCount'];
     $pdfUrl = $workspace['pdfUrl'];
 
-    // Auto-extract entities if none exist for the report being viewed
-    // (same behaviour as supervisor/view_report.php).
+    // Auto-extract entities on every view to pick up new predefined entities
     if (!empty($activeReport) && (int)$activeReport['id'] > 0) {
         $reportIdActive = (int)$activeReport['id'];
         $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
 
         if ($pdfPath !== false) {
-            $check = $pdo->prepare('SELECT COUNT(*) FROM report_entities WHERE report_id = ?');
-            $check->execute([$reportIdActive]);
+            extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
 
-            if ((int)$check->fetchColumn() === 0) {
-                extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
-
-                $workspace = reportWorkspaceBuild($pdo, $studentId, [
-                    'reportId' => $requestedReportId,
-                    'status' => null,
-                ]);
-                $student = $workspace['student'];
-                $reportsList = $workspace['reportsList'];
-                $activeReport = $workspace['activeReport'];
-                $allEntities = $workspace['allEntities'];
-                $weekEntities = $workspace['weekEntities'];
-                $archivedEntities = $workspace['archivedEntities'];
-                $itPct = $workspace['itPct'];
-                $clericalPct = $workspace['clericalPct'];
-                $weekItPct = $workspace['weekItPct'];
-                $weekClericalPct = $workspace['weekClericalPct'];
-                $weekTotalCount = $workspace['weekTotalCount'];
-                $pdfUrl = $workspace['pdfUrl'];
-            }
+            $workspace = reportWorkspaceBuild($pdo, $studentId, [
+                'reportId' => $requestedReportId,
+                'status' => null,
+            ]);
+            $student = $workspace['student'];
+            $reportsList = $workspace['reportsList'];
+            $activeReport = $workspace['activeReport'];
+            $allEntities = $workspace['allEntities'];
+            $weekEntities = $workspace['weekEntities'];
+            $archivedEntities = $workspace['archivedEntities'];
+            $itPct = $workspace['itPct'];
+            $clericalPct = $workspace['clericalPct'];
+            $weekItPct = $workspace['weekItPct'];
+            $weekClericalPct = $workspace['weekClericalPct'];
+            $weekTotalCount = $workspace['weekTotalCount'];
+            $pdfUrl = $workspace['pdfUrl'];
         }
     }
 } catch (Throwable $exception) {
