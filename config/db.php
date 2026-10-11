@@ -20,7 +20,10 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
 } catch (PDOException $e) {
-    die("Database Connection Failed: " . $e->getMessage());
+    // Never expose host, database name or driver detail to an anonymous
+    // visitor. Full detail goes to the PHP error log.
+    error_log('DB connection failed: ' . $e->getMessage());
+    die("Database connection failed. Please contact the administrator.");
 }
 
 /**
@@ -71,5 +74,30 @@ if (!function_exists('logActivity')) {
             error_log("Audit Log Failure: " . $e->getMessage());
             return false;
         }
+    }
+}
+
+/**
+ * Produce a message that is safe to show on screen.
+ *
+ * PDOException messages carry SQL text (table and column names, driver
+ * detail), so those are written to the PHP error log and replaced with a
+ * generic line. Exceptions thrown by the application itself - for example
+ * "That office already has its own supervisor." - are authored deliberately
+ * and are returned unchanged, because they are the useful part.
+ *
+ * @param Throwable $e       The caught exception.
+ * @param string    $context Optional label recorded in the error log.
+ * @return string
+ */
+if (!function_exists('userFacingError')) {
+    function userFacingError(Throwable $e, $context = '') {
+        if ($e instanceof PDOException) {
+            error_log(($context !== '' ? $context . ': ' : '') . $e->getMessage());
+
+            return 'A database error occurred. Please try again.';
+        }
+
+        return $e->getMessage();
     }
 }

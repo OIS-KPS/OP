@@ -3,6 +3,7 @@
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/csrf.php';
 
 // 1. Authorization Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
@@ -15,6 +16,11 @@ $selectedSection = $_GET['section'] ?? 'all';
 $success         = $_SESSION['flash_success'] ?? null;
 $error           = $_SESSION['flash_error'] ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+
+// CSRF Guard: covers the whole POST surface of this controller.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify(__DIR__ . '/assignments.php');
+}
 
 // 2. Handle POST Actions (Assign / Unlink Placement)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -62,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             } catch (PDOException $e) {
-                $_SESSION['flash_error'] = "Failed to update placement: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Failed to update placement: " . userFacingError($e, 'assignments.php:assign');
             }
         }
     }
