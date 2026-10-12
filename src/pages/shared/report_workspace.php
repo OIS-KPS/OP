@@ -435,6 +435,12 @@ function workspaceItFlag(array $entity, string $activityType): string
                                             <div class="flex items-center justify-between gap-2">
                                                 <p class="font-extrabold text-slate-950 text-xs"><?= htmlspecialchars((string)$ent['entity_name']); ?></p>
                                                 <div class="flex items-center gap-2 shrink-0">
+                                                    <?php /* Attribution: shown to EVERY viewer (coordinator, supervisor,
+                                                           intern) so it is clear the term was typed in by a coordinator
+                                                           rather than extracted from the document. */ ?>
+                                                    <?php if (($ent['source'] ?? '') === 'manual_addition'): ?>
+                                                        <span class="text-[10px] font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded border border-purple-200" title="Added by a coordinator, not extracted from the document">Coordinator Added</span>
+                                                    <?php endif; ?>
                                                     <?php if ($canManageEntities): ?>
                                                         <?php if (isset($ent['confidence_score']) && $ent['confidence_score'] !== null): ?>
                                                             <span class="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -463,11 +469,12 @@ function workspaceItFlag(array $entity, string $activityType): string
                                                     <input type="hidden" name="action" value="update_entity_type">
                                                     <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
                                                     <input type="hidden" name="entity_id" value="<?= (int)$ent['id']; ?>">
-                                                    <select name="activity_type" onchange="this.form.submit()" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
-                                                        <option value="Software" <?= $currentType === 'Software' ? 'selected' : ''; ?>>Software (Technical)</option>
-                                                        <option value="Hardware" <?= $currentType === 'Hardware' ? 'selected' : ''; ?>>Hardware (Technical)</option>
-                                                        <option value="Clerical" <?= $currentType === 'Clerical' ? 'selected' : ''; ?>>Clerical (Non-IT)</option>
-                                                        <option value="Other" <?= $currentType === 'Other' ? 'selected' : ''; ?>>Other</option>
+                                                    <select name="it_related" onchange="this.form.submit()" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                                                        <?php /* Preselect from $itFlag (the effective flag, which falls back to
+                                                               activity_type for legacy rows) rather than $currentType, so
+                                                               pre-existing Software/Hardware rows show the right choice. */ ?>
+                                                        <option value="yes" <?= $itFlag !== 'no' ? 'selected' : ''; ?>>IT Related</option>
+                                                        <option value="no" <?= $itFlag === 'no' ? 'selected' : ''; ?>>Clerical</option>
                                                     </select>
                                                 </form>
                                             <?php endif; ?>
@@ -510,29 +517,26 @@ function workspaceItFlag(array $entity, string $activityType): string
                 </div>
 
                 <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Category</label>
-                    <select name="category" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
-                        <option value="Programming" selected>Programming</option>
-                        <option value="Database">Database</option>
-                        <option value="Development Tool">Development Tool</option>
-                        <option value="Office Software">Office Software</option>
-                        <option value="Design Software">Design Software</option>
-                        <option value="Operating System">Operating System</option>
-                        <option value="Hardware Task">Hardware Task</option>
-                        <option value="Networking">Networking</option>
-                        <option value="Administrative Task">Administrative Task</option>
-                        <option value="Other">Other</option>
+                    <label class="font-bold text-slate-700">Type</label>
+                    <select name="it_related" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                        <option value="yes">IT Related</option>
+                        <option value="no">Non-IT / Clerical</option>
                     </select>
                 </div>
 
-                <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Classification / Activity Type</label>
-                    <select name="activity_type" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
-                        <option value="Software">Software (Technical - IT Related)</option>
-                        <option value="Hardware">Hardware (Technical - IT Related)</option>
-                        <option value="Clerical">Clerical (Non-IT)</option>
-                        <option value="Other">Other</option>
-                    </select>
+                <div class="space-y-1 rounded-xl border border-slate-300 bg-slate-50/70 p-3">
+                    <label class="flex items-start gap-2.5 cursor-pointer">
+                        <input type="checkbox" name="add_to_dictionary" value="1" class="mt-0.5 w-4 h-4 accent-[#0F2854] shrink-0 cursor-pointer">
+                        <span class="text-sm font-bold text-slate-800 leading-snug">
+                            Also add to the Entity Dictionary
+                        </span>
+                    </label>
+                    <p class="text-[11px] font-medium text-slate-500 leading-snug mt-1.5 pl-6.5">
+                        Optional. Only tick this for a term specific enough to reuse, such as a
+                        tool name. Generic words like &ldquo;data&rdquo; or &ldquo;filing&rdquo;
+                        belong to this report only. Dictionary terms override the automatic
+                        extractor on future reports.
+                    </p>
                 </div>
 
                 <div class="flex justify-end gap-2.5 pt-2">
