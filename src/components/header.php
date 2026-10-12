@@ -28,8 +28,8 @@ $displayEmail = $_SESSION['email'] ?? '';
     
     <!-- Department Scope & Identity -->
     <div class="flex items-center gap-2.5">
-        <span class="w-2 h-2 rounded-full bg-[#0F2854] ring-4 ring-[#0F2854]/10"></span>
-        <p class="text-sm font-bold text-slate-900 tracking-tight">NBSC - Institute for Computer Studies</p>
+        
+        <p class="text-sm font-bold text-blue-900 tracking-tight ">LaunchPad - Institue for Computer Studies</p>
     </div>
 
     <!-- Right Header Controls -->
