@@ -122,7 +122,7 @@ class HybridJournalPipeline:
 
     def __init__(
         self,
-        model_path: str = "models/ner_trf/model-best",
+        model_path: str = "models/ner_trf_trstr_llm/model-best",
         terms_csv_path: str = "data/terms.csv",
         confidence_threshold: float = 0.80,
         use_gpu: bool = True,
