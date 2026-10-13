@@ -169,9 +169,9 @@ $exportParamsAll = http_build_query([
                             <table class="w-full table-fixed text-left border-collapse text-xs">
                                 <colgroup>
                                     <col style="width: 24%;">
-                                    <col style="width: 9%;">
-                                    <col style="width: 26%;">
-                                    <col style="width: 13%;">
+                                    <col style="width: 8%;">
+                                    <col style="width: 25%;">
+                                    <col style="width: 15%;">
                                     <col style="width: 16%;">
                                     <col style="width: 12%;">
                                 </colgroup>
@@ -226,10 +226,10 @@ $exportParamsAll = http_build_query([
 
                                             <!-- Reports Count Badge -->
                                             <td class="py-4 px-4 align-middle">
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-blue-200 font-bold text-xs max-w-full">
-                                                    <?= (int)$student['approved_reports_count']; ?> Submitted / Approved
+                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-[#0F2854] border border-blue-200 font-bold text-[10px] leading-tight max-w-full">
+                                                    <span><?= (int)$student['approved_reports_count']; ?> Submitted / Approved</span>
                                                     <?php if (!empty($student['late_approved_count'])): ?>
-                                                        <span class="block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-900 border border-orange-300 w-fit">
+                                                        <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-100 text-orange-900 border border-orange-300 shrink-0">
                                                             <?= (int)$student['late_approved_count']; ?> Late
                                                         </span>
                                                     <?php endif; ?>
