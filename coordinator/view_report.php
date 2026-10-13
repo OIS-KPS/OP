@@ -241,10 +241,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'add_entity' && $targetReportId > 0) {
         $entityName = trim((string) ($_POST['entity_name'] ?? ''));
-        $category = trim((string) ($_POST['category'] ?? 'Other')) ?: 'Other';
-        $classification = trim((string) ($_POST['classification'] ?? 'Software'));
-        $activityType = in_array($classification, ['Software', 'Hardware', 'Clerical', 'Other'], true) ? $classification : 'Other';
-        $itRelated = $activityType === 'Clerical' ? 'no' : 'yes';
+
+        // The modal offers exactly two choices: IT Related or Clerical.
+        // This handler previously read $_POST['classification'], a field no
+        // form ever posts (the select is named it_related), so the fallback
+        // always applied and every manual add was saved as Software / IT --
+        // silently contradicting the coordinator's selection and inflating
+        // the IT percentage in this panel and in CQI reporting.
+        $itRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
+
+        // activity_type stays populated for the reporting queries, which all
+        // compute IT as activity_type != 'Clerical'. Software vs Hardware is
+        // never distinguished downstream, so IT collapses to 'Other'.
+        $activityType = ($itRelated === 'no') ? 'Clerical' : 'Other';
+        $category = 'Other';
+
+        // The modal has always posted an Aliases field but nothing ever read it.
+        // report_entities has no aliases column, so it is only used below for the
+        // optional dictionary write -- where aliases do matter, because they are
+        // what the Python extractor matches against.
+        $aliases = trim((string) ($_POST['aliases'] ?? ''));
+
+        // Opt-in: off by default. A term reaches the global dictionary only when
+        // the coordinator deliberately ticks the box, because a dictionary entry
+        // overrides the spaCy model and terms.csv on every future extraction.
+        $addToDictionary = isset($_POST['add_to_dictionary'])
+            && $_POST['add_to_dictionary'] === '1';
+
+        $reportEntitySaved = false;
 
         if ($entityName !== '') {
             try {
@@ -261,6 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // If it was previously archived, restore it instead of creating a duplicate!
                         $stmtRestore = $pdo->prepare('UPDATE report_entities SET is_archived = 0, activity_type = ?, it_related = ? WHERE id = ?');
                         $stmtRestore->execute([$activityType, $itRelated, $existing['id']]);
+                        $reportEntitySaved = true;
                         $_SESSION['flash_success'] = 'Entity was in archive and has been successfully restored!';
                     } else {
                         $_SESSION['flash_error'] = 'This entity already exists in this week\'s report list.';
@@ -274,10 +299,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
                     );
                     $stmtInsert->execute([$targetReportId, $entityName, $entityName, $category, $activityType, $itRelated, 'manual_addition', 100.00]);
+                    $reportEntitySaved = true;
                     $_SESSION['flash_success'] = 'Missing entity added successfully.';
                 }
             } catch (Throwable $exception) {
                 $_SESSION['flash_error'] = 'Failed to add entity: ' . userFacingError($exception, 'view_report.php:add_entity');
+            }
+
+            // Opt-in dictionary write. Kept in its own try/catch so a problem
+            // here can never undo the report-level entity that was just saved.
+            if ($addToDictionary && $reportEntitySaved) {
+                try {
+                    $stmtDict = $pdo->prepare(
+                        'INSERT INTO predefined_entities
+                            (entity_name, aliases, category, activity_type, it_related)
+                         VALUES (?, ?, ?, ?, ?)'
+                    );
+                    $stmtDict->execute([$entityName, $aliases ?: null, 'Other', $activityType, $itRelated]);
+
+                    $_SESSION['flash_success'] .=
+                        ' It was also added to the Entity Dictionary.';
+                } catch (PDOException $dictException) {
+                    if (str_contains($dictException->getMessage(), 'Duplicate')) {
+                        // entity_name is UNIQUE. The report entity is already
+                        // saved, so this is a notice rather than an error.
+                        $_SESSION['flash_success'] .=
+                            ' It is already in the Entity Dictionary, so the dictionary was left unchanged.';
+                    } else {
+                        $_SESSION['flash_success'] .=
+                            ' It could not be added to the Entity Dictionary.';
+                        error_log(
+                            'Dictionary add failed for "' . $entityName . '": '
+                            . $dictException->getMessage()
+                        );
+                    }
+                }
             }
         }
     } elseif ($action === 'delete_entity') {
@@ -339,10 +395,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'update_entity_type') {
         $entityId = (int) ($_POST['entity_id'] ?? 0);
-        $newActivityType = trim((string) ($_POST['activity_type'] ?? 'Software'));
-        if (in_array($newActivityType, ['Software', 'Hardware', 'Clerical', 'Other'], true) && $entityId > 0) {
+
+        // Two choices only: IT Related or Clerical. Software/Hardware are not
+        // selectable because no reporting query distinguishes them -- IT is
+        // computed as activity_type != 'Clerical'.
+        $newItRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
+        if ($entityId > 0) {
             try {
-                $newItRelated = ($newActivityType === 'Clerical') ? 'no' : 'yes';
+                $newActivityType = ($newItRelated === 'no') ? 'Clerical' : 'Other';
                 $stmtUpd = $pdo->prepare("UPDATE report_entities
                                               SET activity_type = ?, it_related = ?
                                               WHERE id = ?
