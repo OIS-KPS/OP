@@ -510,15 +510,41 @@ function saveExtractedEntities(
          *
          * Current report flow treats the extraction result
          * as the current result for the report.
+         *
+         * Only ACTIVE, AUTO-EXTRACTED rows are cleared. Two kinds of row are
+         * coordinator decisions, not extraction output, and must survive:
+         *
+         *   source = 'manual_addition'  a term the coordinator typed in
+         *   is_archived = 1             a term the coordinator hid/ignored
+         *
+         * Previously the DELETE had no filter, so re-running extraction (which
+         * happens on every view of a report) wiped manual additions and
+         * resurrect-then-delete archived ones, making both features unusable.
          */
         $deleteStmt = $pdo->prepare("
             DELETE FROM report_entities
             WHERE report_id = ?
+              AND (source IS NULL OR source <> 'manual_addition')
+              AND is_archived = 0
         ");
 
         $deleteStmt->execute([
             $reportId
         ]);
+
+        // Names already present as coordinator manual additions for this report.
+        // Re-inserting them would show the same term twice in the UI, so the
+        // extraction result for those names is skipped.
+        $manualStmt = $pdo->prepare("
+            SELECT LOWER(TRIM(entity_name)) AS n
+            FROM report_entities
+            WHERE report_id = ?
+              AND source = 'manual_addition'
+        ");
+        $manualStmt->execute([$reportId]);
+        $manualNames = array_column($manualStmt->fetchAll(PDO::FETCH_ASSOC), 'n');
+
+        $skipped = 0;
 
         $insertStmt = $pdo->prepare("
             INSERT INTO report_entities
@@ -559,6 +585,14 @@ function saveExtractedEntities(
                 continue;
             }
 
+            // Skip anything the coordinator already added by hand for this
+            // report, so the same term never appears twice.
+            $candidate = strtolower(trim((string) $normalized['entity_name']));
+            if ($candidate !== '' && in_array($candidate, $manualNames, true)) {
+                $skipped++;
+                continue;
+            }
+
             $insertStmt->execute([
                 $reportId,
                 $normalized['entity_name'],
@@ -572,6 +606,13 @@ function saveExtractedEntities(
         }
 
         $pdo->commit();
+
+        if ($skipped > 0) {
+            error_log(
+                "Entity extraction: skipped {$skipped} extracted term(s) for report " .
+                "{$reportId} because the coordinator had already added them manually."
+            );
+        }
 
         return true;
 

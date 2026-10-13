@@ -481,6 +481,35 @@ foreach ($reviewReports as $index => $report) {
                                                 : '—';
                                             ?>
                                         </p>
+
+                                        <?php /* Terms recorded for this intern's own report.
+                                               Terms a coordinator added by hand are labelled
+                                               "Coordinator Added" rather than shown as if they
+                                               had been extracted from the PDF. */ ?>
+                                        <?php $recentEntities = $r['report_entities'] ?? []; ?>
+                                        <?php if (!empty($recentEntities)): ?>
+                                            <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                                                <?php foreach ($recentEntities as $entityChip):
+                                                    $chipIt = strtolower(trim((string)($entityChip['it_related'] ?? '')));
+                                                    $chipManual = ((string)($entityChip['source'] ?? '')) === 'manual_addition';
+                                                ?>
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold
+                                                        <?= $chipIt === 'no'
+                                                            ? 'bg-slate-100 text-slate-700 border-slate-300'
+                                                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'; ?>">
+                                                        <?= htmlspecialchars((string)($entityChip['entity_name'] ?? '')); ?>
+                                                        <?php if ($chipManual): ?>
+                                                            <span class="text-purple-700" title="Added by a coordinator, not extracted from your document">&#128100;</span>
+                                                        <?php endif; ?>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <?php if (array_filter($recentEntities, static fn($c) => ((string)($c['source'] ?? '')) === 'manual_addition')): ?>
+                                                <p class="text-[10px] font-medium text-slate-400 mt-1.5">
+                                                    &#128100; = added by your coordinator
+                                                </p>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <!-- Report Status / Review -->
