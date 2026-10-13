@@ -83,7 +83,7 @@ def _normalise_it_related(value: Any, activity_type: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _pipeline
-    model_path = os.environ.get("MODEL_PATH", "models/ner_trf/model-best")
+    model_path = os.environ.get("MODEL_PATH", "models/ner_trf_trstr_llm/model-best")
     logger.info("Loading HybridJournalPipeline from %r (CPU mode)", model_path)
     _pipeline = HybridJournalPipeline(model_path=model_path, use_gpu=False)
     logger.info("Trained extraction pipeline ready.")
