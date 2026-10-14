@@ -328,7 +328,7 @@ if (!function_exists('e')) {
                             </div>
 
 
-                            <!-- Section -->
+                            <!-- Course Code -->
                             <div class="w-full md:w-36">
 
                                 <select
@@ -341,7 +341,7 @@ if (!function_exists('e')) {
                                         value="all"
                                         <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>
                                     >
-                                        All Sections
+                                        All Course Codes
                                     </option>
 
                                     <?php foreach ($activeSections as $sec): ?>
@@ -350,7 +350,7 @@ if (!function_exists('e')) {
                                             value="<?= e($sec); ?>"
                                             <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>
                                         >
-                                            Section <?= e($sec); ?>
+                                            <?= e($sec); ?>
                                         </option>
 
                                     <?php endforeach; ?>
@@ -469,7 +469,7 @@ if (!function_exists('e')) {
                                         </th>
 
                                         <th class="py-3 px-2 w-[10%]">
-                                            Section
+                                            Course Code
                                         </th>
 
                                         <th class="py-3 px-3 w-[22%]">
@@ -550,13 +550,12 @@ if (!function_exists('e')) {
                                             </td>
 
 
-                                            <!-- Section -->
+                                            <!-- Course Code -->
                                             <td class="py-3 px-2 w-[10%] truncate align-middle">
 
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
 
-                                                    Sec
-                                                    <?= e($eval['section'] ?? 'A'); ?>
+                                                    <?= e($eval['section'] ?? 'IT44A'); ?>
 
                                                 </span>
 
@@ -876,8 +875,7 @@ if (!function_exists('e')) {
                                         ID:
                                         <?= e($es['student_number']); ?>
                                         &bull;
-                                        Sec
-                                        <?= e($es['section']); ?>
+                                        <?= e($es['section'] ?? 'IT44A'); ?>
                                     </p>
 
                                 </div>
@@ -1270,8 +1268,7 @@ if (!function_exists('e')) {
 
                                 &bull;
 
-                                Sec
-                                <?= e($activeEval['section'] ?? 'A'); ?>
+                                <?= e($activeEval['section'] ?? 'IT44A'); ?>
 
                             </p>
 

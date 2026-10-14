@@ -110,7 +110,7 @@
                             <div class="relative inline-block text-left">
                                 <div class="inline-flex items-center gap-0 <?= ($tab ?? 'students') === 'students' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 border border-slate-300'; ?> rounded-lg">
                                     <a href="users.php?tab=students" class="px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2">
-                                        <span>Students<?= ($tab ?? '') === 'students' && ($selectedSection ?? 'all') !== 'all' ? ' · Sec ' . htmlspecialchars($selectedSection) : ''; ?></span>
+                                        <span>Students<?= ($tab ?? '') === 'students' && ($selectedSection ?? 'all') !== 'all' ? ' · ' . htmlspecialchars($selectedSection) : ''; ?></span>
                                         <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? 'students') === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($students ?? []); ?></span>
                                     </a>
                                     <button type="button" onclick="toggleStudentsMenu(event)" class="px-2 py-1.5 border-l border-current/20 cursor-pointer" aria-label="Toggle sections">
@@ -124,7 +124,7 @@
                                     </a>
                                     <?php foreach ($activeSections as $sec): ?>
                                         <a href="users.php?tab=students&section=<?= urlencode($sec); ?>" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? '') === $sec ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
-                                            Section <?= htmlspecialchars($sec); ?>
+                                            <?= htmlspecialchars($sec); ?>
                                         </a>
                                     <?php endforeach; ?>
                                 </div>
@@ -179,7 +179,7 @@
                                     <thead>
                                         <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
                                             <th class="py-4 px-4">Student Intern</th>
-                                            <th class="py-4 px-4">Section</th>
+                                            <th class="py-4 px-4">Course Code</th>
                                             <th class="py-4 px-4">Company &amp; Supervisor</th>
                                             <th class="py-4 px-4 text-right">Actions</th>
                                         </tr>
@@ -204,7 +204,7 @@
                                                 </td>
                                                 <td class="py-4 px-4 whitespace-nowrap align-middle">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
-                                                        Section <?= htmlspecialchars($s['section'] ?? 'A'); ?>
+                                                        <?= htmlspecialchars($s['section'] ?? 'IT44A'); ?>
                                                     </span>
                                                 </td>
                                                 <td class="py-4 px-4 align-middle">
@@ -232,7 +232,7 @@
                             </div>
                         <?php else: ?>
                             <div class="py-16 text-center text-slate-500 text-xs font-semibold">
-                                No students registered in this section yet. Click "+ Add New" or "Import CSV" above to begin.
+                                No students registered under this course code yet. Click "+ Add New" or "Import CSV" above to begin.
                             </div>
                         <?php endif; ?>
 
@@ -640,12 +640,11 @@
                             <input type="text" name="student_number" required placeholder="Enter student ID" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Section <span class="text-rose-600">*</span></label>
+                            <label class="block font-bold text-slate-700 mb-1">Course Code <span class="text-rose-600">*</span></label>
                             <select name="section" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
-                                <option value="A">Section A</option>
-                                <option value="B">Section B</option>
-                                <option value="C">Section C</option>
-                                <option value="D">Section D</option>
+                                <?php foreach (section_course_codes() as $code): ?>
+                                    <option value="<?= $code; ?>"><?= $code; ?></option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -768,7 +767,7 @@
             </div>
             <p class="text-xs text-slate-600 font-medium leading-relaxed">
                 Upload a CSV file formatted with these 4 columns: <br>
-                <span class="font-extrabold text-slate-900">Full Name, Student ID, Email Address, Section</span>
+                <span class="font-extrabold text-slate-900">Full Name, Student ID, Email Address, Course Code</span>
             </p>
             
             <form action="users.php" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
@@ -871,12 +870,11 @@
                             <input type="text" name="student_number" id="edit_student_number" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Section <span class="text-rose-600">*</span></label>
+                            <label class="block font-bold text-slate-700 mb-1">Course Code <span class="text-rose-600">*</span></label>
                             <select name="section" id="edit_student_section" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors">
-                                <option value="A">Section A</option>
-                                <option value="B">Section B</option>
-                                <option value="C">Section C</option>
-                                <option value="D">Section D</option>
+                                <?php foreach (section_course_codes() as $code): ?>
+                                    <option value="<?= $code; ?>"><?= $code; ?></option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -1339,7 +1337,13 @@
             document.getElementById('edit_student_name').value = student.name;
             document.getElementById('edit_student_number').value = student.student_number;
             document.getElementById('edit_student_email').value = student.email;
-            document.getElementById('edit_student_section').value = student.section || 'A';
+            // Pre-select the stored course code; fall back to the default when the value is
+// blank or no longer one of the listed codes (e.g. a legacy un-migrated row).
+const sectionSelect = document.getElementById('edit_student_section');
+const storedCode = student.section || <?= json_encode(section_course_codes()[0]); ?>;
+sectionSelect.value = Array.from(sectionSelect.options).some(o => o.value === storedCode)
+    ? storedCode
+    : <?= json_encode(section_course_codes()[0]); ?>;
             document.getElementById('edit_student_office').value = student.office_id || '';
             
             toggleModal('editStudentModal');

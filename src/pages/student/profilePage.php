@@ -111,6 +111,17 @@ $studentEmail       = !empty($student['student_email']) ? $student['student_emai
                                     <p class="text-[10px] font-black text-slate-700 uppercase tracking-wider">Program / Department</p>
                                     <p class="text-xs font-semibold text-slate-800 mt-0.5"><?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
                                 </div>
+
+                                <div>
+                                    <p class="text-[10px] font-black text-slate-700 uppercase tracking-wider">Course Code</p>
+                                    <?php if (!empty($student['section'])): ?>
+                                        <span class="inline-flex items-center text-slate-800 font-bold text-[11px] font-bold ">
+                                            <?= htmlspecialchars($student['section']); ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <p class="text-xs font-semibold text-slate-400 italic mt-0.5">Not Assigned Yet</p>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -14,11 +14,12 @@ $pageTitle = "Accomplishment Reports";
 
 // 2. Filter Inputs
 $selectedCompany = $_GET['company_id'] ?? 'all';
-$selectedSection = $_GET['section'] ?? 'all'; // Default to 'all'
+$selectedSection = ($_GET['section'] ?? 'all') === 'all' ? 'all' : normalizeSectionCode($_GET['section']); // Default to 'all'
 $searchQuery     = trim($_GET['search'] ?? '');
 
 $filteredStudents = [];
 $companiesList  = [];
+$defaultSection  = section_course_codes()[0];
 $activeSections = [];
 
 try {
@@ -26,9 +27,10 @@ try {
     $stmtCompanies = $pdo->query("SELECT id, name FROM companies WHERE status = 'active' AND name IS NOT NULL AND name != '' ORDER BY name ASC");
     $companiesList = $stmtCompanies->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // Distinct Sections
-    $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
-    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: ['A', 'B', 'C'];
+    // Distinct course codes
+    $stmtSec = $pdo->prepare("SELECT DISTINCT COALESCE(NULLIF(section, ''), :def) AS sec FROM students ORDER BY sec ASC");
+    $stmtSec->execute(['def' => $defaultSection]);
+    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: section_course_codes();
 
     // 3. Build Query Filters
     $whereClauses = ["u.status = 'active'"];
@@ -40,9 +42,11 @@ try {
     }
 
     if ($selectedSection !== 'all' && $selectedSection !== '') {
-        $whereClauses[] = "COALESCE(s.section, 'A') = :sec";
+        $whereClauses[] = "COALESCE(s.section, :defSection) = :sec";
         $params['sec'] = $selectedSection;
     }
+
+    $params['defSection'] = $defaultSection;
 
     if ($searchQuery !== '') {
         $whereClauses[] = "(LOWER(u.name) LIKE :search_name OR LOWER(s.student_number) LIKE :search_num)";
@@ -58,7 +62,7 @@ try {
             s.id AS student_id,
             s.student_number,
             s.program,
-            COALESCE(s.section, 'A') AS section,
+            COALESCE(s.section, :defSection) AS section,
             u.name AS student_name,
             u.email AS student_email,
             u.avatar_url AS student_avatar,

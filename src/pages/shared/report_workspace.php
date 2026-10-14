@@ -207,7 +207,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                                 <?= htmlspecialchars($student['student_name'] ?? 'Student'); ?>
                             </h1>
                             <p class="text-xs font-semibold text-slate-600">
-                                ID: <?= htmlspecialchars($student['student_number'] ?? '—'); ?> &bull; Section <?= htmlspecialchars($student['section'] ?? '—'); ?> &bull; <strong class="text-slate-900"><?= htmlspecialchars($student['company_name'] ?? 'Host Company'); ?></strong>
+                                ID: <?= htmlspecialchars($student['student_number'] ?? '—'); ?> &bull; <?= htmlspecialchars($student['section'] ?? '—'); ?> &bull; <strong class="text-slate-900"><?= htmlspecialchars($student['company_name'] ?? 'Host Company'); ?></strong>
                             </p>
                         </div>
                     </div>

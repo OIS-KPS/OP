@@ -76,13 +76,13 @@ $exportParamsAll = http_build_query([
                                     <!-- All Sections Export -->
                                     <a href="export_summary.php?format=csv&<?= $exportParamsAll; ?>" class="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors">
                                         <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-                                        <span>Export All Sections (CSV)</span>
+                                        <span>Export All Course Codes (CSV)</span>
                                     </a>
 
                                     <div class="my-1 border-t border-slate-200"></div>
-                                    <div class="px-3 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">Export by Section</div>
+                                    <div class="px-3 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">Export by Course Code</div>
 
-                                    <!-- Dynamic Section Export Links -->
+                                    <!-- Dynamic Course Code Export Links -->
                                     <?php foreach ($activeSections as $sec): 
                                         $secParams = http_build_query([
                                             'week'       => $selectedWeek ?? 'all',
@@ -93,7 +93,7 @@ $exportParamsAll = http_build_query([
                                     ?>
                                         <a href="export_summary.php?format=csv&<?= $secParams; ?>" class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-slate-700 hover:bg-slate-100 font-semibold transition-colors">
                                             <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                                            <span>Section <?= htmlspecialchars($sec); ?> (CSV)</span>
+                                            <span><?= htmlspecialchars($sec); ?> (CSV)</span>
                                         </a>
                                     <?php endforeach; ?>
 
@@ -106,19 +106,19 @@ $exportParamsAll = http_build_query([
                         </div>
                     </div>
 
-                    <!-- Section Tabs Bar (Includes All Sections & Dynamic Section Tabs) -->
+                    <!-- Course Code Tabs Bar (Includes All & the codes actually in use) -->
                     <div class="px-6 pt-4 bg-white border-b border-slate-200/70 flex items-center gap-2 overflow-x-auto">
-                        <span class="text-xs font-bold text-slate-500 mr-2 uppercase tracking-wider">Sections:</span>
+                        <span class="text-xs font-bold text-slate-500 mr-2 uppercase tracking-wider">Course Codes:</span>
                         
                         <a href="approved_reports.php?section=all&company_id=<?= htmlspecialchars($selectedCompany); ?>&search=<?= htmlspecialchars($searchQuery); ?>" class="px-4 py-2 rounded-xl text-xs font-bold transition-all border <?= ($selectedSection === 'all') ? 'bg-[#0F2854] text-white border-[#0F2854] shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'; ?>">
-                            All Sections
+                            All Course Codes
                         </a>
 
                         <?php foreach ($activeSections as $sec): 
                             $isTabActive = ($selectedSection === $sec);
                         ?>
                             <a href="approved_reports.php?section=<?= htmlspecialchars($sec); ?>&company_id=<?= htmlspecialchars($selectedCompany); ?>&search=<?= htmlspecialchars($searchQuery); ?>" class="px-4 py-2 rounded-xl text-xs font-bold transition-all border <?= $isTabActive ? 'bg-[#0F2854] text-white border-[#0F2854] shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'; ?>">
-                                Section <?= htmlspecialchars($sec); ?>
+                                <?= htmlspecialchars($sec); ?>
                             </a>
                         <?php endforeach; ?>
                     </div>
@@ -178,7 +178,7 @@ $exportParamsAll = http_build_query([
                                 <thead>
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
                                         <th class="py-4 px-4">Student Intern</th>
-                                        <th class="py-4 px-4">Section</th>
+                                        <th class="py-4 px-4">Course Code</th>
                                         <th class="py-4 px-4">Host Company &amp; Supervisor</th>
                                         <th class="py-4 px-4">Approved Reports</th>
                                         <th class="py-4 px-4">IT vs Clerical Ratio</th>
@@ -206,10 +206,10 @@ $exportParamsAll = http_build_query([
                                                 </div>
                                             </td>
 
-                                            <!-- Section Badge -->
+                                            <!-- Course Code Badge -->
                                             <td class="py-4 px-4 whitespace-nowrap align-middle">
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
-                                                    Sec <?= htmlspecialchars($student['section'] ?? 'A'); ?>
+                                                    <?= htmlspecialchars($student['section'] ?? 'IT44A'); ?>
                                                 </span>
                                             </td>
 

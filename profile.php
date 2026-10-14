@@ -54,6 +54,7 @@ try {
             'avatar_url'                => null,
             'student_number'            => explode('@', $userEmail)[0] ?? 'N/A',
             'program'                   => 'BSIT',
+            'section'                   => null,
             'company_name'              => null,
             'supervisor_name'           => null,
             'supervisor_email'          => null
@@ -67,6 +68,7 @@ try {
         'student_email'   => $_SESSION['email'] ?? '',
         'student_number'  => 'N/A',
         'program'         => 'BSIT',
+        'section'         => null,
         'company_name'    => null,
         'supervisor_name' => null
     ];

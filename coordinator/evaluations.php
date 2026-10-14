@@ -314,7 +314,9 @@ if (
 
 $selectedCompany = $_GET['company_id'] ?? 'all';
 $selectedStatus  = $_GET['status'] ?? 'all';
-$selectedSection = $_GET['section'] ?? 'all';
+$selectedSection = ($_GET['section'] ?? 'all') === 'all'
+    ? 'all'
+    : normalizeSectionCode($_GET['section']);
 $searchQuery     = trim($_GET['search'] ?? '');
 $viewEvalId      = isset($_GET['view_id'])
     ? intval($_GET['view_id'])
@@ -322,6 +324,7 @@ $viewEvalId      = isset($_GET['view_id'])
 
 $filteredEvals   = [];
 $companiesList   = [];
+$defaultSection  = section_course_codes()[0];
 $activeSections  = [];
 $eligibleStudents = [];
 $activeEval      = null;
@@ -356,18 +359,20 @@ try {
 
 
     /*
-     * Distinct Sections
+     * Distinct Course Codes
      */
-    $stmtSec = $pdo->query("
+    $stmtSec = $pdo->prepare("
         SELECT DISTINCT
-            COALESCE(NULLIF(section, ''), 'A') AS sec
+            COALESCE(NULLIF(section, ''), :def) AS sec
         FROM students
         ORDER BY sec ASC
     ");
 
+    $stmtSec->execute(['def' => $defaultSection]);
+
     $activeSections =
         $stmtSec->fetchAll(PDO::FETCH_COLUMN)
-        ?: ['A', 'B', 'C'];
+        ?: section_course_codes();
 
 
     /*
@@ -443,6 +448,9 @@ try {
     $whereSql =
         "WHERE " . implode(' AND ', $whereClauses);
 
+    $params['defSection'] =
+        $defaultSection;
+
 
     /*
      * Main Evaluation Query
@@ -456,7 +464,7 @@ try {
             s.completion_requested,
             s.evaluation_triggered,
 
-            COALESCE(s.section, 'A') AS section,
+            COALESCE(s.section, :defSection) AS section,
 
             u.name AS student_name,
             u.email AS student_email,

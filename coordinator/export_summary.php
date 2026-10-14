@@ -11,11 +11,12 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
 
 $format          = strtolower(trim($_GET['format'] ?? 'csv'));
 $selectedCompany = $_GET['company_id'] ?? 'all';
-$selectedSection = $_GET['section'] ?? 'all';
+$selectedSection = ($_GET['section'] ?? 'all') === 'all' ? 'all' : normalizeSectionCode($_GET['section']);
 $searchQuery     = trim($_GET['search'] ?? '');
+$defaultSection  = section_course_codes()[0];
 
 $whereClauses = ["u.status = 'active'"];
-$params = [];
+$params = ['defSection' => $defaultSection];
 
 if ($selectedCompany !== 'all' && is_numeric($selectedCompany) && intval($selectedCompany) > 0) {
     $whereClauses[] = "c.id = :comp_id";
@@ -23,7 +24,7 @@ if ($selectedCompany !== 'all' && is_numeric($selectedCompany) && intval($select
 }
 
 if ($selectedSection !== 'all' && $selectedSection !== '') {
-    $whereClauses[] = "COALESCE(s.section, 'A') = :sec";
+    $whereClauses[] = "COALESCE(s.section, :defSection) = :sec";
     $params['sec'] = $selectedSection;
 }
 
@@ -41,7 +42,7 @@ $sql = "
         s.id AS student_id,
         s.student_number,
         s.program,
-        COALESCE(s.section, 'A') AS section,
+        COALESCE(s.section, :defSection) AS section,
         u.name AS student_name,
         COALESCE(c.name, 'Host Company') AS company_name,
         o.name AS office_name,
@@ -97,18 +98,18 @@ if ($format === 'csv') {
         }
     }
 
-    $filenameSuffix = ($selectedSection !== 'all') ? 'Section_' . $selectedSection : 'All_Sections';
+    $filenameSuffix = ($selectedSection !== 'all') ? $selectedSection : 'All_Course_Codes';
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=OJT_Performance_' . $filenameSuffix . '_' . date('Y-m-d') . '.csv');
 
     $output = fopen('php://output', 'w');
     fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
-    fputcsv($output, ['Section', 'Student Name', 'Student ID', 'Host Company', 'Office', 'Approved Reports', 'IT Percentage (%)', 'Clerical Percentage (%)']);
+    fputcsv($output, ['Course Code', 'Student Name', 'Student ID', 'Host Company', 'Office', 'Approved Reports', 'IT Percentage (%)', 'Clerical Percentage (%)']);
 
     foreach ($studentsData as $st) {
         fputcsv($output, [
-            'Section ' . $st['section'],
+            $st['section'],
             csvSafe($st['student_name']),
             csvSafe($st['student_number']),
             csvSafe($st['company_name']),
@@ -149,7 +150,7 @@ if ($format === 'csv') {
 
     <div class="header">
         <div>
-            <h1>OJT Student Performance Summary <?= ($selectedSection !== 'all') ? '— Section ' . htmlspecialchars($selectedSection) : '— All Sections'; ?></h1>
+            <h1>OJT Student Performance Summary <?= ($selectedSection !== 'all') ? '— ' . htmlspecialchars($selectedSection) : '— All Course Codes'; ?></h1>
             <p>NBSC &bull; Institute for Computer Studies &bull; Total Students: <?= count($studentsData); ?></p>
         </div>
         <div style="text-align: right;">
@@ -160,7 +161,7 @@ if ($format === 'csv') {
     <table>
         <thead>
             <tr>
-                <th>Section</th>
+                <th>Course Code</th>
                 <th>Student Intern</th>
                 <th>Host Partner &amp; Supervisor</th>
                 <th>Approved Reports</th>
@@ -173,7 +174,7 @@ if ($format === 'csv') {
             <?php else: ?>
                 <?php foreach ($studentsData as $st): ?>
                     <tr>
-                        <td><strong>Sec <?= htmlspecialchars($st['section']); ?></strong></td>
+                        <td><strong><?= htmlspecialchars($st['section']); ?></strong></td>
                         <td>
                             <strong><?= htmlspecialchars($st['student_name']); ?></strong><br>
                             <span style="color: #64748b; font-size: 10px;">ID: <?= htmlspecialchars($st['student_number']); ?> &bull; <?= htmlspecialchars($st['program']); ?></span>

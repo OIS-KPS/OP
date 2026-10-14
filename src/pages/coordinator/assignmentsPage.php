@@ -81,7 +81,7 @@
                                 <div class="relative inline-block text-left">
                                     <div class="inline-flex items-center">
                                         <button type="button" id="allFilterTab" onclick="filterByStatus('all', this)" class="filter-tab px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]">
-                                            <span>All Interns<?= ($selectedSection ?? 'all') !== 'all' ? ' · Sec ' . htmlspecialchars($selectedSection) : ''; ?></span>
+                                            <span>All Interns<?= ($selectedSection ?? 'all') !== 'all' ? ' · ' . htmlspecialchars($selectedSection) : ''; ?></span>
                                             <span class="ml-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white"><?= count($students ?? []); ?></span>
                                         </button>
                                         <button type="button" onclick="toggleSectionsMenu(event)" class="px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 border-[#0F2854] bg-[#0F2854] text-white" aria-label="Toggle sections">
@@ -91,11 +91,11 @@
 
                                     <div id="sectionsMenu" class="hidden absolute left-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-300 z-50 text-xs overflow-hidden p-1.5">
                                         <a href="assignments.php?section=all" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? 'all') === 'all' ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
-                                            All Sections
+                                            All Course Codes
                                         </a>
                                         <?php foreach ($activeSections as $sec): ?>
                                             <a href="assignments.php?section=<?= urlencode($sec); ?>" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? '') === $sec ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
-                                                Section <?= htmlspecialchars($sec); ?>
+                                                <?= htmlspecialchars($sec); ?>
                                             </a>
                                         <?php endforeach; ?>
                                     </div>
@@ -151,7 +151,7 @@
                                 <thead>
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
                                         <th class="py-4 px-4">Student Intern</th>
-                                        <th class="py-4 px-4">Section</th>
+                                        <th class="py-4 px-4">Course Code</th>
                                         <th class="py-4 px-4">Status</th>
                                         <th class="py-4 px-4">Company</th>
                                         <th class="py-4 px-4">Supervisor</th>
@@ -184,10 +184,10 @@
                                                 </div>
                                             </td>
 
-                                            <!-- Section Badge -->
+                                            <!-- Course Code Badge -->
                                             <td class="py-4 px-4 whitespace-nowrap align-middle">
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
-                                                    Section <?= htmlspecialchars($s['section'] ?? 'A'); ?>
+                                                    <?= htmlspecialchars($s['section'] ?? 'IT44A'); ?>
                                                 </span>
                                             </td>
 
@@ -260,7 +260,7 @@
                                 👥
                             </div>
                             <h4 class="text-sm font-black text-slate-900">No students found</h4>
-                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">There are no registered students in this section.</p>
+                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">There are no registered students under this course code.</p>
                         </div>
                     <?php endif; ?>
 
@@ -294,7 +294,7 @@
                         <?php foreach ($students as $s): 
                             $optStatus = (!empty($s['company_id']) && !empty($s['supervisor_id'])) ? 'Assigned' : 'Not Assigned';
                         ?>
-                            <option value="<?= $s['id']; ?>"><?= htmlspecialchars($s['name']); ?> (Sec <?= htmlspecialchars($s['section'] ?? 'A'); ?> - ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?> - <?= $optStatus; ?>)</option>
+                            <option value="<?= $s['id']; ?>"><?= htmlspecialchars($s['name']); ?> (<?= htmlspecialchars($s['section'] ?? 'IT44A'); ?> - ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?> - <?= $optStatus; ?>)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
