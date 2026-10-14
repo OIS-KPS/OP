@@ -553,14 +553,12 @@ function saveExtractedEntities(
                 entity_name,
                 canonical_name,
                 category,
-                activity_type,
                 it_related,
                 source,
                 confidence_score
             )
             VALUES
             (
-                ?,
                 ?,
                 ?,
                 ?,
@@ -598,7 +596,6 @@ function saveExtractedEntities(
                 $normalized['entity_name'],
                 $normalized['canonical_name'],
                 $normalized['category'],
-                $normalized['activity_type'],
                 $normalized['it_related'],
                 $normalized['source'],
                 $normalized['confidence_score']
