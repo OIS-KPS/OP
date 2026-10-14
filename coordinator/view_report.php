@@ -406,25 +406,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newItRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
         if ($entityId > 0) {
             try {
-                // Marking source = 'manual_addition' is what makes an attribution badge appear,
-                // and it also makes the row survive the next extraction run: the
-                // extraction DELETE skips manual additions, so a coordinator
-                // decision is never overwritten by the model.
-                //
-                // reclassified_at separates the two coordinator actions. Stamping
-                // it here is what makes the card read "Coordinator Reclassified"
-                // instead of "Coordinator Added": the term already existed, the
-                // coordinator corrected it. Add Entity leaves the column NULL,
-                // because that really is a term typed in from nothing.
-                $stmtUpd = $pdo->prepare("UPDATE report_entities
-                                              SET it_related = ?, source = 'manual_addition',
-                                                  reclassified_at = NOW()
-                                              WHERE id = ?
-                                                AND report_id IN (SELECT id FROM reports WHERE student_id = ?)");
-                $stmtUpd->execute([$newItRelated, $entityId, $studentId]);
-                if ($stmtUpd->rowCount() === 0) {
+                // Read the value actually stored, scoped to this student. Without
+                // it there is no way to tell a real change from a re-confirmation
+                // of the value already in place.
+                $stmtCur = $pdo->prepare(
+                    "SELECT re.id, re.it_related, re.original_it_related
+                     FROM report_entities re
+                     JOIN reports r ON r.id = re.report_id
+                     WHERE re.id = ? AND r.student_id = ?
+                     LIMIT 1"
+                );
+                $stmtCur->execute([$entityId, $studentId]);
+                $current = $stmtCur->fetch(PDO::FETCH_ASSOC);
+
+                if (!$current) {
                     $_SESSION['flash_error'] = 'That entity does not belong to this student report.';
+                } elseif ((string)$current['it_related'] === $newItRelated) {
+                    // Nothing actually changed. Stamping here would permanently
+                    // label an untouched entity as reclassified, which is worse
+                    // than doing nothing at all.
+                    $_SESSION['flash_error'] = 'That is already the current classification.';
                 } else {
+                    // source = 'manual_addition' is what makes an attribution badge
+                    // appear, and it also makes the row survive the next extraction
+                    // run: the extraction DELETE skips manual additions, so a
+                    // coordinator decision is never overwritten by the model.
+                    //
+                    // original_it_related is captured once via COALESCE, on the first
+                    // real change. The card compares it against it_related, so a
+                    // coordinator who puts the term back the way the extractor found
+                    // it stops being shown as reclassified.
+                    //
+                    // Add Entity leaves both columns NULL, because a term typed in
+                    // from nothing has no extracted value to compare against.
+                    $stmtUpd = $pdo->prepare("UPDATE report_entities
+                                              SET original_it_related = COALESCE(original_it_related, it_related),
+                                                  it_related = ?, source = 'manual_addition',
+                                                  reclassified_at = NOW()
+                                              WHERE id = ?");
+                    $stmtUpd->execute([$newItRelated, $entityId]);
+
                     $_SESSION['flash_success'] = 'Entity classification updated successfully.';
                 }
             } catch (Throwable $e) {
