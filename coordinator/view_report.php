@@ -250,9 +250,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // the IT percentage in this panel and in CQI reporting.
         $itRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
 
-        // activity_type stays populated for the reporting queries, which all
-        // compute IT as activity_type != 'Clerical'. Software vs Hardware is
-        // never distinguished downstream, so IT collapses to 'Other'.
+        // report_entities no longer stores activity_type; it_related is the single
+        // classification column and every reporting query computes IT as
+        // it_related != 'no'. This value is only for the optional dictionary
+        // write below, because predefined_entities still has the column.
         $activityType = ($itRelated === 'no') ? 'Clerical' : 'Other';
         $category = 'Other';
 
@@ -283,8 +284,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($existing) {
                     if ((int)$existing['is_archived'] === 1) {
                         // If it was previously archived, restore it instead of creating a duplicate!
-                        $stmtRestore = $pdo->prepare('UPDATE report_entities SET is_archived = 0, activity_type = ?, it_related = ? WHERE id = ?');
-                        $stmtRestore->execute([$activityType, $itRelated, $existing['id']]);
+                        $stmtRestore = $pdo->prepare('UPDATE report_entities SET is_archived = 0, it_related = ? WHERE id = ?');
+                        $stmtRestore->execute([$itRelated, $existing['id']]);
                         $reportEntitySaved = true;
                         $_SESSION['flash_success'] = 'Entity was in archive and has been successfully restored!';
                     } else {
@@ -295,10 +296,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmtInsert = $pdo->prepare(
                         'INSERT INTO report_entities
                             (report_id, entity_name, canonical_name, category,
-                             activity_type, it_related, source, confidence_score, is_archived)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
+                             it_related, source, confidence_score, is_archived)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 0)'
                     );
-                    $stmtInsert->execute([$targetReportId, $entityName, $entityName, $category, $activityType, $itRelated, 'manual_addition', 100.00]);
+                    $stmtInsert->execute([$targetReportId, $entityName, $entityName, $category, $itRelated, 'manual_addition', 100.00]);
                     $reportEntitySaved = true;
                     $_SESSION['flash_success'] = 'Missing entity added successfully.';
                 }
@@ -398,16 +399,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Two choices only: IT Related or Clerical. Software/Hardware are not
         // selectable because no reporting query distinguishes them -- IT is
-        // computed as activity_type != 'Clerical'.
+        // computed as it_related != 'no'.
         $newItRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
         if ($entityId > 0) {
             try {
-                $newActivityType = ($newItRelated === 'no') ? 'Clerical' : 'Other';
                 $stmtUpd = $pdo->prepare("UPDATE report_entities
-                                              SET activity_type = ?, it_related = ?
+                                              SET it_related = ?
                                               WHERE id = ?
                                                 AND report_id IN (SELECT id FROM reports WHERE student_id = ?)");
-                $stmtUpd->execute([$newActivityType, $newItRelated, $entityId, $studentId]);
+                $stmtUpd->execute([$newItRelated, $entityId, $studentId]);
                 if ($stmtUpd->rowCount() === 0) {
                     $_SESSION['flash_error'] = 'That entity does not belong to this student report.';
                 } else {
