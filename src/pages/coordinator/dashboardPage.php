@@ -72,8 +72,9 @@ $evaluationCoverageView = round($evaluationCoverageView, 1);
 $totalReportsView = (int) ($totalReports ?? 0);
 $reportsWithEntitiesView = (int) ($totalReportsWithEntities ?? 0);
 $confidenceView = (float) ($spacyConfidence ?? 0);
-$topCategoryView = (string) ($topCategoryName ?? 'No data');
-$topCategoryOccurrencesView = (int) ($topCategoryOccurrences ?? 0);
+// The "top category" figures were assigned here but never rendered, and with
+// category reduced to a mirror of classification they only restated the
+// IT/Clerical split shown above them.
 $highestItCompanyView = is_array($highestItCompany ?? null) ? $highestItCompany : null;
 $lowestItCompanyView = is_array($lowestItCompany ?? null) ? $lowestItCompany : null;
 $entityPriorityRowsView = is_array($entityPrioritySummary ?? null) ? $entityPrioritySummary : [];
@@ -193,7 +194,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                             <div class="flex items-center gap-1.5 text-[10px] font-bold">
                                 <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">High ≥ 80%</span>
                                 <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">Mod 60–79%</span>
-                                <span class="px-2 py-0.5 rounded-md bg-red-100 text-red-900 border border-red-300">Low &lt; 60%</span>
+                                <span class="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-300">Low &lt; 60%</span>
                             </div>
                         </div>
                         <div class="h-60 relative">
@@ -216,7 +217,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                 <span class="font-bold text-slate-700"><?= number_format($technicalActivityPct, 1); ?>%</span>
                             </div>
                             <div class="flex items-center justify-between font-semibold text-slate-700 text-[11px]">
-                                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Clerical / Non-IT</span>
+                                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Clerical / Non-IT</span>
                                 <span class="font-bold text-slate-700"><?= number_format($clericalActivityPct, 1); ?>%</span>
                             </div>
                         </div>
@@ -239,7 +240,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                     <span class="w-2.5 h-2.5 rounded-full bg-[#0F2854]"></span> Technical
                                 </span>
                                 <span class="flex items-center gap-1.5 text-slate-700">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Clerical
+                                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Clerical
                                 </span>
                             </div>
 
@@ -258,12 +259,9 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                     <option value="clerical">Clerical</option>
                                 </select>
 
-                                <select id="catFilter" onchange="renderEntityChart()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] text-slate-700 font-medium focus:outline-none focus:border-[#0F2854]">
-                                    <option value="all">All Categories</option>
-                                    <?php foreach (array_keys($categoryCounts) as $cat): ?>
-                                        <option value="<?= htmlspecialchars(strtolower($cat)); ?>"><?= htmlspecialchars($cat); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <?php /* No category filter. category now mirrors it_related, so this
+                                         dropdown offered the same two choices as the Type filter
+                                         directly beside it, under extractor jargon (IT_TERM). */ ?>
 
                                 <div class="flex items-center gap-1">
                                     <input type="date" id="dateFilter" onchange="renderEntityChart()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] text-slate-700 font-medium">
@@ -321,7 +319,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                 <?php if ($highestItCompanyView): ?>
                                     <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
                                         <span class="mt-1 text-slate-500">•</span>
-                                        <span>The company with the highest IT-related task ratio is <strong><?= htmlspecialchars((string) $highestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></strong> at <strong class="text-emerald-700"><?= number_format((float) $highestItCompanyView['it_task_ratio'], 1); ?>%</strong>, based on <?= (int) $highestItCompanyView['it_related_occurrences']; ?> of <?= (int) $highestItCompanyView['entity_occurrences']; ?> verified entity occurrences.</span>
+                                        <span>The company with the highest IT-related task ratio is <strong><?= htmlspecialchars((string) $highestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></strong> at <strong class="text-[#0F2854]"><?= number_format((float) $highestItCompanyView['it_task_ratio'], 1); ?>%</strong>, based on <?= (int) $highestItCompanyView['it_related_occurrences']; ?> of <?= (int) $highestItCompanyView['entity_occurrences']; ?> verified entity occurrences.</span>
                                     </p>
                                 <?php else: ?>
                                     <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700"><span class="mt-1 text-slate-500">•</span><span>No company currently has enough extracted-entity evidence for an IT-task comparison.</span></p>
@@ -330,7 +328,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                 <?php if ($lowestItCompanyView): ?>
                                     <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
                                         <span class="mt-1 text-slate-500">•</span>
-                                        <span>The company with the lowest IT-related task ratio is <strong><?= htmlspecialchars((string) $lowestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></strong> at <strong class="text-amber-700"><?= number_format((float) $lowestItCompanyView['it_task_ratio'], 1); ?>%</strong>, based on <?= (int) $lowestItCompanyView['it_related_occurrences']; ?> of <?= (int) $lowestItCompanyView['entity_occurrences']; ?> verified entity occurrences.</span>
+                                        <span>The company with the lowest IT-related task ratio is <strong><?= htmlspecialchars((string) $lowestItCompanyView['name'], ENT_QUOTES, 'UTF-8'); ?></strong> at <strong class="text-slate-600"><?= number_format((float) $lowestItCompanyView['it_task_ratio'], 1); ?>%</strong>, based on <?= (int) $lowestItCompanyView['it_related_occurrences']; ?> of <?= (int) $lowestItCompanyView['entity_occurrences']; ?> verified entity occurrences.</span>
                                     </p>
                                 <?php endif; ?>
 
@@ -374,14 +372,14 @@ $cqiStatusClassView = match ($cqiStatusView) {
 
                                 <?php if ($cqiGapsView): ?>
                                     <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
-                                        <span class="mt-1 text-rose-600">•</span>
+                                        <span class="mt-1 text-slate-400">•</span>
                                         <span><strong>Priority gap:</strong> <?= htmlspecialchars(implode(' ', array_map(static fn ($gap): string => (string) $gap, $cqiGapsView)), ENT_QUOTES, 'UTF-8'); ?></span>
                                     </p>
                                 <?php endif; ?>
 
                                 <p class="flex min-w-0 items-start gap-2 leading-6 text-slate-700">
-                                    <span class="mt-1 text-rose-600">•</span>
-                                    <span><strong class="text-rose-700">Action Plan:</strong> <?= htmlspecialchars($cqiOverallRecommendationView !== '' ? $cqiOverallRecommendationView : 'Use the next academic CQI cycle to verify evaluation completion, improve report extraction coverage, compare company IT-task exposure, and review entity classifications against the program learning outcomes.', ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="mt-1 text-slate-400">•</span>
+                                    <span><strong class="text-[#0F2854]">Action Plan:</strong> <?= htmlspecialchars($cqiOverallRecommendationView !== '' ? $cqiOverallRecommendationView : 'Use the next academic CQI cycle to verify evaluation completion, improve report extraction coverage, compare company IT-task exposure, and review entity classifications against the program learning outcomes.', ENT_QUOTES, 'UTF-8'); ?></span>
                                 </p>
                             </div>
                         </div>
@@ -497,7 +495,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                         Number(<?= json_encode($technicalActivityPct); ?>),
                         Number(<?= json_encode($clericalActivityPct); ?>)
                     ],
-                    backgroundColor: ['#0F2854', '#F43F5E'],
+                    backgroundColor: ['#0F2854', '#94A3B8'],
                     borderWidth: 2,
                     borderColor: '#ffffff'
                 }]
@@ -520,6 +518,37 @@ $cqiStatusClassView = match ($cqiStatusView) {
         }
 
         // Custom Chart.js plugin to draw background bands and category indicator labels for each category group
+        function computeEntityGroups(items) {
+            const groups = [];
+            let current = null;
+
+            items.forEach((item, index) => {
+                // Keyed on classification alone. category used to be part of the key,
+                // which let a stale value put a clerical term inside a band
+                // labelled IT_TERM. it_related is the source of truth, so the
+                // chart reads from it and never from the mirrored column.
+                const key = item.classification;
+
+                if (!current || current.key !== key) {
+                    if (current) groups.push(current);
+                    current = {
+                        key: key,
+                        classification: item.classification,
+                        category: item.category,
+                        startIndex: index,
+                        endIndex: index,
+                        totalFreq: item.frequency
+                    };
+                } else {
+                    current.endIndex = index;
+                    current.totalFreq += item.frequency;
+                }
+            });
+            if (current) groups.push(current);
+
+            return groups;
+        }
+
         const categoryGroupIndicatorPlugin = {
             id: 'categoryGroupIndicator',
             beforeDraw(chart) {
@@ -528,26 +557,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                 if (!items || items.length === 0 || !y || !chartArea) return;
 
                 const { top, bottom } = chartArea;
-
-                // Identify contiguous category groups
-                const groups = [];
-                let currentGroup = null;
-
-                items.forEach((item, index) => {
-                    if (!currentGroup || currentGroup.category !== item.category) {
-                        if (currentGroup) groups.push(currentGroup);
-                        currentGroup = {
-                            category: item.category,
-                            startIndex: index,
-                            endIndex: index,
-                            totalFreq: item.frequency
-                        };
-                    } else {
-                        currentGroup.endIndex = index;
-                        currentGroup.totalFreq += item.frequency;
-                    }
-                });
-                if (currentGroup) groups.push(currentGroup);
+                const groups = computeEntityGroups(items);
 
                 ctx.save();
                 const step = items.length > 1 ? (bottom - top) / items.length : bottom - top;
@@ -563,9 +573,9 @@ $cqiStatusClassView = match ($cqiStatusView) {
                     ctx.fillStyle = isEven ? '#F8FAFC' : '#F1F5F9';
                     ctx.beginPath();
                     if (ctx.roundRect) {
-                        ctx.roundRect(4, topY, chart.width - 8, groupHeight, 8);
+                        ctx.roundRect(4, topY, chartArea.right - 8, groupHeight, 8);
                     } else {
-                        ctx.rect(4, topY, chart.width - 8, groupHeight);
+                        ctx.rect(4, topY, chartArea.right - 8, groupHeight);
                     }
                     ctx.fill();
 
@@ -578,6 +588,22 @@ $cqiStatusClassView = match ($cqiStatusView) {
                         ctx.rect(4, topY + 4, 3, groupHeight - 8);
                     }
                     ctx.fill();
+
+                    // 3. Full-width rule where the classification block changes.
+                    //    Technical and Clerical terms are grouped separately, so
+                    //    the boundary is marked rather than left to be inferred.
+                    const next = groups[gIdx + 1];
+                    if (next && next.classification !== group.classification) {
+                        const ruleY = y.getPixelForValue(group.endIndex) + halfStep;
+                        ctx.strokeStyle = '#CBD5E1';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 3]);
+                        ctx.beginPath();
+                        ctx.moveTo(4, ruleY);
+                        ctx.lineTo(chartArea.right - 4, ruleY);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
                 });
                 ctx.restore();
             },
@@ -587,25 +613,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                 if (!items || items.length === 0 || !y || !chartArea) return;
 
                 const { top, bottom } = chartArea;
-
-                const groups = [];
-                let currentGroup = null;
-
-                items.forEach((item, index) => {
-                    if (!currentGroup || currentGroup.category !== item.category) {
-                        if (currentGroup) groups.push(currentGroup);
-                        currentGroup = {
-                            category: item.category,
-                            startIndex: index,
-                            endIndex: index,
-                            totalFreq: item.frequency
-                        };
-                    } else {
-                        currentGroup.endIndex = index;
-                        currentGroup.totalFreq += item.frequency;
-                    }
-                });
-                if (currentGroup) groups.push(currentGroup);
+                const groups = computeEntityGroups(items);
 
                 ctx.save();
                 const step = items.length > 1 ? (bottom - top) / items.length : bottom - top;
@@ -614,13 +622,14 @@ $cqiStatusClassView = match ($cqiStatusView) {
                 groups.forEach((group) => {
                     const topY = y.getPixelForValue(group.startIndex) - halfStep + 2;
 
-                    // Draw Category Indicator Badge in top-right of group band
-                    const badgeText = `📁 ${group.category} (${group.totalFreq}x)`;
+                    // Band badge, anchored to the plot area's right edge. It used
+                    // to hang off chart.width, which drifts it over the bars.
+                    const badgeText = `${group.classification} · ${group.totalFreq}x`;
                     ctx.font = '600 10px Inter, sans-serif';
                     const textMetrics = ctx.measureText(badgeText);
                     const badgeWidth = textMetrics.width + 16;
                     const badgeHeight = 20;
-                    const badgeX = chart.width - badgeWidth - 14;
+                    const badgeX = chartArea.right - badgeWidth - 8;
                     const badgeY = topY + 6;
 
                     // Pill background
@@ -652,7 +661,6 @@ $cqiStatusClassView = match ($cqiStatusView) {
 
             const company = document.getElementById('companyFilter').value;
             const type = document.getElementById('typeFilter').value;
-            const cat = document.getElementById('catFilter').value;
             const date = document.getElementById('dateFilter').value;
 
             // Filter raw data
@@ -660,13 +668,56 @@ $cqiStatusClassView = match ($cqiStatusView) {
                 const itemComp = (item.company || '').toLowerCase();
                 const matchComp = (company === 'all' || itemComp === company.toLowerCase());
                 const matchType = (type === 'all' || item.classification.toLowerCase() === type.toLowerCase());
-                const matchCat = (cat === 'all' || item.category.toLowerCase() === cat.toLowerCase());
                 const matchDate = (!date || item.date === date);
-                return matchComp && matchType && matchCat && matchDate;
+                return matchComp && matchType && matchDate;
             });
 
-            // Group filtered items by category so contiguous categories stay together
-            filtered.sort((a, b) => a.category.localeCompare(b.category));
+            // Collapse the same term seen across several reports into one bar, so the
+            // length of the bar is the term's TOTAL occurrences rather than one
+            // arbitrary row per report. Keyed on the term and its
+            // classification only -- category is a mirror of classification now,
+            // so including it would split a term into duplicate bars.
+            const merged = new Map();
+            filtered.forEach(item => {
+                const key = (item.entity || '').toLowerCase()
+                    + '|' + (item.classification || '').toLowerCase();
+
+                if (!merged.has(key)) {
+                    merged.set(key, {
+                        entity: item.entity,
+                        category: item.category,
+                        classification: item.classification,
+                        frequency: 0,
+                        companies: new Set(),
+                        dates: []
+                    });
+                }
+
+                const row = merged.get(key);
+                row.frequency += item.frequency;
+                if (item.company) row.companies.add(item.company);
+                if (item.date && !row.dates.includes(item.date)) {
+                    row.dates.push(item.date);
+                }
+            });
+            filtered = Array.from(merged.values());
+
+            // Technical first, then Clerical. Plain alphabetical order would put
+            // "Clerical" above "Technical", which buries the IT block that
+            // carries the headline metric.
+            const classificationRank = item =>
+                String(item.classification || '').toLowerCase() === 'clerical' ? 1 : 0;
+
+            // Classification first so every IT term sits in one block and every
+            // clerical term in the other, then category inside each block, then
+            // frequency descending. Grouping by category alone used to leave a
+            // Clerical term stranded between Technical ones inside an "IT_TERM"
+            // band.
+            filtered.sort((a, b) =>
+                (classificationRank(a) - classificationRank(b))
+                || a.category.localeCompare(b.category)
+                || b.frequency - a.frequency
+            );
 
             const wrapper = document.getElementById('entityChartWrapper');
             const emptyState = document.getElementById('entityEmptyState');
@@ -695,12 +746,12 @@ $cqiStatusClassView = match ($cqiStatusView) {
                 type: 'bar',
                 plugins: [categoryGroupIndicatorPlugin],
                 data: {
-                    labels: filtered.map(item => [item.entity, `${item.category} • ${item.company ? item.company + ' • ' : ''}${item.date}`]),
+                    labels: filtered.map(item => item.entity),
                     datasets: [{
-                        label: 'Frequency',
+                        label: 'Total occurrences',
                         data: filtered.map(item => item.frequency),
-                        backgroundColor: filtered.map(item => item.classification.toLowerCase() === 'technical' ? '#0F2854' : '#F43F5E'),
-                        hoverBackgroundColor: filtered.map(item => item.classification.toLowerCase() === 'technical' ? '#0F2854' : '#F43F5E'),
+                        backgroundColor: filtered.map(item => item.classification.toLowerCase() === 'technical' ? '#0F2854' : '#94A3B8'),
+                        hoverBackgroundColor: filtered.map(item => item.classification.toLowerCase() === 'technical' ? '#0F2854' : '#94A3B8'),
                         borderRadius: 6,
                         barThickness: 22
                     }]
@@ -727,12 +778,14 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                 },
                                 label: function(context) {
                                     const item = filtered[context.dataIndex];
+                                    const companies = item.companies.size
+                                        ? Array.from(item.companies).join(', ')
+                                        : 'N/A';
                                     return [
-                                        ` Frequency: ${item.frequency}x`,
-                                        ` Company: ${item.company || 'N/A'}`,
-                                        ` Category: ${item.category}`,
-                                        ` Classification: ${item.classification}`,
-                                        ` Date: ${item.date}`
+                                        ` Total occurrences: ${item.frequency}x`,
+                                        ` Companies: ${item.companies.size} (${companies})`,
+                                        ` Reports: ${item.dates.length}`,
+                                        ` Type: ${item.classification}`
                                     ];
                                 }
                             }

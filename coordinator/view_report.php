@@ -250,12 +250,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // the IT percentage in this panel and in CQI reporting.
         $itRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
 
-        // report_entities no longer stores activity_type; it_related is the single
-        // classification column and every reporting query computes IT as
-        // it_related != 'no'. This value is only for the optional dictionary
-        // write below, because predefined_entities still has the column.
+        // report_entities stores two classification fields: it_related (the source of
+        // truth, read by every reporting query) and category (used for grouping
+        // and filtering). They are kept in lockstep here so a manually added
+        // term can never end up labelled IT_TERM while it_related says
+        // Clerical, which is what put a clerical term inside an IT band on the
+        // CQI frequency chart.
         $activityType = ($itRelated === 'no') ? 'Clerical' : 'Other';
-        $category = 'Other';
+        $category = ($itRelated === 'no') ? 'CLERICAL_TERM' : 'IT_TERM';
 
         // The modal has always posted an Aliases field but nothing ever read it.
         // report_entities has no aliases column, so it is only used below for the
@@ -461,14 +463,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // coordinator who puts the term back the way the extractor found
                     // it stops being shown as reclassified.
                     //
-                    // Add Entity leaves both columns NULL, because a term typed in
-                    // from nothing has no extracted value to compare against.
+                    // category is rewritten from the same value so it can never drift
+                    // away from it_related. It is bound twice rather than derived in
+                    // PHP so the CASE and the assignment cannot disagree.
+                    //
+                    // Add Entity leaves both original columns NULL, because a term
+                    // typed in from nothing has no extracted value to compare against.
                     $stmtUpd = $pdo->prepare("UPDATE report_entities
                                               SET original_it_related = COALESCE(original_it_related, it_related),
                                                   it_related = ?, source = 'manual_addition',
-                                                  reclassified_at = NOW()
+                                                  reclassified_at = NOW(),
+                                                  category = CASE WHEN ? = 'no' THEN 'CLERICAL_TERM' ELSE 'IT_TERM' END
                                               WHERE id = ?");
-                    $stmtUpd->execute([$newItRelated, $entityId]);
+                    $stmtUpd->execute([$newItRelated, $newItRelated, $entityId]);
 
                     $_SESSION['flash_success'] = 'Entity classification updated successfully.';
                 }
