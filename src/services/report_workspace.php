@@ -142,7 +142,7 @@ if (!function_exists('reportWorkspaceLoadEntities')) {
         $stmtAll = $pdo->prepare(
             "SELECT
                 re.id, re.report_id, re.entity_name, re.canonical_name, re.category,
-                re.it_related, re.source, re.confidence_score, re.created_at,
+                re.it_related, re.source, re.reclassified_at, re.confidence_score, re.created_at,
                 r.week_number
              FROM report_entities re
              JOIN reports r ON re.report_id = r.id
