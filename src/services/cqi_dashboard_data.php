@@ -70,7 +70,7 @@ try {
     $stmt = $pdo->query(
         "SELECT COALESCE(
             ROUND(
-                100 * SUM(CASE WHEN re.activity_type <> 'Clerical' THEN 1 ELSE 0 END)
+                100 * SUM(CASE WHEN re.it_related <> 'no' THEN 1 ELSE 0 END)
                 / NULLIF(COUNT(*), 0),
                 2
             ),
@@ -184,7 +184,7 @@ try {
             COALESCE(NULLIF(re.category, ''), 'Other') AS category,
             COUNT(*) AS frequency,
             CASE
-                WHEN re.activity_type = 'Clerical' THEN 'Clerical'
+                WHEN re.it_related = 'no' THEN 'Clerical'
                 ELSE 'Technical'
             END AS classification,
             COALESCE(c.name, 'Unassigned') AS company,
@@ -197,7 +197,7 @@ try {
          GROUP BY
             re.entity_name,
             re.category,
-            re.activity_type,
+            re.it_related,
             c.id,
             c.name,
             DATE(r.submitted_at)
