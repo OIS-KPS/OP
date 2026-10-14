@@ -261,7 +261,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // report_entities has no aliases column, so it is only used below for the
         // optional dictionary write -- where aliases do matter, because they are
         // what the Python extractor matches against.
+        //
+        // The form asks for commas because that is what people type, but the
+        // extractor splits aliases on the pipe character. Normalise here so the
+        // two can never disagree: commas, semicolons and pipes are all treated
+        // as separators, runs of whitespace collapse, empty segments are
+        // dropped, and the result is deduplicated case-insensitively.
         $aliases = trim((string) ($_POST['aliases'] ?? ''));
+        if ($aliases !== '') {
+            $parts = preg_split('/[;,|]+/', $aliases) ?: [];
+            $seen = [];
+            $clean = [];
+            foreach ($parts as $part) {
+                $part = trim(preg_replace('/\s+/', ' ', $part) ?? '');
+                if ($part === '') {
+                    continue;
+                }
+                $key = strtolower($part);
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $clean[] = $part;
+            }
+            $aliases = implode(' | ', $clean);
+        }
 
         // Opt-in: off by default. A term reaches the global dictionary only when
         // the coordinator deliberately ticks the box, because a dictionary entry
