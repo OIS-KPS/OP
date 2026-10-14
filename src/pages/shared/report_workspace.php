@@ -438,10 +438,27 @@ function workspaceItFlag(array $entity, string $activityType): string
                                                 <p class="font-extrabold text-slate-950 text-xs"><?= htmlspecialchars((string)$ent['entity_name']); ?></p>
                                                 <div class="flex items-center gap-2 shrink-0">
                                                     <?php /* Attribution: shown to EVERY viewer (coordinator, supervisor,
-                                                           intern) so it is clear the term was typed in by a coordinator
-                                                           rather than extracted from the document. */ ?>
-                                                    <?php if (($ent['source'] ?? '') === 'manual_addition'): ?>
-                                                        <span class="text-[10px] font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded border border-purple-200" title="Added by a coordinator, not extracted from the document">Coordinator Added</span>
+                                                           intern) so it is clear which terms came from a coordinator
+                                                           rather than from the extractor.
+
+                                                           Two distinct coordinator actions, told apart by reclassified_at
+                                                           (stamped only by the update_entity_type handler):
+
+                                                             NULL    the coordinator typed the term into Add Entity
+                                                             a date  the term was already extracted and the
+                                                                     coordinator corrected its classification
+
+                                                           confidence_score is deliberately not used for this: every
+                                                           'predefined' row sits at exactly 100.00, so a reclassified
+                                                           predefined term would be indistinguishable from a typed one. */ ?>
+                                                    <?php if (($ent['source'] ?? '') === 'manual_addition'):
+                                                        $isReclassified = !empty($ent['reclassified_at']);
+                                                    ?>
+                                                        <?php if ($isReclassified): ?>
+                                                            <span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 border-indigo-200 px-2 py-0.5 rounded border" title="Extracted from the document, then reclassified by a coordinator">Coordinator Reclassified</span>
+                                                        <?php else: ?>
+                                                            <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/30 px-2 py-0.5 rounded border" title="Typed in by a coordinator, not extracted from your document">Coordinator Added</span>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                     <?php if ($canManageEntities): ?>
                                                         <?php if (isset($ent['confidence_score']) && $ent['confidence_score'] !== null): ?>
