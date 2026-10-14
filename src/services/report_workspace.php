@@ -142,7 +142,6 @@ if (!function_exists('reportWorkspaceLoadEntities')) {
         $stmtAll = $pdo->prepare(
             "SELECT
                 re.id, re.report_id, re.entity_name, re.canonical_name, re.category,
-                re.activity_type, re.activity_type AS classification,
                 re.it_related, re.source, re.confidence_score, re.created_at,
                 r.week_number
              FROM report_entities re
@@ -154,7 +153,7 @@ if (!function_exists('reportWorkspaceLoadEntities')) {
 
         $stmtArchived = $pdo->prepare(
             "SELECT
-                re.id, re.report_id, re.entity_name, re.category, re.activity_type, r.week_number
+                re.id, re.report_id, re.entity_name, re.category, r.week_number
              FROM report_entities re
              JOIN reports r ON re.report_id = r.id
              WHERE re.report_id IN ($placeholders) AND re.is_archived = 1
@@ -204,9 +203,11 @@ if (!function_exists('reportWorkspaceRatio')) {
         $clerical = 0;
 
         foreach ($entities as $entity) {
-            if (strtolower(trim((string)($entity['activity_type'] ?? ''))) === 'clerical') {
+            $itFlag = strtolower(trim((string)($entity['it_related'] ?? '')));
+            if ($itFlag === 'no') {
                 $clerical++;
-            } elseif (trim((string)($entity['activity_type'] ?? '')) !== '') {
+            } elseif ($itFlag === 'yes' || $itFlag === 'unknown' || $itFlag === '') {
+                // unknown and empty string count as IT, matching legacy behaviour
                 $technical++;
             }
         }
