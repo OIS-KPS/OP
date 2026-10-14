@@ -25,21 +25,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // 2. Handle POST Actions (Assign / Unlink Placement)
+// The placement picker submits several students at once (student_ids[]); the
+// per-row "Edit Link" button still submits a single student_id.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['assign_student'])) {
-        $studentId  = intval($_POST['student_id'] ?? 0);
         $officeId   = !empty($_POST['office_id']) ? intval($_POST['office_id']) : null;
         $actionType = $_POST['action_type'] ?? 'assign';
 
-        if ($studentId > 0) {
+        $rawIds    = $_POST['student_ids'] ?? ($_POST['student_id'] ?? null);
+        $studentIds = is_array($rawIds) ? $rawIds : [$rawIds];
+        $studentIds = array_values(array_unique(array_filter(array_map('intval', $studentIds), static function ($id) {
+            return $id > 0;
+        })));
+
+        // Human-readable names for the flash message and the audit trail
+        $studentNames = [];
+        if (!empty($studentIds)) {
+            $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+            $stmtNames    = $pdo->prepare("SELECT s.id, u.name FROM students s JOIN users u ON u.id = s.user_id WHERE s.id IN ($placeholders)");
+            $stmtNames->execute($studentIds);
+            foreach ($stmtNames->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $studentNames[(int)$row['id']] = $row['name'];
+            }
+        }
+
+        // "Katelyn Coming" for one student, "3 student(s): A, B, C +1 more" for many
+        $describe = static function (array $studentIds, array $studentNames): string {
+            if (count($studentIds) === 1) {
+                $only = reset($studentIds);
+                return (string)($studentNames[$only] ?? "student ID {$only}");
+            }
+            $names = array_slice(array_values($studentNames), 0, 3);
+            $more  = count($studentIds) - count($names);
+            return count($studentIds) . ' student(s): ' . implode(', ', $names) . ($more > 0 ? " +{$more} more" : '');
+        };
+
+        if (empty($studentIds)) {
+            $_SESSION['flash_error'] = "Please select at least one student.";
+        } else {
             try {
                 if ($actionType === 'unassign') {
+                    $pdo->beginTransaction();
+
                     $stmt = $pdo->prepare("UPDATE students SET office_id = NULL, company_id = NULL, supervisor_id = NULL WHERE id = ?");
-                    $stmt->execute([$studentId]);
-                    logActivity($pdo, $coordinatorId, 'coordinator', 'PLACEMENT_UNLINKED', "Removed placement link for student ID {$studentId}.");
-                    $_SESSION['flash_success'] = "Student placement unlinked successfully.";
+                    foreach ($studentIds as $sid) {
+                        $stmt->execute([$sid]);
+                    }
+
+                    logActivity(
+                        $pdo,
+                        $coordinatorId,
+                        'coordinator',
+                        'PLACEMENT_UNLINKED',
+                        "Removed placement link for " . $describe($studentIds, $studentNames) . '.'
+                    );
+
+                    $pdo->commit();
+
+                    $_SESSION['flash_success'] = count($studentIds) === 1
+                        ? "Student placement unlinked successfully."
+                        : "Placements unlinked for " . count($studentIds) . " students.";
                 } else {
-                    if ($officeId) {
+                    if (!$officeId) {
+                        $_SESSION['flash_error'] = "Please select an office.";
+                    } else {
                         // Resolve company + supervisor from the office (1 supervisor per office)
                         $stmtOff = $pdo->prepare("
                             SELECT o.company_id, sup.id AS supervisor_id
@@ -50,28 +99,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmtOff->execute([$officeId]);
                         $office = $stmtOff->fetch(PDO::FETCH_ASSOC);
 
-                        if ($office && $office['company_id']) {
-                            $companyId    = $office['company_id'];
-                            $supervisorId = $office['supervisor_id'] ?: null;
-
-                            if (!$supervisorId) {
-                                $_SESSION['flash_error'] = "The selected office has no supervisor yet. Add one first.";
-                            } else {
-                                // Anchor OJT week 1 to the Monday of the current assignment week.
-                                $assignmentMonday = (new DateTime('now'))->modify('-' . (((int)(new DateTime('now'))->format('N')) - 1) . ' days')->format('Y-m-d');
-                                $stmt = $pdo->prepare("UPDATE students SET office_id = ?, company_id = ?, supervisor_id = ?, ojt_start_date = ? WHERE id = ?");
-                                $stmt->execute([$officeId, $companyId, $supervisorId, $assignmentMonday, $studentId]);
-                                logActivity($pdo, $coordinatorId, 'coordinator', 'STUDENT_ASSIGNED', "Assigned student ID {$studentId} to office ID {$officeId} (company ID {$companyId}, supervisor ID {$supervisorId}).");
-                                $_SESSION['flash_success'] = "Student placement updated successfully.";
-                            }
-                        } else {
+                        if (!$office || !$office['company_id']) {
                             $_SESSION['flash_error'] = "Please select a valid office.";
+                        } elseif (!$office['supervisor_id']) {
+                            $_SESSION['flash_error'] = "The selected office has no supervisor yet. Add one first.";
+                        } else {
+                            $companyId    = $office['company_id'];
+                            $supervisorId = $office['supervisor_id'];
+
+                            // Anchor OJT week 1 to the Monday of the current assignment week.
+                            $assignmentMonday = (new DateTime('now'))->modify('-' . (((int)(new DateTime('now'))->format('N')) - 1) . ' days')->format('Y-m-d');
+
+                            $pdo->beginTransaction();
+
+                            $stmt = $pdo->prepare("UPDATE students SET office_id = ?, company_id = ?, supervisor_id = ?, ojt_start_date = ? WHERE id = ?");
+                            foreach ($studentIds as $sid) {
+                                $stmt->execute([$officeId, $companyId, $supervisorId, $assignmentMonday, $sid]);
+                            }
+
+                            logActivity(
+                                $pdo,
+                                $coordinatorId,
+                                'coordinator',
+                                'STUDENT_ASSIGNED',
+                                "Assigned " . $describe($studentIds, $studentNames) . " to office ID {$officeId} (company ID {$companyId}, supervisor ID {$supervisorId})."
+                            );
+
+                            $pdo->commit();
+
+                            $_SESSION['flash_success'] = count($studentIds) === 1
+                                ? "Student placement updated successfully."
+                                : count($studentIds) . " students assigned successfully.";
                         }
-                    } else {
-                        $_SESSION['flash_error'] = "Please select an office.";
                     }
                 }
             } catch (PDOException $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 $_SESSION['flash_error'] = "Failed to update placement: " . userFacingError($e, 'assignments.php:assign');
             }
         }
@@ -82,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // 3. Fetch Data
 $students       = [];
+$rosterStudents = [];
 $companies      = [];
 $supervisors    = [];
 $activeSections = [];
@@ -134,6 +200,29 @@ try {
     $stmtStd = $pdo->prepare($sqlStudents);
     $stmtStd->execute($stdParams);
     $students = $stmtStd->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // Full active roster for the bulk placement picker. It is deliberately NOT
+    // filtered by the course code shown on the page: the picker's own dropdown
+    // switches course codes without a reload, so it needs every student.
+    $stmtRoster = $pdo->prepare("
+        SELECT
+            s.id,
+            s.student_number,
+            COALESCE(s.section, :defaultSection) AS section,
+            s.office_id,
+            s.company_id,
+            s.supervisor_id,
+            u.name,
+            u.avatar_url,
+            c.name AS company_name
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN companies c ON s.company_id = c.id
+        WHERE u.status = 'active'
+        ORDER BY s.section ASC, u.name ASC
+    ");
+    $stmtRoster->execute(['defaultSection' => $defaultSection]);
+    $rosterStudents = $stmtRoster->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     // Query Companies
     $stmtComp = $pdo->query("SELECT id, name, department FROM companies WHERE status = 'active' ORDER BY name ASC");
