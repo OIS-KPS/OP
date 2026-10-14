@@ -67,8 +67,8 @@ try {
             u_sup.name AS supervisor_name,
             (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved') AS approved_reports_count,
             (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved' AND is_late = 1) AS late_approved_count,
-            SUM(CASE WHEN re.activity_type != 'Clerical' AND re.activity_type != '' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS tech_count,
-            SUM(CASE WHEN re.activity_type = 'Clerical' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS clerical_count
+            SUM(CASE WHEN re.it_related <> 'no' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS tech_count,
+            SUM(CASE WHEN re.it_related = 'no' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS clerical_count
         FROM students s
         JOIN users u ON s.user_id = u.id
         LEFT JOIN companies c ON s.company_id = c.id
