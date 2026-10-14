@@ -88,7 +88,7 @@ if (!empty($recentReports)) {
     $recentPh = implode(',', array_fill(0, count($recentIds), '?'));
 
     $entityStmt = $pdo->prepare(
-        "SELECT report_id, entity_name, activity_type, it_related, source
+        "SELECT report_id, entity_name, it_related, source
          FROM report_entities
          WHERE report_id IN ({$recentPh})
            AND is_archived = 0
