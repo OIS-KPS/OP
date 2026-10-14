@@ -60,7 +60,7 @@ if (!function_exists('e')) {
                 <!-- Flash Alert -->
                 <?php if (!empty($flashSuccess)): ?>
 
-                    <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
+                    <div class="bg-blue-50 border border-[#0F2854]/30 text-[#0F2854] px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
 
                         <p class="font-extrabold text-xs">
                             <?= e($flashSuccess); ?>
@@ -68,7 +68,7 @@ if (!function_exists('e')) {
 
                         <a
                             href="evaluations.php"
-                            class="text-xs font-bold text-emerald-800 hover:underline"
+                            class="text-xs font-bold text-[#0F2854] hover:underline"
                         >
                             Dismiss
                         </a>
@@ -96,6 +96,28 @@ if (!function_exists('e')) {
                     </div>
 
                 <?php endif; ?>
+
+
+                <!-- Page Header with bulk export -->
+                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h1 class="text-base font-extrabold text-slate-950 tracking-tight leading-snug">Performance Evaluations</h1>
+                        <p class="text-xs font-semibold text-slate-600 mt-1">
+                            Supervisor-signed OJT evaluation forms.
+                        </p>
+                    </div>
+
+                    <?php if ((int)($completedCount ?? 0) > 0): ?>
+                        <a
+                            href="export_evaluation.php?bulk=1&amp;download=1"
+                            class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+                            title="Download every signed evaluation as one PDF"
+                        >
+                            <svg class="w-3.5 h-3.5 text-blue-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+                            <span>Export All Signed (<?= (int)$completedCount; ?>)</span>
+                        </a>
+                    <?php endif; ?>
+                </div>
 
 
                 <!-- 1. Top Stat Cards -->
@@ -150,7 +172,7 @@ if (!function_exists('e')) {
                                 Completed
                             </span>
 
-                            <p class="text-3xl font-black text-emerald-600">
+                            <p class="text-3xl font-black text-[#0F2854]">
                                 <?= (int)$completedCount; ?>
                             </p>
 
@@ -160,10 +182,10 @@ if (!function_exists('e')) {
 
                         </div>
 
-                        <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-300 shrink-0">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-50 text-[#0F2854] flex items-center justify-center border border-[#0F2854]/30 shrink-0">
 
                             <svg
-                                class="w-6 h-6 text-emerald-600"
+                                class="w-6 h-6 text-[#0F2854]"
                                 fill="none"
                                 stroke="currentColor"
                                 stroke-width="2"
@@ -190,7 +212,7 @@ if (!function_exists('e')) {
                                 Pending
                             </span>
 
-                            <p class="text-3xl font-black text-amber-600">
+                            <p class="text-3xl font-black text-slate-700">
                                 <?= (int)$pendingCount; ?>
                             </p>
 
@@ -200,10 +222,10 @@ if (!function_exists('e')) {
 
                         </div>
 
-                        <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-300 shrink-0">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center border border-slate-300 shrink-0">
 
                             <svg
-                                class="w-6 h-6 text-amber-600"
+                                class="w-6 h-6 text-slate-500"
                                 fill="none"
                                 stroke="currentColor"
                                 stroke-width="2"
@@ -464,27 +486,27 @@ if (!function_exists('e')) {
 
                                     <tr class="bg-slate-100/90 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black flex w-full">
 
-                                        <th class="py-3 px-3 w-[25%]">
+                                        <th class="py-3 px-3 w-[22%]">
                                             Student Intern
                                         </th>
 
-                                        <th class="py-3 px-2 w-[10%]">
+                                        <th class="py-3 px-2 w-[8%]">
                                             Section
                                         </th>
 
-                                        <th class="py-3 px-3 w-[22%]">
+                                        <th class="py-3 px-3 w-[20%]">
                                             Host Company &amp; Supervisor
                                         </th>
 
-                                        <th class="py-3 px-2 w-[13%] text-center">
+                                        <th class="py-3 px-2 w-[12%] text-center">
                                             Approved Reports
                                         </th>
 
-                                        <th class="py-3 px-2 w-[15%]">
+                                        <th class="py-3 px-2 w-[14%]">
                                             Score &amp; Grade
                                         </th>
 
-                                        <th class="py-3 px-3 w-[15%] text-right">
+                                        <th class="py-3 px-3 w-[24%] text-right">
                                             Action
                                         </th>
 
@@ -507,7 +529,7 @@ if (!function_exists('e')) {
 
 
                                             <!-- Student -->
-                                            <td class="py-3 px-3 w-[25%] truncate align-middle">
+                                            <td class="py-3 px-3 w-[22%] truncate align-middle">
 
                                                 <div class="flex items-center gap-2.5">
 
@@ -551,7 +573,7 @@ if (!function_exists('e')) {
 
 
                                             <!-- Section -->
-                                            <td class="py-3 px-2 w-[10%] truncate align-middle">
+                                            <td class="py-3 px-2 w-[8%] truncate align-middle">
 
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
 
@@ -564,7 +586,7 @@ if (!function_exists('e')) {
 
 
                                             <!-- Company -->
-                                            <td class="py-3 px-3 w-[22%] truncate align-middle">
+                                            <td class="py-3 px-3 w-[20%] truncate align-middle">
 
                                                 <p class="font-bold text-slate-900 text-xs truncate">
                                                     <?= e($eval['company_name'] ?? 'Unassigned'); ?>
@@ -586,9 +608,9 @@ if (!function_exists('e')) {
 
 
                                             <!-- Approved Reports -->
-                                            <td class="py-3 px-2 w-[13%] truncate align-middle text-center">
+                                            <td class="py-3 px-2 w-[12%] truncate align-middle text-center">
 
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 font-black text-[11px]">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 font-black text-[11px]">
 
                                                     <?= (int)($eval['approved_reports_count'] ?? 0); ?>
 
@@ -600,7 +622,7 @@ if (!function_exists('e')) {
 
 
                                             <!-- Score -->
-                                            <td class="py-3 px-2 w-[15%] truncate align-middle">
+                                            <td class="py-3 px-2 w-[14%] truncate align-middle">
 
                                                 <?php if ($isCompleted && isset($eval['final_score'])): ?>
 
@@ -617,7 +639,7 @@ if (!function_exists('e')) {
                                                         </span>
 
 
-                                                        <span class="px-1.5 py-0.5 rounded bg-blue-50 text-[#0F2854] text-[10px] font-black border border-blue-200">
+                                                        <span class="px-1.5 py-0.5 rounded bg-blue-50 text-[#0F2854] text-[10px] font-black border border-[#0F2854]/30">
 
                                                             <?= e(
                                                                 $eval['grade_equivalent']
@@ -640,16 +662,36 @@ if (!function_exists('e')) {
 
 
                                             <!-- Action -->
-                                            <td class="py-3 px-3 w-[15%] text-right truncate align-middle">
+                                            <?php /* No truncate on this cell. These are controls, not text, so
+                                                     clipping them silently swallowed the last button once a
+                                                     second one was added to a 15% column. */ ?>
+                                            <td class="py-3 px-3 w-[24%] text-right align-middle">
 
                                                 <?php if ($isCompleted): ?>
 
-                                                    <a
-                                                        href="evaluation_view.php?id=<?= (int)($eval['eval_id'] ?? 0); ?>"
-                                                        class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center gap-1"
-                                                    >
-                                                        <span>View</span>
-                                                    </a>
+                                                    <div class="flex items-center justify-end gap-2">
+
+                                                        <a
+                                                            href="export_evaluation.php?student_id=<?= (int)$eval['student_id']; ?>"
+                                                            target="_blank"
+                                                            rel="noopener"
+                                                            class="px-2.5 py-1 bg-white hover:bg-blue-50 text-[#0F2854] text-[11px] font-bold rounded-xl border border-[#0F2854]/30 shadow-2xs transition-colors inline-flex items-center gap-1"
+                                                            title="Open the archived evaluation PDF"
+                                                        >
+                                                            <svg class="w-3.5 h-3.5 text-[#0F2854] shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+                                                            <span>PDF</span>
+                                                        </a>
+
+
+                                                        <a
+                                                            href="evaluation_view.php?id=<?= (int)($eval['eval_id'] ?? 0); ?>"
+                                                            class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-[11px] font-bold rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1"
+                                                            title="Open the evaluation on screen"
+                                                        >
+                                                            <span>View</span>
+                                                        </a>
+
+                                                    </div>
 
 
                                                 <?php elseif ($isTriggered): ?>
@@ -657,7 +699,7 @@ if (!function_exists('e')) {
                                                     <!-- Awaiting + Cancel -->
                                                     <div class="flex items-center justify-end gap-2">
 
-                                                        <span class="px-2.5 py-1 text-[11px] font-bold text-[#0F2854] bg-blue-50 rounded-xl border border-blue-300 inline-block">
+                                                        <span class="px-2.5 py-1 text-[11px] font-bold text-[#0F2854] bg-blue-50 rounded-xl border border-[#0F2854]/30 inline-block">
                                                             Awaiting
                                                         </span>
 
@@ -696,7 +738,7 @@ if (!function_exists('e')) {
                                                                 <?= (int)$eval['student_id']; ?>,
                                                                 '<?= htmlspecialchars(addslashes($eval['student_name'])); ?>'
                                                             )"
-                                                            class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer"
+                                                            class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer"
                                                         >
 
                                                             <span>
@@ -973,7 +1015,7 @@ if (!function_exists('e')) {
 
                 <div class="flex items-center gap-2">
 
-                    <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
                         🔒
                     </div>
 
@@ -1310,9 +1352,9 @@ if (!function_exists('e')) {
 
 
                     <!-- OTP -->
-                    <div class="p-3.5 bg-emerald-50 rounded-xl border border-emerald-300 flex items-center justify-between text-xs">
-                        <div class="flex items-center gap-2 text-emerald-900 font-black">
-                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"viewBox="0 0 24 24" >
+                    <div class="p-3.5 bg-blue-50 rounded-xl border border-[#0F2854]/30 flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2 text-[#0F2854] font-black">
+                            <svg class="w-4 h-4 text-[#0F2854] shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"viewBox="0 0 24 24" >
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-2.18-8.204a2.25 2.25 0 00-2.14 0L4.78 4.39A2.25 2.25 0 003.5 6.36v7.38c0 4.26 3.27 8.04 7.5 9.26 4.23-1.22 7.5-5 7.5-9.26V6.36a2.25 2.25 0 00-1.28-1.97l-4.15-2.04z" />
                             </svg>
 
