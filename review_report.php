@@ -472,7 +472,6 @@ function rr_prepare_report_entities(
             $entityName = $matched['matched_term'];
             $canonical = $matched['entity_name'];
             $category = $matched['category'];
-            $activityType = $matched['activity_type'];
             $itRelated = $matched['it_related'];
             $source = in_array(
                 (string)($entity['source'] ?? 'predefined'),
@@ -501,11 +500,6 @@ function rr_prepare_report_entities(
             ));
 
             $category = trim((string)($entity['category'] ?? 'Other'));
-            $activityType = in_array(
-                $entity['activity_type'] ?? 'Other',
-                ['Software', 'Hardware', 'Clerical', 'Other'],
-                true
-            ) ? $entity['activity_type'] : 'Other';
 
             $itRelated = in_array(
                 $entity['it_related'] ?? 'unknown',
@@ -528,7 +522,6 @@ function rr_prepare_report_entities(
             'entity_name'     => $entityName,
             'canonical_name'  => $canonical,
             'category'        => $category !== '' ? $category : 'Other',
-            'activity_type'   => $activityType,
             'it_related'      => $itRelated,
             'source'          => $source,
         ];
@@ -545,7 +538,6 @@ try {
             entity_name,
             canonical_name,
             category,
-            activity_type,
             it_related,
             source,
             confidence_score,
@@ -593,7 +585,6 @@ try {
                 entity_name,
                 canonical_name,
                 category,
-                activity_type,
                 it_related,
                 source,
                 confidence_score
@@ -604,7 +595,6 @@ try {
                 :entity_name,
                 :canonical_name,
                 :category,
-                :activity_type,
                 :it_related,
                 :source,
                 :confidence_score
@@ -617,7 +607,6 @@ try {
                 ':entity_name'     => $entity['entity_name'],
                 ':canonical_name'  => $entity['canonical_name'],
                 ':category'        => $entity['category'],
-                ':activity_type'   => $entity['activity_type'],
                 ':it_related'      => $entity['it_related'],
                 ':source'          => $entity['source'],
                 ':confidence_score'=> 100.00,
@@ -1314,13 +1303,12 @@ if ($userRole === 'coordinator') {
                 'Other'
             );
 
-            const activityType = getValue(
-                entity,
-                [
-                    'activity_type'
-                ],
-                'Other'
-            );
+            // report_entities no longer stores activity_type; derive the display label
+            // from it_related so the card matches the IT / Clerical model.
+            const activityType = (() => {
+                const it = String(getValue(entity, ['it_related'], '')).toLowerCase();
+                return it === 'no' ? 'Clerical' : 'Other';
+            })();
             const itRelated = String(
                 getValue(
                     entity,
