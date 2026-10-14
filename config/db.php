@@ -78,6 +78,56 @@ if (!function_exists('logActivity')) {
 }
 
 /**
+ * The course codes (formerly "Section A/B/C/D") used to group student interns.
+ *
+ * @return string[]
+ */
+if (!function_exists('section_course_codes')) {
+    function section_course_codes() {
+        return ['IT44A', 'IT44B', 'IT44C', 'IT44D'];
+    }
+}
+
+/**
+ * Normalise any user- or CSV-supplied section value into a course code.
+ *
+ * Accepts the current codes (IT44A), the legacy single letters (A, b, "Sec A"),
+ * and the older "Section A" wording, so old spreadsheets and bookmarked URLs
+ * keep working after the migration to course codes.
+ *
+ * @param mixed $value Raw section value.
+ * @return string A course code; defaults to the first code when unrecognised.
+ */
+if (!function_exists('normalizeSectionCode')) {
+    function normalizeSectionCode($value) {
+        $codes = section_course_codes();
+        $raw   = strtoupper(trim((string)$value));
+
+        if ($raw === '') {
+            return $codes[0];
+        }
+
+        // Strip the legacy "SECTION"/"SEC" prefix, then any leading non-letters.
+        $bare = preg_replace('/^(SECTION|SEC)\s*/', '', $raw);
+        $bare = ltrim((string)$bare, '- ');
+
+        foreach ($codes as $code) {
+            if ($bare === $code || $bare === substr($code, -1)) {
+                return $code;
+            }
+        }
+
+        // Already a full course code we don't know about (e.g. a future block):
+        // keep it as typed rather than forcing it into a known code.
+        if (preg_match('/^[A-Z]{2,4}\d{1,2}[A-Z]?$/', $bare)) {
+            return $bare;
+        }
+
+        return $codes[0];
+    }
+}
+
+/**
  * Produce a message that is safe to show on screen.
  *
  * PDOException messages carry SQL text (table and column names, driver

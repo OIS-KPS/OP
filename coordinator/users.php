@@ -49,7 +49,11 @@ if ($tab === 'supervisors') {
 
 }
 
-$selectedSection = $_GET['section'] ?? 'all';
+// Course codes replaced the old "Section A/B/C/D" values; a bookmarked
+// ?section=A link is still translated so it keeps filtering sensibly.
+$selectedSection = ($_GET['section'] ?? 'all') === 'all'
+    ? 'all'
+    : normalizeSectionCode($_GET['section']);
 
 $success         = $_SESSION['flash_success'] ?? null;
 
@@ -111,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $email         = strtolower(trim($_POST['email'] ?? ''));
 
-        $section       = strtoupper(trim($_POST['section'] ?? 'A'));
+        $section       = normalizeSectionCode($_POST['section'] ?? '');
 
         $officeId      = !empty($_POST['office_id']) ? intval($_POST['office_id']) : null;
 
@@ -200,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
-                logActivity($pdo, $coordinatorId, 'coordinator', 'STUDENT_CREATED', "Added student {$name} ({$studentNumber} - Sec {$section}).");
+                logActivity($pdo, $coordinatorId, 'coordinator', 'STUDENT_CREATED', "Added student {$name} ({$studentNumber} - {$section}).");
 
                 $pdo->commit();
 
@@ -208,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $mailSent = $mailer->sendWelcomeEmail($email, $name, 'student');
 
-                $_SESSION['flash_success'] = "Student {$name} (Section {$section}) added successfully!" . ($mailSent ? " Welcome email sent." : "");
+                $_SESSION['flash_success'] = "Student {$name} ({$section}) added successfully!" . ($mailSent ? " Welcome email sent." : "");
 
             } catch (Exception $e) {
 
@@ -588,7 +592,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $stdEmail  = strtolower(trim($data[2] ?? ''));
 
-                        $stdSec    = strtoupper(trim($data[3] ?? 'A'));
+                        $stdSec    = normalizeSectionCode($data[3] ?? '');
 
 
 
@@ -683,7 +687,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             ");
 
-                            $insS->execute([$uid, $stdNumber, $stdSec ?: 'A']);
+                            $insS->execute([$uid, $stdNumber, $stdSec]);
 
                             $seenEmails[$stdEmail] = true;
                             $seenNumbers[$stdNumber] = true;
@@ -1184,7 +1188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($role === 'student') {
 
                     $stdNumber = trim($_POST['student_number'] ?? '');
-                    $section   = strtoupper(trim($_POST['section'] ?? 'A'));
+                    $section   = normalizeSectionCode($_POST['section'] ?? '');
                     $officeId  = !empty($_POST['office_id']) ? intval($_POST['office_id']) : null;
 
                     // Resolve company + supervisor from the office
@@ -1982,6 +1986,8 @@ $archivedUsers  = [];
 
 $archivedCompanies = [];
 
+$defaultSection = section_course_codes()[0];
+
 $activeSections = [];
 
 $coordinators   = [];
@@ -1994,9 +2000,11 @@ $unassignedSupervisors = [];
 
 try {
 
-    $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
+    $stmtSec = $pdo->prepare("SELECT DISTINCT COALESCE(NULLIF(section, ''), :def) AS sec FROM students ORDER BY sec ASC");
 
-    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: ['A', 'B', 'C'];
+    $stmtSec->execute(['def' => $defaultSection]);
+
+    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: section_course_codes();
 
 
 
@@ -2018,6 +2026,10 @@ try {
 
     $whereStudentSql = "WHERE " . implode(' AND ', $whereStudent);
 
+    // Bound (not interpolated) because PDO::ATTR_EMULATE_PREPARES is off, so a
+    // placeholder inside the SELECT list is not rewritten for us.
+    $stdParams['defaultSection'] = $defaultSection;
+
 
 
     $stmtStd = $pdo->prepare("
@@ -2032,7 +2044,7 @@ try {
 
             s.program,
 
-            COALESCE(s.section, 'A') AS section,
+            COALESCE(s.section, :defaultSection) AS section,
 
             s.company_id,
 

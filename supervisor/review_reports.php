@@ -531,7 +531,7 @@ $reportsSql = "
 
         COALESCE(
             s.section,
-            'A'
+            :default_section
         ) AS section
 
     FROM reports r
@@ -560,7 +560,8 @@ $stmtReports = $pdo->prepare(
 );
 
 $params = [
-    'supervisor_id' => $supervisorId
+    'supervisor_id' => $supervisorId,
+    'default_section' => section_course_codes()[0]
 ];
 
 if (
@@ -662,7 +663,7 @@ if ($review_id) {
 
                 COALESCE(
                     s.section,
-                    'A'
+                    ?
                 ) AS section
 
             FROM reports r
@@ -686,6 +687,7 @@ if ($review_id) {
 
         $singleStmt->execute([
             $review_id,
+            section_course_codes()[0],
             $supervisorId
         ]);
 

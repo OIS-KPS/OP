@@ -55,7 +55,7 @@ if (!function_exists('reportWorkspaceLoadStudent')) {
         $stmt = $pdo->prepare(
             'SELECT
                 s.id AS student_id, s.student_number, s.program,
-                COALESCE(s.section, "A") AS section,
+                COALESCE(s.section, ?) AS section,
                 u.name AS student_name, u.email AS student_email, u.avatar_url AS student_avatar,
                 c.name AS company_name, c.department AS company_dept,
                 o.name AS office_name,
@@ -69,7 +69,7 @@ if (!function_exists('reportWorkspaceLoadStudent')) {
              WHERE s.id = ?
              LIMIT 1'
         );
-        $stmt->execute([$studentId]);
+        $stmt->execute([section_course_codes()[0], $studentId]);
 
         $student = $stmt->fetch(PDO::FETCH_ASSOC);
 

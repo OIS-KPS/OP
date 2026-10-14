@@ -73,7 +73,7 @@ $ojtClientCriteria = json_encode(ojtCriteriaForClient(), $ojtJsonFlags);
                             </div>
                             <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                                 <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Course</span>
-                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($student['program'] ?? 'N/A'); ?><?= !empty($student['section']) ? ' &bull; Sec ' . htmlspecialchars($student['section']) : ''; ?></p>
+                                <p class="text-xs font-extrabold text-slate-950 mt-1"><?= htmlspecialchars($student['program'] ?? 'N/A'); ?><?= !empty($student['section']) ? ' &bull; ' . htmlspecialchars($student['section']) : ''; ?></p>
                             </div>
                             <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                                 <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">Inclusive Dates of Training</span>

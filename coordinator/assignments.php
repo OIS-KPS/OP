@@ -12,7 +12,9 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
 }
 
 $coordinatorId   = $_SESSION['user_id'];
-$selectedSection = $_GET['section'] ?? 'all';
+$selectedSection = ($_GET['section'] ?? 'all') === 'all'
+    ? 'all'
+    : normalizeSectionCode($_GET['section']);
 $success         = $_SESSION['flash_success'] ?? null;
 $error           = $_SESSION['flash_error'] ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
@@ -84,10 +86,13 @@ $companies      = [];
 $supervisors    = [];
 $activeSections = [];
 
+$defaultSection = section_course_codes()[0];
+
 try {
-    // Distinct Sections
-    $stmtSec = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(section, ''), 'A') AS sec FROM students ORDER BY sec ASC");
-    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: ['A', 'B', 'C'];
+    // Distinct course codes present in the roster
+    $stmtSec = $pdo->prepare("SELECT DISTINCT COALESCE(NULLIF(section, ''), :def) AS sec FROM students ORDER BY sec ASC");
+    $stmtSec->execute(['def' => $defaultSection]);
+    $activeSections = $stmtSec->fetchAll(PDO::FETCH_COLUMN) ?: section_course_codes();
 
     // Query Students
     $whereStudent = ["u.status = 'active'"];
@@ -99,13 +104,14 @@ try {
     }
 
     $whereStudentSql = "WHERE " . implode(' AND ', $whereStudent);
+    $stdParams['defaultSection'] = $defaultSection;
 
     $sqlStudents = "
         SELECT 
             s.id,
             s.student_number,
             s.program,
-            COALESCE(s.section, 'A') AS section,
+            COALESCE(s.section, :defaultSection) AS section,
             s.company_id,
             s.supervisor_id,
             s.office_id,
