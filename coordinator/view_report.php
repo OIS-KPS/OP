@@ -284,7 +284,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($existing) {
                     if ((int)$existing['is_archived'] === 1) {
                         // If it was previously archived, restore it instead of creating a duplicate!
-                        $stmtRestore = $pdo->prepare('UPDATE report_entities SET is_archived = 0, it_related = ? WHERE id = ?');
+                        // Restoring also restores the attribution: the coordinator is re-adding
+                        // this term by hand, so it must carry the manual_addition
+                        // source and survive the next extraction run.
+                        $stmtRestore = $pdo->prepare("UPDATE report_entities SET is_archived = 0, it_related = ?, source = 'manual_addition' WHERE id = ?");
                         $stmtRestore->execute([$itRelated, $existing['id']]);
                         $reportEntitySaved = true;
                         $_SESSION['flash_success'] = 'Entity was in archive and has been successfully restored!';
@@ -403,8 +406,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newItRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
         if ($entityId > 0) {
             try {
+                // Marking source = 'manual_addition' is what makes an attribution badge appear,
+                // and it also makes the row survive the next extraction run: the
+                // extraction DELETE skips manual additions, so a coordinator
+                // decision is never overwritten by the model.
+                //
+                // reclassified_at separates the two coordinator actions. Stamping
+                // it here is what makes the card read "Coordinator Reclassified"
+                // instead of "Coordinator Added": the term already existed, the
+                // coordinator corrected it. Add Entity leaves the column NULL,
+                // because that really is a term typed in from nothing.
                 $stmtUpd = $pdo->prepare("UPDATE report_entities
-                                              SET it_related = ?
+                                              SET it_related = ?, source = 'manual_addition',
+                                                  reclassified_at = NOW()
                                               WHERE id = ?
                                                 AND report_id IN (SELECT id FROM reports WHERE student_id = ?)");
                 $stmtUpd->execute([$newItRelated, $entityId, $studentId]);
