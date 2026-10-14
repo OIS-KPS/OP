@@ -519,52 +519,59 @@ function workspaceItFlag(array $entity, string $activityType): string
     <?php if ($canManageEntities): ?>
     <div id="addEntityModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex overflow-y-auto items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="font-extrabold text-sm text-slate-950">Add Missing Entity / Keyword</h3>
-                <button type="button" onclick="document.getElementById('addEntityModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer">&times;</button>
+            <div class="flex items-start justify-between gap-3">
+                <div class="space-y-1">
+                    <h3 class="font-extrabold text-sm text-slate-950">Add Entity</h3>
+                    <p class="text-[11px] font-medium text-slate-500 leading-snug">Record a keyword the extractor missed on this report.</p>
+                </div>
+                <button type="button" onclick="document.getElementById('addEntityModal').classList.add('hidden')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center cursor-pointer shrink-0">&#10005;</button>
             </div>
 
-            <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" class="space-y-4 text-xs">
+            <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" class="space-y-3 text-xs">
                                         <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="add_entity">
                 <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
 
                 <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Entity / Tool Name</label>
-                    <input type="text" name="entity_name" required placeholder="e.g. Python, Docker, Excel" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    <label for="addEntityName" class="font-bold text-slate-700">Entity name <span class="text-[#0F2854]" title="Required">*</span></label>
+                    <input type="text" id="addEntityName" name="entity_name" required
+                           placeholder="e.g. Figma, Photoshop, Excel, Filing"
+                           class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:border-[#0F2854]">
+                    <p class="text-[11px] font-medium text-slate-500">Required.</p>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Aliases</label>
-                    <input type="text" name="aliases" placeholder="e.g. figma design|figma prototype|figma ui" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
-                </div>
-
-                <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Type</label>
-                    <select name="it_related" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                    <label for="addEntityType" class="font-bold text-slate-700">Type <span class="text-[#0F2854]" title="Required">*</span></label>
+                    <select id="addEntityType" name="it_related" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
                         <option value="yes">IT Related</option>
-                        <option value="no">Non-IT / Clerical</option>
+                        <option value="no">Clerical</option>
                     </select>
                 </div>
 
-                <div class="space-y-1 rounded-xl border border-slate-300 bg-slate-50/70 p-3">
+                <div class="space-y-1">
+                    <label for="addEntityAliases" class="font-bold text-slate-700">Aliases <span class="font-semibold text-slate-400">(optional)</span></label>
+                    <input type="text" id="addEntityAliases" name="aliases" placeholder="Separate with commas"
+                           class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:border-[#0F2854]">
+                    <p class="text-[11px] font-medium text-slate-500 leading-relaxed">Other names for the same thing. Example: Figma design, Figma prototype.</p>
+                </div>
+
+                <div class="space-y-1 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
                     <label class="flex items-start gap-2.5 cursor-pointer">
                         <input type="checkbox" name="add_to_dictionary" value="1" class="mt-0.5 w-4 h-4 accent-[#0F2854] shrink-0 cursor-pointer">
                         <span class="text-sm font-bold text-slate-800 leading-snug">
                             Also add to the Entity Dictionary
                         </span>
                     </label>
-                    <p class="text-[11px] font-medium text-slate-500 leading-snug mt-1.5 pl-6.5">
-                        Optional. Only tick this for a term specific enough to reuse, such as a
-                        tool name. Generic words like &ldquo;data&rdquo; or &ldquo;filing&rdquo;
-                        belong to this report only. Dictionary terms override the automatic
-                        extractor on future reports.
+                    <p class="text-[11px] font-medium text-slate-500 leading-relaxed mt-2 pl-6.5">
+                        Saves it for every future report. Tick this for a real tool or
+                        system, like &ldquo;Troubleshooting&rdquo;. Skip it for common words
+                        like &ldquo;data&rdquo;.
                     </p>
                 </div>
 
-                <div class="flex justify-end gap-2.5 pt-2">
+                <div class="flex justify-end gap-2.5 pt-1">
                     <button type="button" onclick="document.getElementById('addEntityModal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-xs">Save Entity</button>
+                    <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-xs">Add Entity</button>
                 </div>
             </form>
         </div>
@@ -575,7 +582,7 @@ function workspaceItFlag(array $entity, string $activityType): string
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4 max-h-[80vh] flex flex-col">
             <div class="flex items-center justify-between shrink-0">
                 <h3 class="font-extrabold text-sm text-slate-950">Archived / Ignored Entities</h3>
-                <button type="button" onclick="document.getElementById('archiveModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer">&times;</button>
+                <button type="button" onclick="document.getElementById('archiveModal').classList.add('hidden')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center cursor-pointer shrink-0">&#10005;</button>
             </div>
 
             <div class="space-y-2.5 overflow-y-auto flex-1 pr-1">
