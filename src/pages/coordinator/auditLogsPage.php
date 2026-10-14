@@ -100,12 +100,11 @@
                         <div class="overflow-y-auto overflow-x-auto max-h-[620px] thin-scrollbar">
                             <table class="w-full table-fixed text-left border-collapse text-xs">
                                 <colgroup>
-                                    <col style="width: 16%;">
-                                    <col style="width: 16%;">
-                                    <col style="width: 9%;">
-                                    <col style="width: 15%;">
-                                    <col style="width: 34%;">
+                                    <col style="width: 18%;">
+                                    <col style="width: 18%;">
                                     <col style="width: 10%;">
+                                    <col style="width: 16%;">
+                                    <col style="width: 38%;">
                                 </colgroup>
                                 <thead class="sticky top-0 z-10 bg-slate-100 shadow-2xs">
                                     <tr class="text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
@@ -114,7 +113,6 @@
                                         <th class="py-4 px-4 bg-slate-100">Role</th>
                                         <th class="py-4 px-4 bg-slate-100">Action Event</th>
                                         <th class="py-4 px-4 bg-slate-100">Activity Description</th>
-                                        <th class="py-4 px-4 bg-slate-100 text-right">IP Address</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800 bg-white">
@@ -196,12 +194,7 @@
                                                 <span><?= htmlspecialchars($cleanDesc); ?></span>
                                             </td>
 
-                                            <!-- IP Address -->
-                                            <td class="py-4 px-4 text-right font-mono text-[11px] text-slate-500 font-semibold whitespace-nowrap align-middle">
-                                                <?= htmlspecialchars($log['ip_address'] ?? '127.0.0.1'); ?>
-                                            </td>
-
-                                        </tr>
+                                            </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
