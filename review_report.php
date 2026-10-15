@@ -60,6 +60,20 @@ if (!$reportId) {
     exit('Invalid report ID.');
 }
 
+/* Students are shown no extracted entities anywhere in the portal, so this
+   page is staff-only. The access query further down lets any signed-in owner
+   of the report in regardless of role (s.user_id = :user_id), so an intern
+   could otherwise reach this page by typing the URL and read the "Extracted
+   Entities" panel. Redirect them to their own report workspace instead.
+
+   Placed before the CSRF guard so a student POST never reaches a state
+   change, and before the extraction block further down, which deletes and
+   re-inserts every report_entities row on each view. */
+if ($userRole === 'student') {
+    header('Location: view_report.php?report_id=' . (int)$reportId);
+    exit;
+}
+
 /* CSRF Guard: covers the supervisor approve/reject branches below, whose forms
    live inline on this page. Placed after $reportId resolves so a rejection can
    send the supervisor back to the same report. This controller is reachable for

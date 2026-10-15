@@ -6,62 +6,6 @@ $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
 $isAssigned  = !empty($student['company_id']);
 
-/*
- * The controller may provide $recentReports with one of these entity keys:
- *   entities, extracted_entities, or report_entities.
- * Each entity may contain entity_name/name, activity_type, it_related,
- * confidence_score/confidence, and priority.
- */
-$reviewReports = array_values(array_filter($recentReports ?? [], static function ($report) {
-    return !empty($report['file_path']);
-}));
-
-$selectedReviewReport = $reviewReports[0] ?? null;
-$selectedReportEntities = [];
-
-if ($selectedReviewReport) {
-    $selectedReportEntities = $selectedReviewReport['entities']
-        ?? $selectedReviewReport['extracted_entities']
-        ?? $selectedReviewReport['report_entities']
-        ?? [];
-
-    if (is_string($selectedReportEntities)) {
-        $decodedEntities = json_decode($selectedReportEntities, true);
-        $selectedReportEntities = is_array($decodedEntities) ? $decodedEntities : [];
-    }
-}
-
-$studentDashboardJson = static function ($value): string {
-    return htmlspecialchars(
-        json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        ENT_QUOTES,
-        'UTF-8'
-    );
-};
-
-$reportViewerData = [];
-
-foreach ($reviewReports as $index => $report) {
-
-    $entities = $report['entities']
-        ?? $report['extracted_entities']
-        ?? $report['report_entities']
-        ?? [];
-
-    if (is_string($entities)) {
-        $decodedEntities = json_decode($entities, true);
-        $entities = is_array($decodedEntities) ? $decodedEntities : [];
-    }
-
-    $reportViewerData[] = [
-        'id' => (string)($report['id'] ?? $report['report_id'] ?? $index),
-        'week' => (string)($report['week_number'] ?? ($index + 1)),
-        'title' => 'Week ' . (string)($report['week_number'] ?? ($index + 1)) . ' Accomplishment Report',
-        'fileUrl' => '/ICS-PORTAL/' . ltrim((string)$report['file_path'], '/'),
-        'entities' => is_array($entities) ? array_values($entities) : [],
-    ];
-}
-
 ?>
 
 <!DOCTYPE html>
@@ -144,29 +88,6 @@ foreach ($reviewReports as $index => $report) {
             white-space: pre;
             cursor: text;
             transform-origin: 0 0;
-        }
-
-        .pdf-text-layer span.entity-highlight {
-            color: transparent;
-            background: rgba(250, 204, 21, .68);
-            border-radius: 3px;
-            box-shadow: 0 0 0 1px rgba(180, 83, 9, .28);
-        }
-
-        .entity-card {
-            transition:
-                border-color .15s ease,
-                background-color .15s ease,
-                transform .15s ease;
-        }
-
-        .entity-card.active {
-            border-color: #f59e0b;
-            background: #fffbeb;
-        }
-
-        .entity-card:hover {
-            transform: translateY(-1px);
         }
 
         .thin-scrollbar::-webkit-scrollbar {
@@ -481,35 +402,6 @@ foreach ($reviewReports as $index => $report) {
                                                 : '—';
                                             ?>
                                         </p>
-
-                                        <?php /* Terms recorded for this intern's own report.
-                                               Terms a coordinator added by hand are labelled
-                                               "Coordinator Added" rather than shown as if they
-                                               had been extracted from the PDF. */ ?>
-                                        <?php $recentEntities = $r['report_entities'] ?? []; ?>
-                                        <?php if (!empty($recentEntities)): ?>
-                                            <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                                                <?php foreach ($recentEntities as $entityChip):
-                                                    $chipIt = strtolower(trim((string)($entityChip['it_related'] ?? '')));
-                                                    $chipManual = ((string)($entityChip['source'] ?? '')) === 'manual_addition';
-                                                ?>
-                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold
-                                                        <?= $chipIt === 'no'
-                                                            ? 'bg-slate-100 text-slate-700 border-slate-300'
-                                                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'; ?>">
-                                                        <?= htmlspecialchars((string)($entityChip['entity_name'] ?? '')); ?>
-                                                        <?php if ($chipManual): ?>
-                                                            <span class="text-purple-700" title="Added by a coordinator, not extracted from your document">&#128100;</span>
-                                                        <?php endif; ?>
-                                                    </span>
-                                                <?php endforeach; ?>
-                                            </div>
-                                            <?php if (array_filter($recentEntities, static fn($c) => ((string)($c['source'] ?? '')) === 'manual_addition')): ?>
-                                                <p class="text-[10px] font-medium text-slate-400 mt-1.5">
-                                                    &#128100; = added by your coordinator
-                                                </p>
-                                            <?php endif; ?>
-                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <!-- Report Status / Review -->
@@ -538,7 +430,7 @@ foreach ($reviewReports as $index => $report) {
                                     <?php if (!empty($filePath)): ?>
                                         <a
                                             href="view_report.php?report_id=<?= urlencode((string)($r['id'] ?? $r['report_id'] ?? '')); ?>"
-                                            data-ics-loading="Extracting entities from this report&hellip; This may take a moment."
+                                            data-ics-loading="Opening this report&hellip; This may take a moment."
                                             class="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#0F2854] bg-slate-100 hover:bg-slate-200/80 rounded-xl border border-slate-200/70 transition-all"
                                         >
                                             Review PDF

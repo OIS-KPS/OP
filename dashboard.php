@@ -73,38 +73,10 @@ $progressPercentage = ($targetWeeks > 0) ? min(100, round(($totalApproved / $tar
 // 6. 2 Most Recent Reports for Snapshot Feed
 $recentReports = array_slice(array_reverse($reports), 0, 2);
 
-// 6b. Attach the entities recorded for each recent report.
-//
-// The intern sees what was captured for their own submission, including any
-// term a coordinator typed in by hand. Those rows carry
-// source='manual_addition' and the view labels them "Coordinator Added" so it
-// is clear the term was not read out of the uploaded PDF.
-//
-// Archived terms are excluded: the coordinator hid them deliberately.
-// Reads only this student's own reports -- $recentReports is already
-// scoped to $studentId by the query above.
-if (!empty($recentReports)) {
-    $recentIds = array_map('intval', array_column($recentReports, 'id'));
-    $recentPh = implode(',', array_fill(0, count($recentIds), '?'));
-
-    $entityStmt = $pdo->prepare(
-        "SELECT report_id, entity_name, it_related, source
-         FROM report_entities
-         WHERE report_id IN ({$recentPh})
-           AND is_archived = 0
-         ORDER BY entity_name ASC"
-    );
-    $entityStmt->execute($recentIds);
-
-    $entitiesByReport = [];
-    foreach ($entityStmt->fetchAll() as $entityRow) {
-        $entitiesByReport[(int) $entityRow['report_id']][] = $entityRow;
-    }
-
-    foreach ($recentReports as $i => $recentRow) {
-        $recentReports[$i]['report_entities'] = $entitiesByReport[(int) $recentRow['id']] ?? [];
-    }
-}
+// Entities are deliberately NOT attached here. They used to be queried for the
+// snapshot cards and rendered as chips, but interns are not shown extracted
+// entities anywhere in the portal any more, so loading report_entities on
+// every dashboard view was pure waste.
 
 // Render Dashboard View
 require_once __DIR__ . '/src/pages/student/dashboardPage.php';

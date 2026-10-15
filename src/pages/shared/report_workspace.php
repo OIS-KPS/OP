@@ -13,6 +13,8 @@
  *   $canExportCsv       show the CSV summary button
  *   $canReview          show Approve / Request Changes controls
  *   $showItPercentages  show the overall + per-week IT/clerical ratio bars
+ *   $showEntities       show the per-week extracted-entity panel at all
+ *   $pdfView            'width' (default) or 'fit' embedded PDF zoom
  *   $sidebarPath        sidebar component to include
  *   $pageTitle          <title> suffix
  *
@@ -37,6 +39,7 @@ $canManageEntities = $canManageEntities ?? false;
 $canExportCsv = $canExportCsv ?? false;
 $canReview = $canReview ?? false;
 $showItPercentages = $showItPercentages ?? false;
+$showEntities = $showEntities ?? true;
 $sidebarPath = $sidebarPath ?? ($viewContext . '_sidebar.php');
 $pageTitle = $pageTitle ?? 'Report Workspace';
 
@@ -70,6 +73,42 @@ $workspaceQuery = $viewContext === 'coordinator'
     ? $selfPath . '?student_id=' . $studentId
     : $selfPath;
 $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=' . $studentId : '');
+
+/**
+ * Whether the right-hand column has anything to show.
+ *
+ * It normally holds the review verdict, the overall IT ratio card and the
+ * per-week entity panel. A role that turns all three off would otherwise be
+ * left with an empty 5-column gap, so the column is dropped entirely and the
+ * PDF viewer takes the full width. Only the supervisor feedback banner can
+ * still keep it alive for such a role.
+ */
+$hasRightColumn = $showEntities
+    || $showItPercentages
+    || ($canReview && $activeReport)
+    || ($activeReport && $activeRemarks !== '');
+
+/**
+ * Zoom fragment for the embedded PDF viewer.
+ *
+ * 'width' is the historical behaviour: the page is scaled until it fills the
+ * embed horizontally, so a short page leaves room to spare and a long one
+ * runs off the bottom. 'fit' scales the whole page into the viewport instead.
+ *
+ * The two fragments are combined because they mean different things in
+ * different viewers: view= is the Acrobat/Edge form, zoom= is the one Chrome
+ * honours (it ignores view= entirely and falls back to fit-width). Keeping
+ * both means each browser gets the behaviour it actually implements.
+ *
+ * A role whose column is widened should ask for 'fit' -- at twice the width, a
+ * fit-width PDF scales up sharply and the text becomes larger than the
+ * surrounding page.
+ */
+$pdfView = $pdfView ?? 'width';
+
+$pdfViewerFragment = $pdfView === 'fit'
+    ? '#navpanes=0&view=Fit&zoom=page-fit'
+    : '#navpanes=0&view=FitH';
 
 /**
  * Normalize legacy/database values before rendering the shared panel.
@@ -229,8 +268,8 @@ function workspaceItFlag(array $entity, string $activityType): string
                 <!-- 7/5 Balanced Grid Split Layout -->
                 <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
-                    <!-- Left Column: Chronological WAR Timeline & Full-Size PDF Preview (7 of 12 columns) -->
-                    <div class="xl:col-span-7 bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col h-[calc(100vh-210px)] min-h-[780px]">
+                    <!-- Left Column: Chronological WAR Timeline & Full-Size PDF Preview (7 of 12, or 12 when there is no right column) -->
+                    <div class="xl:col-span-<?= $hasRightColumn ? '7' : '12' ?> bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col h-[calc(100vh-210px)] min-h-[780px]">
                         <div class="p-4 sm:p-5 border-b border-slate-200/70 flex items-center justify-between bg-slate-50/60 shrink-0">
                             <div>
                                 <h2 class="text-xs font-extrabold text-slate-950 uppercase tracking-wider">WAR Timeline &amp; Document Viewer</h2>
@@ -288,7 +327,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                                     </a>
                                 </div>
                                 <div class="flex-1 min-h-0 relative w-full h-full bg-slate-950">
-                                    <embed src="<?= htmlspecialchars($pdfUrl); ?>#navpanes=0&view=FitH" type="application/pdf" class="w-full h-full border-0">
+                                    <embed src="<?= htmlspecialchars($pdfUrl . $pdfViewerFragment); ?>" type="application/pdf" class="w-full h-full border-0">
                                 </div>
                             <?php else: ?>
                                 <div class="flex flex-col items-center justify-center h-full text-slate-400 text-xs p-6 text-center space-y-2">
@@ -300,7 +339,8 @@ function workspaceItFlag(array $entity, string $activityType): string
                         </div>
                     </div>
 
-                    <!-- Right Column: Aggregated Analytics & Active Week Entities (5 of 12 columns) -->
+                    <!-- Right Column: Aggregated Analytics & Active Week Entities (5 of 12 columns; omitted entirely when it would be empty) -->
+                    <?php if ($hasRightColumn): ?>
                     <div class="xl:col-span-5 flex flex-col h-[calc(100vh-210px)] min-h-[780px] space-y-5">
 
                         <!-- Active Week Review Verdict (supervisor only) -->
@@ -379,6 +419,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                         <?php endif; ?>
 
                         <!-- Active Week Entities & Manual Add Form -->
+                        <?php if ($showEntities): ?>
                         <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex-1 flex flex-col min-h-0">
                             <div class="p-4 border-b border-slate-200/70 bg-slate-50/60 shrink-0 space-y-3">
                                 <div class="flex items-center justify-between">
@@ -524,8 +565,10 @@ function workspaceItFlag(array $entity, string $activityType): string
                                 <?php endif; ?>
                             </div>
                         </div>
+                        <?php endif; ?>
 
                     </div>
+                    <?php endif; ?>
 
                 </div>
 
@@ -659,7 +702,15 @@ function workspaceItFlag(array $entity, string $activityType): string
             var selectedOption = select.options[select.selectedIndex];
             if (!selectedOption || !selectedOption.value) return;
             var weekText = selectedOption.textContent || 'report';
+            <?php /* Only roles that actually run the extractor on view should be told
+                     about it. $showEntities is false exactly where the auto-extract
+                     call was removed from the controller, so promising "extracting"
+                     there would be a lie. */ ?>
+            <?php if ($showEntities): ?>
             var message = 'Extracting entities from ' + weekText + '. This may take a moment\u2026';
+            <?php else: ?>
+            var message = 'Opening ' + weekText + '. This may take a moment\u2026';
+            <?php endif; ?>
             
             // Use the existing ICSLoadingOverlay if available
             if (window.ICSLoadingOverlay && window.ICSLoadingOverlay.show) {

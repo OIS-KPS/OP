@@ -5,7 +5,6 @@
 session_start();
 
 require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/src/services/entity_extraction.php';
 require_once __DIR__ . '/src/services/report_workspace.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
@@ -23,14 +22,6 @@ $student = null;
 $studentId = 0;
 $reportsList = [];
 $activeReport = null;
-$allEntities = [];
-$weekEntities = [];
-$archivedEntities = [];
-$itPct = 0;
-$clericalPct = 0;
-$weekItPct = 0;
-$weekClericalPct = 0;
-$weekTotalCount = 0;
 $pdfUrl = '';
 
 try {
@@ -51,53 +42,6 @@ if ($requestedReportId > 0 && reportWorkspaceStudentIdForReport($pdo, $requested
     $requestedReportId = 0;
 }
 
-/**
- * Resolve a reports.file_path value to a readable file on disk.
- * Same logic as supervisor/view_report.php.
- */
-if (!function_exists('resolveReportPdfPath')) {
-    function resolveReportPdfPath($filePath)
-    {
-        if (empty($filePath)) {
-            return false;
-        }
-
-        $filePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $filePath);
-
-        if (is_file($filePath)) {
-            $realPath = realpath($filePath);
-            if ($realPath !== false) {
-                return $realPath;
-            }
-        }
-
-        $projectRoot = realpath(__DIR__);
-        if ($projectRoot !== false) {
-            $relativePath = ltrim($filePath, DIRECTORY_SEPARATOR);
-            $fileName = basename($filePath);
-
-            $candidateReports = $projectRoot . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'reports' . DIRECTORY_SEPARATOR . $fileName;
-            if (is_file($candidateReports)) {
-                return realpath($candidateReports);
-            }
-
-            $candidate = $projectRoot . DIRECTORY_SEPARATOR . $relativePath;
-            if (is_file($candidate)) {
-                return realpath($candidate);
-            }
-
-            $normalized = str_replace('\\', '/', $relativePath);
-            $normalized = preg_replace('#^ICS-PORTAL/#i', '', $normalized);
-            $candidate = $projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
-            if (is_file($candidate)) {
-                return realpath($candidate);
-            }
-        }
-
-        return false;
-    }
-}
-
 try {
     $workspace = reportWorkspaceBuild($pdo, $studentId, [
         'reportId' => $requestedReportId,
@@ -112,42 +56,14 @@ try {
     $student = $workspace['student'];
     $reportsList = $workspace['reportsList'];
     $activeReport = $workspace['activeReport'];
-    $allEntities = $workspace['allEntities'];
-    $weekEntities = $workspace['weekEntities'];
-    $archivedEntities = $workspace['archivedEntities'];
-    $itPct = $workspace['itPct'];
-    $clericalPct = $workspace['clericalPct'];
-    $weekItPct = $workspace['weekItPct'];
-    $weekClericalPct = $workspace['weekClericalPct'];
-    $weekTotalCount = $workspace['weekTotalCount'];
     $pdfUrl = $workspace['pdfUrl'];
 
-    // Auto-extract entities on every view to pick up new predefined entities
-    if (!empty($activeReport) && (int)$activeReport['id'] > 0) {
-        $reportIdActive = (int)$activeReport['id'];
-        $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
-
-        if ($pdfPath !== false) {
-            extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
-
-            $workspace = reportWorkspaceBuild($pdo, $studentId, [
-                'reportId' => $requestedReportId,
-                'status' => null,
-            ]);
-            $student = $workspace['student'];
-            $reportsList = $workspace['reportsList'];
-            $activeReport = $workspace['activeReport'];
-            $allEntities = $workspace['allEntities'];
-            $weekEntities = $workspace['weekEntities'];
-            $archivedEntities = $workspace['archivedEntities'];
-            $itPct = $workspace['itPct'];
-            $clericalPct = $workspace['clericalPct'];
-            $weekItPct = $workspace['weekItPct'];
-            $weekClericalPct = $workspace['weekClericalPct'];
-            $weekTotalCount = $workspace['weekTotalCount'];
-            $pdfUrl = $workspace['pdfUrl'];
-        }
-    }
+    // No auto-extraction here, unlike coordinator/view_report.php and
+    // supervisor/view_report.php. Extraction re-runs the transformer over the
+    // PDF on every view and rewrites report_entities; a student has no entity
+    // panel to feed and no authority over those rows, so their page load should
+    // not pay for the model or write to the table. Whatever the coordinator last
+    // extracted is still read by reportWorkspaceBuild() but never rendered.
 } catch (Throwable $exception) {
     error_log('Error loading report workspace in view_report.php: ' . $exception->getMessage());
 }
