@@ -294,8 +294,8 @@ $cqiStatusClassView = match ($cqiStatusView) {
                     <!-- 4. Detailed Evidence-Based CQI Summary & Action Plan -->
                     <section class="cqi-summary-card w-full max-w-none min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 border-l-[#0F2854] bg-white p-4 shadow-xs" aria-labelledby="cqi-heading">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <h2 id="cqi-heading" class="flex items-center gap-2 text-[15px] font-bold uppercase tracking-wide text-slate-900">
-                                <span aria-hidden="true">&#9635;</span> CQI Summary &amp; Action Plan
+                            <h2 id="cqi-heading" class="flex items-center gap-2 text-[15px] font-bold uppercase tracking-wide text-blue-900">
+                                <span aria-hidden="true"></span> CQI Analysis Summary
                             </h2>
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="w-fit rounded-full border px-3 py-1 text-[11px] font-bold <?= htmlspecialchars($cqiStatusClassView, ENT_QUOTES, 'UTF-8'); ?>">
@@ -322,18 +322,14 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                 <p class="mt-0.5 text-[15px] font-bold leading-tight text-slate-900"><?= (int) ($evaluatedStudents ?? 0); ?> / <?= (int) ($totalStudents ?? 0); ?></p>
                                 <p class="text-[11px] text-slate-400"><?= number_format($evaluationCoverageView, 1); ?>% covered</p>
                             </div>
-                            <div class="min-w-0">
-                                <p class="text-xs text-slate-500">Reports with keywords</p>
-                                <p class="mt-0.5 text-[15px] font-bold leading-tight text-slate-900"><?= (int) $reportsWithEntitiesView; ?> / <?= (int) $totalReportsView; ?></p>
-                                <p class="text-[11px] text-slate-400"><?= $totalReportsView > 0 ? number_format(($reportsWithEntitiesView / $totalReportsView) * 100, 1) : '0.0'; ?>% covered</p>
-                            </div>
+                            
                             <div class="min-w-0">
                                 <p class="text-xs text-slate-500">IT tasks vs clerical</p>
                                 <p class="mt-0.5 text-[15px] font-bold leading-tight text-slate-900"><?= number_format($technicalActivityPct, 1); ?>% / <?= number_format($clericalActivityPct, 1); ?>%</p>
                                 <p class="text-[11px] text-slate-400">of <?= (int) $totalEntityOccurrencesView; ?> keywords</p>
                             </div>
                             <div class="min-w-0">
-                                <p class="text-xs text-slate-500">Keyword match rate</p>
+                                <p class="text-xs text-slate-500">Entity Extraction rate</p>
                                 <p class="mt-0.5 text-[15px] font-bold leading-tight text-slate-900"><?= number_format($confidenceView, 1); ?>%</p>
                                 <p class="text-[11px] text-slate-400">how often a term matched</p>
                             </div>
@@ -364,43 +360,6 @@ $cqiStatusClassView = match ($cqiStatusView) {
                             <?php endif; ?>
                         </div>
 
-                        <?php /* Terms to review.
-
-                                 This was three rows: a chip row, a row of filter buttons,
-                                 and a panel underneath that the buttons rewrote. All three
-                                 listed the same three priority groups.
-
-                                 There was nothing to filter here -- the full list is thirteen
-                                 terms and fits on screen -- so the filter was decoration
-                                 with a click attached. The three groups are now three plain
-                                 lines, listed in full. */ ?>
-                        <?php
-                        $priorityGroupNamesView = [];
-                        foreach ($entityPriorityRowsView as $priorityRowView) {
-                            $priorityNameView = (string) ($priorityRowView['priority'] ?? 'Low');
-                            if (!isset($priorityGroupNamesView[$priorityNameView])) {
-                                $priorityGroupNamesView[$priorityNameView] = [];
-                            }
-                            $priorityGroupNamesView[$priorityNameView][] = (string) ($priorityRowView['entity'] ?? '');
-                        }
-                        ?>
-                        <div class="mt-5">
-                            <p class="text-xs font-semibold text-slate-700">Terms to review</p>
-                            <?php if ($cqiTopTermView !== '' && $cqiTopTermOccurrencesView > 0): ?>
-                                <p class="mt-0.5 text-[11px] text-slate-400">Most frequent: <?= htmlspecialchars($cqiTopTermView, ENT_QUOTES, 'UTF-8'); ?> (<?= (int) $cqiTopTermOccurrencesView; ?> <?= $cqiTopTermOccurrencesView === 1 ? 'time' : 'times'; ?>)</p>
-                            <?php endif; ?>
-                            <div class="mt-2 space-y-1">
-                                <?php foreach (['High', 'Medium', 'Low'] as $priorityLevelView): ?>
-                                    <?php $priorityNamesView = $priorityGroupNamesView[$priorityLevelView] ?? []; ?>
-                                    <?php if (!$priorityNamesView) { continue; } ?>
-                                    <p class="flex gap-2 text-[13px] leading-6">
-                                        <span class="w-16 shrink-0 text-slate-500"><?= $priorityLevelView; ?></span>
-                                        <span class="min-w-0 text-slate-700"><?= htmlspecialchars(implode(', ', $priorityNamesView), ENT_QUOTES, 'UTF-8'); ?></span>
-                                    </p>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
                         <?php /* Gaps and the action plan.
 
                                  "What this means" used to sit here and print $cqiSummaryView
@@ -418,7 +377,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                         <div class="mt-5 space-y-4 border-t border-slate-200 pt-4">
                             <?php if ($cqiGapsView): ?>
                                 <div>
-                                    <p class="text-xs font-semibold text-slate-700">Needs attention</p>
+                                    <p class="text-xs font-semibold text-blue-700">Needs attention</p>
                                     <ul class="mt-1 space-y-0.5">
                                         <?php foreach ($cqiGapsView as $gapView): ?>
                                             <li class="text-[13px] leading-6 text-slate-600"><?= htmlspecialchars((string) $gapView, ENT_QUOTES, 'UTF-8'); ?></li>
@@ -428,7 +387,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                             <?php endif; ?>
 
                             <div>
-                                <p class="text-xs font-semibold text-slate-700">What to do</p>
+                                <p class="text-xs font-semibold text-blue-700">What to do</p>
                                 <p class="mt-1 text-[13px] leading-6 text-slate-700"><?= htmlspecialchars($cqiOverallRecommendationView !== '' ? $cqiOverallRecommendationView : 'Use the next academic CQI cycle to verify evaluation completion, improve report extraction coverage, compare company IT-task exposure, and review entity classifications against the program learning outcomes.', ENT_QUOTES, 'UTF-8'); ?></p>
                             </div>
                         </div>
