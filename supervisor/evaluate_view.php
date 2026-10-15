@@ -28,6 +28,7 @@ try {
             e.communication_score,
             e.punctuality_score,
             e.criteria_ratings,
+        e.criteria_snapshot,
             e.final_score,
             e.grade_equivalent,
             e.feedback AS remarks,

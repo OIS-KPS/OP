@@ -287,7 +287,7 @@ if (!function_exists('evalPdfDocument')) {
         $scale    = ojtRatingScale();
         $bounds   = ojtRatingBounds();
         $groups   = ojtEvaluationGroups();
-        $criteria = ojtEvaluationCriteria();
+        $criteria = ojtCriteriaForEvaluation($evaluation);
 
         $signedAt = !empty($evaluation['otp_signed_at'])
             ? date('M d, Y \a\t g:i A', strtotime((string) $evaluation['otp_signed_at']))

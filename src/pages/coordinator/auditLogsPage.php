@@ -142,6 +142,19 @@
                                             $cleanDesc = 'Submitted weekly accomplishment report for review';
                                         } elseif (stripos($rawAction, 'REPORT_APPROVED') !== false) {
                                             $cleanDesc = 'Verified and approved weekly accomplishment report';
+                                        } elseif (stripos($rawAction, 'EVALUATION_FORM_UPDATED') !== false) {
+                                            // Checked BEFORE the generic EVALUATION catch-all
+                                            // below. That branch rewrites the description to
+                                            // "Signed final performance evaluation with digital OTP",
+                                            // which would replace the real text and make a form
+                                            // edit look like a supervisor signing an evaluation.
+                                            //
+                                            // The stored description is kept as-is here rather
+                                            // than replaced with a house-style sentence: it
+                                            // already names the competencies that changed, which
+                                            // is the part an auditor actually needs.
+                                            $cleanDesc = 'Updated the OJT Performance Evaluation Form questions: '
+                                                . preg_replace('/^Updated the wording of \d+ evaluation competencies\.?\s*/i', '', (string) ($log['description'] ?? ''));
                                         } elseif (stripos($rawAction, 'EVALUATION') !== false) {
                                             $cleanDesc = 'Signed final performance evaluation with digital OTP';
                                         }

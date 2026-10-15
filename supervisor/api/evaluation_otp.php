@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../config/evaluation_criteria.php';
+require_once __DIR__ . '/../../src/services/evaluation_questions_store.php';
 require_once __DIR__ . '/../../src/services/MailerService.php';
 
 use services\MailerService;
@@ -172,6 +173,11 @@ if ($action === 'verify_and_submit_evaluation') {
     $gradeLabel  = ojtRatingLabel($finalScore);
     $criteriaJson = json_encode($ratings);
 
+    // Freeze the wording the supervisor actually answered against. If the
+    // coordinator rewrites the 12 competencies later, this record keeps
+    // displaying the questions as they read at sign-off.
+    $criteriaSnapshot = evaluationQuestionsSnapshot(ojtEvaluationCriteria());
+
     // Capture Client IP Address
     $clientIp = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
     if (str_contains($clientIp, ',')) {
@@ -184,14 +190,15 @@ if ($action === 'verify_and_submit_evaluation') {
 
         $stmtSave = $pdo->prepare("
             INSERT INTO evaluations
-            (student_id, supervisor_id, technical_score, work_ethics_score, communication_score, punctuality_score, criteria_ratings, final_score, grade_equivalent, feedback, otp_verified, otp_signed_at, otp_ip_address)
-            VALUES (?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, 1, NOW(), ?)
+            (student_id, supervisor_id, technical_score, work_ethics_score, communication_score, punctuality_score, criteria_ratings, criteria_snapshot, final_score, grade_equivalent, feedback, otp_verified, otp_signed_at, otp_ip_address)
+            VALUES (?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, ?, 1, NOW(), ?)
             ON DUPLICATE KEY UPDATE
                 technical_score = VALUES(technical_score),
                 work_ethics_score = VALUES(work_ethics_score),
                 communication_score = VALUES(communication_score),
                 punctuality_score = 0.00,
                 criteria_ratings = VALUES(criteria_ratings),
+                criteria_snapshot = VALUES(criteria_snapshot),
                 final_score = VALUES(final_score),
                 grade_equivalent = VALUES(grade_equivalent),
                 feedback = VALUES(feedback),
@@ -206,6 +213,7 @@ if ($action === 'verify_and_submit_evaluation') {
             $groupScores['ethics'] ?? 0,
             $groupScores['communication'] ?? 0,
             $criteriaJson,
+            $criteriaSnapshot,
             $finalScore,
             $gradeLabel,
             $feedback,

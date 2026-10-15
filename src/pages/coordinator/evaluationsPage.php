@@ -294,6 +294,34 @@ if (!function_exists('e')) {
                             </button>
 
 
+                            <!-- Editable evaluation form: the 12 competency questions -->
+                            <button
+                                type="button"
+                                onclick="openEvaluationFormEditor()"
+                                class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-xs transition-all inline-flex items-center gap-2 cursor-pointer"
+                            >
+
+                                <svg
+                                    class="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
+                                    />
+                                </svg>
+
+                                <span>
+                                    Update Evaluation Form
+                                </span>
+
+                            </button>
+
+
                             <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
 
                                 <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
@@ -813,6 +841,141 @@ if (!function_exists('e')) {
                 </div>
 
             </main>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- 0. UPDATE EVALUATION FORM (12 competency questions)  -->
+    <!-- ========================================================= -->
+
+    <div
+        id="evaluationFormModal"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden overflow-y-auto items-center justify-center z-50 p-4"
+    >
+
+        <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+
+            <div class="flex items-start justify-between gap-4 p-5 border-b border-slate-200/70 shrink-0">
+
+                <div>
+
+                    <h3 class="text-sm font-black text-slate-950">
+                        Update Evaluation Form
+                    </h3>
+
+                    <p class="text-[11px] text-slate-600 font-semibold mt-1">
+                        Edit the wording of the 12 competencies on the OJT Performance Evaluation Form.
+                        Changes apply to evaluations submitted from now on.
+                    </p>
+
+                </div>
+
+                <button
+                    type="button"
+                    onclick="closeEvaluationFormEditor()"
+                    class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0 cursor-pointer"
+                    aria-label="Close"
+                >
+                    &times;
+                </button>
+
+            </div>
+
+            <div class="p-3 bg-amber-50 border-b border-amber-200">
+                <p class="text-[11px] text-amber-900 font-medium leading-relaxed">
+                    <strong>Completed evaluations are not affected.</strong>
+                    Each submitted evaluation stores the questions it was answered against, so a signed record keeps its original wording even after you save changes here.
+                </p>
+            </div>
+
+            <form method="POST" action="evaluations.php" class="flex flex-col min-h-0 flex-1">
+
+                <?= csrf_field() ?>
+
+                <input type="hidden" name="action" value="save_evaluation_questions">
+
+                <div class="overflow-y-auto p-5 space-y-3 flex-1 min-h-0">
+
+                    <?php
+                    $evaluationFormDraft  = is_array($evaluationFormDraft ?? null) ? $evaluationFormDraft : [];
+                    $evaluationFormErrors = is_array($evaluationFormErrors ?? null) ? $evaluationFormErrors : [];
+                    $evaluationGroupLabels = ojtEvaluationGroups();
+                    ?>
+
+                    <?php foreach (($evaluationFormCriteria ?? []) as $formIndex => $formCriterion):
+                        $formKey      = (string) $formCriterion['key'];
+                        $formFieldErr = (string) ($evaluationFormErrors[$formKey] ?? '');
+                        $formValue    = (string) ($evaluationFormDraft[$formKey] ?? $formCriterion['text']);
+                        ?>
+                        <div class="border <?= $formFieldErr !== '' ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-slate-50/50'; ?> rounded-xl p-3.5">
+
+                            <div class="flex items-start gap-3">
+
+                                <span class="w-6 h-6 rounded-lg bg-[#0F2854] text-white flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                                    <?= $formIndex + 1; ?>
+                                </span>
+
+                                <div class="min-w-0 flex-1">
+
+                                    <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                                        <?= htmlspecialchars($evaluationGroupLabels[$formCriterion['group']] ?? $formCriterion['group']); ?>
+                                    </p>
+
+                                    <label for="question_<?= htmlspecialchars($formKey); ?>" class="sr-only">
+                                        Competency <?= $formIndex + 1; ?> wording
+                                    </label>
+
+                                    <textarea
+                                        id="question_<?= htmlspecialchars($formKey); ?>"
+                                        name="question[<?= htmlspecialchars($formKey); ?>]"
+                                        rows="2"
+                                        maxlength="1000"
+                                        class="w-full bg-white border <?= $formFieldErr !== '' ? 'border-rose-400' : 'border-slate-300'; ?> rounded-lg px-3 py-2 text-[13px] font-medium leading-6 text-slate-800 focus:outline-none focus:border-[#0F2854] transition-colors"
+                                    ><?= htmlspecialchars($formValue); ?></textarea>
+
+                                    <?php if ($formFieldErr !== ''): ?>
+                                        <p class="mt-1 text-[11px] font-semibold text-rose-700">
+                                            <?= htmlspecialchars($formFieldErr); ?>
+                                        </p>
+                                    <?php endif; ?>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+                    <?php endforeach; ?>
+
+                </div>
+
+                <div class="flex items-center justify-between gap-3 p-4 border-t border-slate-200/70 bg-slate-50 shrink-0">
+
+                    <p class="text-[11px] text-slate-500 font-semibold">
+                        <?= count($evaluationFormCriteria ?? []); ?> competencies &bull; rated 1&ndash;5 on each
+                    </p>
+
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onclick="closeEvaluationFormEditor()"
+                            class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-300 transition-colors cursor-pointer"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="px-5 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                        >
+                            Save Evaluation Form
+                        </button>
+                    </div>
+
+                </div>
+
+            </form>
 
         </div>
 
@@ -1469,6 +1632,29 @@ if (!function_exists('e')) {
             modal.classList.add('hidden');
         }
         /* =====================================================
+           UPDATE EVALUATION FORM MODAL
+        ===================================================== */
+        function openEvaluationFormEditor() {
+            const modal = document.getElementById('evaluationFormModal');
+            if (!modal) return;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const firstField = modal.querySelector('textarea');
+            if (firstField) {
+                firstField.focus();
+            }
+        }
+
+        function closeEvaluationFormEditor() {
+            const modal = document.getElementById('evaluationFormModal');
+            if (!modal) return;
+
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+        /* =====================================================
            ESC KEY CLOSES MODALS
         ===================================================== */
         document.addEventListener('keydown', function(event) {
@@ -1478,6 +1664,15 @@ if (!function_exists('e')) {
             closeTriggerModal();
             closeSingleConfirmModal();
             closeCancelEvaluationModal();
+            closeEvaluationFormEditor();
+        });
+
+        // Clicking the backdrop closes the evaluation form editor.
+        document.addEventListener('click', function (event) {
+            const modal = document.getElementById('evaluationFormModal');
+            if (modal && event.target === modal) {
+                closeEvaluationFormEditor();
+            }
         });
     </script>
 </body>
