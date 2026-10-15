@@ -26,10 +26,12 @@ from typing import List, Dict, Any, Optional, Tuple
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import scripts
 import spacy
+import torch
 from spacy.language import Language
 from spacy.tokens import Doc, Span
 from spacy.util import load_config
 from scripts.annotation import load_terms_dictionary
+
 
 
 def _load_model_for_runtime(model_path: str) -> Language:

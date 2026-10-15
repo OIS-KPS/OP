@@ -15,8 +15,14 @@ $selectedSection = ($_GET['section'] ?? 'all') === 'all' ? 'all' : normalizeSect
 $searchQuery     = trim($_GET['search'] ?? '');
 $defaultSection  = section_course_codes()[0];
 
-$whereClauses = ["u.status = 'active'"];
-$params = ['defSection' => $defaultSection];
+$whereClauses = [
+    "u.status = 'active'",
+    "EXISTS (SELECT 1 FROM reports r WHERE r.student_id = s.id AND r.status = 'approved')"
+];
+
+// Unique marker names on purpose: the connection runs with EMULATE_PREPARES off,
+// which rejects a repeated named marker and any bound value without a marker.
+$params = ['rowSection' => $defaultSection];
 
 if ($selectedCompany !== 'all' && is_numeric($selectedCompany) && intval($selectedCompany) > 0) {
     $whereClauses[] = "c.id = :comp_id";
@@ -24,8 +30,9 @@ if ($selectedCompany !== 'all' && is_numeric($selectedCompany) && intval($select
 }
 
 if ($selectedSection !== 'all' && $selectedSection !== '') {
-    $whereClauses[] = "COALESCE(s.section, :defSection) = :sec";
-    $params['sec'] = $selectedSection;
+    $whereClauses[] = "COALESCE(NULLIF(TRIM(s.section), ''), :filterSection) = :sectionFilter";
+    $params['filterSection'] = $defaultSection;
+    $params['sectionFilter'] = $selectedSection;
 }
 
 if ($searchQuery !== '') {
@@ -42,25 +49,22 @@ $sql = "
         s.id AS student_id,
         s.student_number,
         s.program,
-        COALESCE(s.section, :defSection) AS section,
+        COALESCE(NULLIF(TRIM(s.section), ''), :rowSection) AS section,
         u.name AS student_name,
         COALESCE(c.name, 'Host Company') AS company_name,
         o.name AS office_name,
         COALESCE(u_sup.name, 'Unassigned') AS supervisor_name,
         (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved') AS approved_reports_count,
-        SUM(CASE WHEN re.it_related <> 'no' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS tech_count,
-        SUM(CASE WHEN re.it_related = 'no' AND re.is_archived = 0 THEN 1 ELSE 0 END) AS clerical_count
+        (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved' AND is_late = 1) AS late_reports_count,
+        (SELECT COUNT(re2.id) FROM report_entities re2 WHERE re2.report_id IN (SELECT r2.id FROM reports r2 WHERE r2.student_id = s.id AND r2.status = 'approved') AND re2.is_archived = 0 AND re2.it_related <> 'no') AS tech_count,
+        (SELECT COUNT(re2.id) FROM report_entities re2 WHERE re2.report_id IN (SELECT r2.id FROM reports r2 WHERE r2.student_id = s.id AND r2.status = 'approved') AND re2.is_archived = 0 AND re2.it_related = 'no') AS clerical_count
     FROM students s
     JOIN users u ON s.user_id = u.id
     LEFT JOIN companies c ON s.company_id = c.id
     LEFT JOIN offices o ON s.office_id = o.id
     LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
     LEFT JOIN users u_sup ON sup.user_id = u_sup.id
-    LEFT JOIN reports r ON r.student_id = s.id AND r.status = 'approved'
-    LEFT JOIN report_entities re ON re.report_id = r.id
     {$whereSQL}
-    GROUP BY s.id
-    HAVING approved_reports_count > 0
     ORDER BY s.section ASC, SUBSTRING_INDEX(u.name, ' ', -1) ASC, u.name ASC
 ";
 
@@ -78,6 +82,10 @@ foreach ($rawRows as $row) {
     $row['clerical_pct'] = $total > 0 ? round(($cCount / $total) * 100, 1) : 0.0;
     $studentsData[]      = $row;
 }
+
+// Canonical course code sequence (IT44A -> IT44B -> IT44C -> IT44D), shared
+// with print_all_reports.php so the CSV and the printed sheet always agree.
+$studentsData = sortByCourseCodeSequence($studentsData);
 
 // CSV Export
 if ($format === 'csv') {
@@ -165,12 +173,13 @@ if ($format === 'csv') {
                 <th>Student Intern</th>
                 <th>Host Partner &amp; Supervisor</th>
                 <th>Approved Reports</th>
+                <th>Late Submissions</th>
                 <th>IT vs Clerical Ratio</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($studentsData)): ?>
-                <tr><td colspan="5" style="text-align: center; padding: 20px;">No student records found.</td></tr>
+                <tr><td colspan="6" style="text-align: center; padding: 20px;">No student records found.</td></tr>
             <?php else: ?>
                 <?php foreach ($studentsData as $st): ?>
                     <tr>
@@ -185,6 +194,14 @@ if ($format === 'csv') {
                             <span style="color: #64748b; font-size: 10px;">Supervisor: <?= htmlspecialchars($st['supervisor_name']); ?></span>
                         </td>
                         <td><strong><?= (int)$st['approved_reports_count']; ?> Approved</strong></td>
+                        <td>
+                            <?php $lateCount = (int)($st['late_reports_count'] ?? 0); ?>
+                            <?php if ($lateCount > 0): ?>
+                                <strong style="color: #9a3412;"><?= $lateCount; ?> Late</strong>
+                            <?php else: ?>
+                                <span style="color: #94a3b8;">0 Late</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <strong>IT: <?= $st['it_pct']; ?>%</strong> &bull; Clerical: <?= $st['clerical_pct']; ?>%
                         </td>

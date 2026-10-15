@@ -146,6 +146,27 @@
                             </a>
                         </div>
 
+                        <!-- Archive All: students only, scoped to the course code shown -->
+                        <?php if (($tab ?? 'students') === 'students' && ($archivableStudentCount ?? 0) > 0): ?>
+                            <?php
+                            $bulkScope = ($selectedSection ?? 'all') === 'all'
+                                ? 'ALL course codes'
+                                : 'course code ' . $selectedSection;
+                            $bulkPlural = $archivableStudentCount === 1 ? 'student account' : 'student accounts';
+                            ?>
+                            <form method="POST" action="users.php" class="shrink-0"
+                                  onsubmit="return confirm('Archive ALL <?= (int)$archivableStudentCount; ?> <?= $bulkPlural; ?> in <?= htmlspecialchars($bulkScope); ?>?\n\nTheir reports and records are kept, they lose portal access, and they can be restored later from the Archived tab.');">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="archive_all_students">
+                                <input type="hidden" name="section" value="<?= htmlspecialchars($selectedSection ?? 'all'); ?>">
+                                <button type="submit"
+                                        class="px-3.5 py-2 bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold rounded-lg border border-rose-800 shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                                    Archive All (<?= (int)$archivableStudentCount; ?>)
+                                </button>
+                            </form>
+                        <?php endif; ?>
+
                     </div>
 
                     <!-- (Section filters now live inside the Students dropdown) -->

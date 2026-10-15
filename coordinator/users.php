@@ -1970,6 +1970,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     }
 
+
+
+    // Action H: Archive All Students (bulk)
+
+    if ($action === 'archive_all_students') {
+
+        // Students only. Supervisors and coordinators keep their access, and
+        // the signed-in coordinator is excluded explicitly so a crafted
+        // request can never archive the account performing the action.
+
+        $bulkSection = ($_POST['section'] ?? 'all') === 'all'
+            ? 'all'
+            : normalizeSectionCode($_POST['section'] ?? '');
+
+        $redirectUrl = 'users.php?tab=students' . ($bulkSection !== 'all' ? '&section=' . urlencode($bulkSection) : '');
+
+        try {
+
+            // Named markers only: PDO::ATTR_EMULATE_PREPARES is off, and a statement
+            // that mixes "?" with ":name" is rejected outright at prepare() time.
+            $sqlAffected = "SELECT id FROM users WHERE role = 'student' AND status = 'active' AND id <> :coordinator";
+
+            $affectedParams = ['coordinator' => $coordinatorId];
+
+            // Follow the course code filter: with a code selected only that
+            // block is archived, with "All Students" every student is.
+            if ($bulkSection !== 'all') {
+
+                $sqlAffected .= " AND id IN (SELECT user_id FROM students WHERE section = :sec)";
+
+                $affectedParams['sec'] = $bulkSection;
+
+            }
+
+            $stmtAffected = $pdo->prepare($sqlAffected);
+
+            $stmtAffected->execute($affectedParams);
+
+            $userIds = array_map('intval', $stmtAffected->fetchAll(PDO::FETCH_COLUMN) ?: []);
+
+            if (empty($userIds)) {
+
+                $_SESSION['flash_error'] = $bulkSection !== 'all'
+                    ? "There are no active students in {$bulkSection} to archive."
+                    : "There are no active students to archive.";
+
+            } else {
+
+                $affectedCount = count($userIds);
+
+                // Collected first, then updated: MySQL refuses to update a
+                // table it is also reading through a subquery.
+                $placeholders = implode(',', array_fill(0, $affectedCount, '?'));
+
+                $stmtArchiveAll = $pdo->prepare("UPDATE users SET status = 'archived', archived_at = NOW() WHERE id IN ($placeholders)");
+
+                $stmtArchiveAll->execute($userIds);
+
+                $scopeLabel = $bulkSection !== 'all' ? "in course code {$bulkSection}" : 'across all course codes';
+
+                logActivity(
+                    $pdo,
+                    $coordinatorId,
+                    'coordinator',
+                    'USER_ARCHIVED',
+                    "Bulk archived {$affectedCount} student account(s) {$scopeLabel}. Restorable from the Archived tab."
+                );
+
+                $_SESSION['flash_success'] = "{$affectedCount} student account(s) archived. They can be restored from the Archived tab.";
+
+            }
+
+        } catch (Throwable $e) {
+
+            $_SESSION['flash_error'] = "Failed to archive students: " . userFacingError($e, 'users.php:archive_all_students');
+
+        }
+
+        header("Location: " . $redirectUrl);
+
+        exit();
+
+    }
+
 }
 
 
@@ -1977,6 +2061,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // 3. Fetch Dynamic Data
 
 $students       = [];
+
+$archivableStudentCount = 0;
 
 $supervisors    = [];
 
@@ -2083,6 +2169,42 @@ try {
     $stmtStd->execute($stdParams);
 
     $students = $stmtStd->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+
+
+    // How many student accounts "Archive All" would affect right now, so the
+    // button can state the exact scope before the coordinator confirms. Uses
+    // the same criteria as the archive_all_students action.
+
+    $stmtCountAll = $pdo->prepare("
+        SELECT COUNT(id)
+        FROM users
+        WHERE role = 'student'
+          AND status = 'active'
+          AND id <> :coordinator
+    ");
+
+    // Named markers only, for the same reason as the archive_all_students query.
+    $countParams = ['coordinator' => $coordinatorId];
+
+    if ($selectedSection !== 'all') {
+
+        $stmtCountAll = $pdo->prepare("
+            SELECT COUNT(id)
+            FROM users
+            WHERE role = 'student'
+              AND status = 'active'
+              AND id <> :coordinator
+              AND id IN (SELECT user_id FROM students WHERE section = :sec)
+        ");
+
+        $countParams['sec'] = $selectedSection;
+
+    }
+
+    $stmtCountAll->execute($countParams);
+
+    $archivableStudentCount = (int)$stmtCountAll->fetchColumn();
 
 
 
