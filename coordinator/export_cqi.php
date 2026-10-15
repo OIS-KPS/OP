@@ -1,6 +1,12 @@
 <?php
 // coordinator/export_cqi.php
-// Exports the CQI Summary & Action Plan as a PDF (mPDF).
+// Exports the CQI Analysis Summary as a PDF (mPDF).
+//
+// The printed document mirrors the CQI Analysis Summary card on the
+// coordinator dashboard section for section: the same three metrics,
+// the same company comparison, the same gaps and the same recommended
+// action. Figures come from the same src/services/cqi_dashboard_data.php,
+// so the two can never disagree.
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
@@ -28,15 +34,16 @@ if (!function_exists('cqiE')) {
 $summary       = is_array($cqiSummary ?? null) ? $cqiSummary : [];
 $status        = (string) ($summary['status'] ?? 'Insufficient data');
 $period        = (string) ($summary['period'] ?? 'Current academic records in the database');
-$narrative     = trim((string) ($summary['narrative'] ?? ''));
-$strengths     = is_array($summary['strengths'] ?? null) ? array_values($summary['strengths']) : [];
+// narrative and strengths are not printed: neither appears on the dashboard
+// card this document mirrors, and the narrative only restated figures that
+// are already in the metric tiles below.
 $gaps          = is_array($summary['gaps'] ?? null) ? array_values($summary['gaps']) : [];
 $recommendation = trim((string) ($cqiOverallRecommendation ?? ''));
 
 $totalStudents           = (int) ($totalStudents ?? 0);
 $evaluatedStudents       = (int) ($evaluatedStudents ?? 0);
-$totalReports            = (int) ($totalReports ?? 0);
-$totalReportsWithEntities = (int) ($totalReportsWithEntities ?? 0);
+// totalReports / totalReportsWithEntities are no longer read: the "reports with
+// keywords" metric was dropped so this document matches the dashboard card.
 $totalEntityOccurrences  = (int) ($totalEntityOccurrences ?? 0);
 $technicalEntityOccurrences = (int) ($technicalEntityOccurrences ?? 0);
 $clericalEntityOccurrences  = (int) ($clericalEntityOccurrences ?? 0);
@@ -45,48 +52,115 @@ $coverage   = (float) ($evaluationCoveragePct ?? 0);
 
 $techPct = $totalEntityOccurrences > 0 ? round(($technicalEntityOccurrences / $totalEntityOccurrences) * 100, 1) : 0.0;
 $clerPct = $totalEntityOccurrences > 0 ? round(($clericalEntityOccurrences / $totalEntityOccurrences) * 100, 1) : 0.0;
-$reportsCoverage = $totalReports > 0 ? round(($totalReportsWithEntities / $totalReports) * 100, 1) : 0.0;
 
 $highestIt = is_array($highestItCompany ?? null) ? $highestItCompany : null;
 $lowestIt  = is_array($lowestItCompany ?? null) ? $lowestItCompany : null;
-$priorities = is_array($entityPrioritySummary ?? null) ? array_values($entityPrioritySummary) : [];
-$priorities = array_slice($priorities, 0, 10);
 
 $generatedAt  = date('F j, Y g:i A');
-$filenameBase = 'CQI-Summary-Action-Plan-' . date('Y-m-d');
+$filenameBase = 'CQI-Analysis-Summary-' . date('Y-m-d');
 
+// ---------------------------------------------------------------
+// Thresholds.
+//
+// These are the same bands the on-screen Company IT Task Analysis chart
+// uses (High >= 80%, Moderate 60-79%, Low < 60%) and the same 90%
+// monitoring threshold cqi_dashboard_data.php applies to evaluation
+// coverage and extraction confidence. Re-declaring them here keeps the
+// printed verdict consistent with the screen it is exported from.
+// ---------------------------------------------------------------
+const CQI_IT_HIGH_BAND   = 80.0;
+const CQI_IT_MODERATE_BAND = 60.0;
+const CQI_MONITOR_THRESHOLD = 90.0;
+
+if (!function_exists('cqiBandLabel')) {
+    function cqiBandLabel(float $ratio): string
+    {
+        if ($ratio >= CQI_IT_HIGH_BAND) {
+            return 'High';
+        }
+        if ($ratio >= CQI_IT_MODERATE_BAND) {
+            return 'Moderate';
+        }
+        return 'Low';
+    }
+}
+
+/*
+ * Each metric is printed with a one-line reading rather than a bare number:
+ * what the figure is, and whether it clears the threshold the rest of the
+ * CQI cycle is judged against. That is the difference between a figure
+ * dump and an analysis.
+ */
 $metrics = [
-    ['label' => 'Verified evaluations', 'value' => $evaluatedStudents . ' / ' . $totalStudents],
-    ['label' => 'Reports with entities', 'value' => $totalReportsWithEntities . ' / ' . $totalReports],
-    ['label' => 'Technical / Clerical', 'value' => number_format($techPct, 1) . '% / ' . number_format($clerPct, 1) . '%'],
-    ['label' => 'Extraction confidence', 'value' => number_format($confidence, 2) . '%'],
+    [
+        'label'   => 'Completed evaluations',
+        'value'   => $evaluatedStudents . ' / ' . $totalStudents,
+        'reading' => $totalStudents === 0
+            ? 'No interns on record, so coverage cannot be assessed.'
+            : ($coverage >= 100.0
+                ? sprintf('Full coverage. Every intern has a completed evaluation, against a %.0f%% completion target.', 100.0)
+                : ($coverage >= CQI_MONITOR_THRESHOLD
+                    ? sprintf('%.1f%% coverage clears the %.0f%% monitoring threshold but %d intern(s) remain unevaluated against the 100%% completion target.', $coverage, CQI_MONITOR_THRESHOLD, max(0, $totalStudents - $evaluatedStudents))
+                    : sprintf('%.1f%% coverage is below the %.0f%% monitoring threshold; %d intern(s) still need a completed evaluation.', $coverage, CQI_MONITOR_THRESHOLD, max(0, $totalStudents - $evaluatedStudents)))),
+    ],
+    [
+        'label'   => 'IT tasks vs clerical',
+        'value'   => number_format($techPct, 1) . '% / ' . number_format($clerPct, 1) . '%',
+        'reading' => $totalEntityOccurrences === 0
+            ? 'No keyword occurrences recorded, so the IT exposure split cannot be computed.'
+            : sprintf(
+                '%d of %d keyword occurrences are IT-related. The batch sits in the "%s" band against the %.0f%% IT exposure reference.',
+                $technicalEntityOccurrences,
+                $totalEntityOccurrences,
+                cqiBandLabel($techPct),
+                CQI_IT_MODERATE_BAND
+            ),
+    ],
+    [
+        'label'   => 'Keyword match rate',
+        'value'   => number_format($confidence, 2) . '%',
+        'reading' => $confidence >= CQI_MONITOR_THRESHOLD
+            ? sprintf('Extraction confidence clears the %.0f%% review threshold, so the distribution below can be read without manual re-checking.', CQI_MONITOR_THRESHOLD)
+            : sprintf('Extraction confidence is below the %.0f%% review threshold; matches should be verified before the distribution is used for academic decisions.', CQI_MONITOR_THRESHOLD),
+    ],
 ];
 
-$highlights = [];
+/*
+ * Company comparison. Each company is placed against the cohort average and
+ * the spread between the two extremes, so the pair reads as a distribution
+ * rather than two unrelated numbers.
+ */
+$companiesForPdf = [];
 if ($highestIt) {
-    $highlights[] = sprintf(
-        'The company with the highest IT-related task ratio is %s at %.1f%%, based on %d of %d verified entity occurrences.',
-        (string) $highestIt['name'],
-        (float) $highestIt['it_task_ratio'],
-        (int) $highestIt['it_related_occurrences'],
-        (int) $highestIt['entity_occurrences']
-    );
-} else {
-    $highlights[] = 'No company currently has enough extracted-entity evidence for an IT-task comparison.';
+    $companiesForPdf[] = ['label' => 'Most IT tasks', 'company' => $highestIt];
 }
-if ($lowestIt) {
-    $highlights[] = sprintf(
-        'The company with the lowest IT-related task ratio is %s at %.1f%%, based on %d of %d verified entity occurrences.',
-        (string) $lowestIt['name'],
-        (float) $lowestIt['it_task_ratio'],
-        (int) $lowestIt['it_related_occurrences'],
-        (int) $lowestIt['entity_occurrences']
+if ($lowestIt && (!$highestIt || strcasecmp((string) $highestIt['name'], (string) $lowestIt['name']) !== 0)) {
+    $companiesForPdf[] = ['label' => 'Fewest IT tasks', 'company' => $lowestIt];
+}
+
+$itSpread = null;
+if ($highestIt && $lowestIt && count($companiesForPdf) === 2) {
+    $itSpread = round(
+        (float) $highestIt['it_task_ratio'] - (float) $lowestIt['it_task_ratio'],
+        1
     );
 }
-// Coverage and the technical/clerical split are intentionally NOT repeated as
-// bullets -- both already appear in the metric tiles directly above. The figures
-// are still printed once, in $metrics.
-unset($coverage, $reportsCoverage);
+
+// Recommendation, split back into the parts it was assembled from so each
+// action stands on its own line instead of one run-on sentence.
+$recommendationText = $recommendation !== '' ? $recommendation : 'Use the next academic CQI cycle to verify evaluation completion, improve report extraction coverage, compare company IT-task exposure, and review entity classifications against the program learning outcomes.';
+$recommendationBody = preg_replace('/^For the next academic CQI cycle,\s*the program should\s*/i', '', $recommendationText) ?: $recommendationText;
+$actionBullets = [];
+
+foreach (preg_split('/;\s*/', $recommendationBody) ?: [] as $actionPart) {
+    $actionPart = trim(rtrim(trim($actionPart), '.'));
+    if ($actionPart === '') {
+        continue;
+    }
+    $actionBullets[] = strtoupper($actionPart[0]) . substr($actionPart, 1);
+}
+
+$recommendationPriority = (string) ($recommendationPriority ?? 'Continuous');
 
 // ---------------------------------------------------------------
 // PDF export (mPDF).
@@ -102,205 +176,132 @@ $html .= '.badge { display: inline-block; padding: 3px 8px; border-radius: 8px; 
 $html .= 'table { width: 100%; border-collapse: collapse; margin-top: 4px; }';
 $html .= 'th { background: #0F2854; color: #ffffff; font-size: 8px; text-align: left; padding: 5px; }';
 $html .= 'td { border: 1px solid #cbd5e1; font-size: 8px; padding: 5px; vertical-align: top; }';
+// Metric tiles carry a reading line so the figure is interpreted, not just printed.
 $html .= '.metric { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px; }';
 $html .= '.metric .label { color: #475569; font-size: 8px; font-weight: bold; text-transform: uppercase; }';
 $html .= '.metric .value { color: #0F2854; font-size: 13px; font-weight: bold; }';
+$html .= '.metric .reading { color: #475569; font-size: 7.5pt; line-height: 1.45; margin-top: 3px; }';
 $html .= 'ul { margin: 4px 0 0 14px; padding: 0; }';
 $html .= 'li { margin-bottom: 5px; line-height: 1.55; }';
 $html .= 'p.body { font-size: 9px; line-height: 1.65; margin: 0 0 6px 0; }';
 $html .= '.rule { border-bottom: 2px solid #0F2854; margin: 2px 0 8px 0; }';
-// Priority pills reuse the dashboard's severity language: rose = act now,
-// amber = scheduled, slate = continuous. Bold text alone was unreadable in a
-// table of eleven near-identical rows.
 $html .= '.pill { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 8px; font-weight: bold; border: 1px solid; }';
 $html .= '.pill-High { background:#fff1f2; color:#be123c; border-color:#fda4af; }';
 $html .= '.pill-Medium { background:#fffbeb; color:#b45309; border-color:#fcd34d; }';
 $html .= '.pill-Low, .pill-Continuous { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }';
-// Each grouped sub-finding keeps its own line inside the parent row so nothing
-// is flattened into a single sentence.
-$html .= '.sub { font-size: 7.5pt; color:#334155; padding: 2px 0 2px 8px; border-left: 2px solid #cbd5e1; margin: 2px 0; }';
+// The company ratio is drawn as a bar so the two companies can be compared by
+// length rather than by reading two percentages side by side.
+$html .= '.bar { height: 5px; background: #e2e8f0; border-radius: 3px; margin: 3px 0 4px 0; }';
+$html .= '.bar > span { display: block; height: 5px; border-radius: 3px; }';
+$html .= '.bar-high > span { background: #059669; }';
+$html .= '.bar-moderate > span { background: #D97706; }';
+$html .= '.bar-low > span { background: #991B1B; }';
+$html .= '.bar-avg > span { background: #64748b; }';
 $html .= '</style>';
 
-$html .= '<h1>CQI Summary &amp; Action Plan</h1>';
+$html .= '<h1>CQI Analysis Summary</h1>';
 $html .= '<div class="rule"></div>';
 $html .= '<div class="muted">OJT Portal - Coordinator CQI Analytics</div>';
 $html .= '<p><span class="badge">' . cqiE($status) . '</span> &nbsp; <strong>Period:</strong> ' . cqiE($period) . '<br><span class="muted">Generated: ' . cqiE($generatedAt) . '</span></p>';
 
 $html .= '<table><tr>';
 foreach ($metrics as $metric) {
-    $html .= '<td class="metric"><div class="label">' . cqiE($metric['label']) . '</div><div class="value">' . cqiE($metric['value']) . '</div></td>';
+    $html .= '<td class="metric">'
+        . '<div class="label">' . cqiE($metric['label']) . '</div>'
+        . '<div class="value">' . cqiE($metric['value']) . '</div>'
+        . '<div class="reading">' . cqiE($metric['reading']) . '</div>'
+        . '</td>';
 }
 $html .= '</tr></table>';
 
-// Only the two company comparisons survive here. The coverage and the
-// technical/clerical split were also listed as bullets, but they already appear
-// verbatim in the metric tiles directly above, so repeating them added length
-// without adding information.
-$html .= '<h2>Evidence Highlights</h2><ul>';
-foreach ($highlights as $highlight) {
-    $html .= '<li>' . cqiE($highlight) . '</li>';
-}
-$html .= '</ul>';
+// ---------------------------------------------------------
+// Company comparison.
+//
+// Mirrors the two company rows on the dashboard card, with the ratio
+// drawn as a bar and each company placed against the cohort average.
+// A bar reads faster than two percentages, and the average line turns
+// the pair into a comparison rather than two isolated numbers.
+// ---------------------------------------------------------
+$html .= '<h2>Company Comparison</h2>';
 
-if ($strengths) {
-    $html .= '<h2>Strengths</h2><ul>';
-    foreach ($strengths as $strength) {
-        $html .= '<li>' . cqiE($strength) . '</li>';
+if (!$companiesForPdf) {
+    $html .= '<p class="body">Not enough keyword evidence yet to compare company IT-task exposure.</p>';
+} else {
+    $html .= '<table><tr>';
+
+    foreach ($companiesForPdf as $entry) {
+        $company    = $entry['company'];
+        $ratio      = (float) $company['it_task_ratio'];
+        $band       = cqiBandLabel($ratio);
+        $bandClass  = 'bar-' . strtolower($band);
+        $deltaVsAvg = round($ratio - $techPct, 1);
+
+        $reading = sprintf(
+            '%s of %d keyword matches are IT-related, placing it in the %s band (%s).',
+            (int) $company['it_related_occurrences'],
+            (int) $company['entity_occurrences'],
+            $band,
+            $band === 'High' ? 'at or above ' . number_format(CQI_IT_HIGH_BAND, 0) . '%'
+                : ($band === 'Moderate'
+                    ? number_format(CQI_IT_MODERATE_BAND, 0) . '% to ' . number_format(CQI_IT_HIGH_BAND - 1, 0) . '%'
+                    : 'below ' . number_format(CQI_IT_MODERATE_BAND, 0) . '%')
+        );
+
+        $reading .= sprintf(
+            ' That is %s the batch IT share of %s%%.',
+            $deltaVsAvg > 0 ? sprintf('%.1f points above', $deltaVsAvg) : ($deltaVsAvg < 0 ? sprintf('%.1f points below', abs($deltaVsAvg)) : 'level with'),
+            number_format($techPct, 1)
+        );
+
+        $html .= '<td style="width:50%;">'
+            . '<div class="label" style="color:#475569;font-size:8px;font-weight:bold;text-transform:uppercase;">' . cqiE($entry['label']) . '</div>'
+            . '<div style="color:#0F2854;font-size:11pt;font-weight:bold;margin-top:2px;">' . cqiE((string) $company['name']) . '</div>'
+            . '<div style="color:#0F2854;font-size:13pt;font-weight:bold;">' . cqiE(number_format($ratio, 1)) . '%</div>'
+            . '<div class="bar ' . $bandClass . '"><span style="width:' . cqiE(number_format(max(0.0, min(100.0, $ratio)), 1)) . '%;"></span></div>'
+            . '<div style="color:#475569;font-size:7.5pt;line-height:1.45;">' . cqiE($reading) . '</div>'
+            . '</td>';
     }
-    $html .= '</ul>';
+
+    $html .= '</tr></table>';
+
+    // The spread only means something when both ends of the comparison exist.
+    if ($itSpread !== null) {
+        $html .= '<p class="body" style="margin-top:5px;">Spread between the two companies is '
+            . '<strong>' . cqiE(number_format($itSpread, 1)) . ' percentage points</strong>'
+            . ($itSpread < CQI_IT_MODERATE_BAND
+                ? ', which is narrower than the 60-point band width used for placement; company placement on this cycle is therefore not strongly differentiated.'
+                : ', which is wider than the 60-point band width used for placement, so company placement on this cycle is strongly differentiated.')
+            . '</p>';
+    } elseif (count($companiesForPdf) === 1) {
+        $html .= '<p class="body" style="margin-top:5px;">Only one company currently has keyword evidence, so no spread can be computed. A comparison needs matches from at least two host companies.</p>';
+    }
 }
 
 if ($gaps) {
-    $html .= '<h2>Priority Gaps</h2><ul>';
+    $html .= '<h2>Needs Attention (' . count($gaps) . ')</h2><ul>';
     foreach ($gaps as $gap) {
         $html .= '<li>' . cqiE($gap) . '</li>';
     }
     $html .= '</ul>';
 }
 
-if ($priorities) {
-    $html .= '<h2>Entity Priority Analysis</h2><table><tr>';
-    foreach (['Entity', 'Category', 'Class', 'Freq.', 'Share', 'Priority'] as $heading) {
-        $html .= '<th>' . cqiE($heading) . '</th>';
+$html .= '<h2>What to Do</h2>';
+if ($actionBullets) {
+    $priorityPill = in_array($recommendationPriority, ['High', 'Medium', 'Low', 'Continuous'], true)
+        ? $recommendationPriority
+        : 'Continuous';
+
+    $html .= '<p class="body">Priority: <span class="pill pill-' . cqiE($priorityPill) . '">'
+        . cqiE($recommendationPriority !== '' ? $recommendationPriority : 'Continuous') . '</span></p>';
+
+    $html .= '<ol>';
+    foreach ($actionBullets as $actionBullet) {
+        $html .= '<li>' . cqiE($actionBullet) . '</li>';
     }
-    $html .= '</tr>';
-    foreach ($priorities as $row) {
-        $html .= '<tr>';
-        $html .= '<td>' . cqiE($row['entity'] ?? '') . '</td>';
-        $html .= '<td>' . cqiE($row['category'] ?? '') . '</td>';
-        $html .= '<td>' . cqiE($row['classification'] ?? '') . '</td>';
-        $html .= '<td>' . cqiE((int) ($row['frequency'] ?? 0)) . '</td>';
-        $html .= '<td>' . cqiE(number_format((float) ($row['share_pct'] ?? 0), 1)) . '%</td>';
-        $html .= '<td><span class="pill pill-' . cqiE(in_array($row['priority'] ?? '', ['High','Medium','Low'], true) ? (string) $row['priority'] : 'Low') . '">' . cqiE($row['priority'] ?? '') . '</span></td>';
-        $html .= '</tr>';
-    }
-    $html .= '</table>';
+    $html .= '</ol>';
+} else {
+    $html .= '<p class="body">No recommended actions for this cycle.</p>';
 }
-
-$html .= '<h2>Academic Interpretation</h2>';
-// The narrative is one dense generated paragraph. It is split here for
-// legibility only -- the wording and every figure are the shared string from
-// src/services/cqi_dashboard_data.php, left untouched so the on-screen
-// dashboard wording does not change.
-$narrativeText = $narrative !== ''
-    ? $narrative
-    : 'The current CQI evidence should be reviewed before academic decisions are made.';
-$narrativeSentences = preg_split('/(?<=\.)\s+/', trim($narrativeText)) ?: [];
-foreach ($narrativeSentences as $sentence) {
-    $sentence = trim($sentence);
-    if ($sentence === '') {
-        continue;
-    }
-    $html .= '<p class="body">' . cqiE($sentence) . '</p>';
-}
-
-$html .= '<h2>Action Plan</h2>';
-$html .= '<p class="body">' . cqiE($recommendation !== '' ? $recommendation : 'Use the next academic CQI cycle to verify evaluation completion, improve report extraction coverage, compare company IT-task exposure, and review entity classifications against the program learning outcomes.') . '</p>';
-
-// ---------------------------------------------------------------
-// Action plan table.
-//
-// cqi_dashboard_data.php already builds one entry per finding with a priority,
-// area, finding, action, owner, timeframe, measure and status. The export used
-// to print a single prose paragraph and discard all of it. Every field is
-// rendered here.
-//
-// The entity-priority entries repeat the same boilerplate action for each term,
-// so eleven near-identical rows are collapsed into one grouped row. Each term
-// keeps its own finding and priority line inside that cell -- nothing is merged
-// away or summarised away.
-// ---------------------------------------------------------------
-$actionPlan = is_array($cqiActionPlan ?? null) ? array_values($cqiActionPlan) : [];
-$priorityRank = ['High' => 0, 'Medium' => 1, 'Low' => 2, 'Continuous' => 3];
-usort($actionPlan, static function (array $a, array $b) use ($priorityRank): int {
-    $left  = $priorityRank[(string) ($a['priority'] ?? '')] ?? 9;
-    $right = $priorityRank[(string) ($b['priority'] ?? '')] ?? 9;
-    return $left <=> $right;
-});
-
-$entityActions = [];
-$standaloneActions = [];
-foreach ($actionPlan as $entry) {
-    $area = (string) ($entry['area'] ?? '');
-    if (strpos($area, 'Entity priority: ') === 0) {
-        $entityActions[] = $entry;
-        continue;
-    }
-    $standaloneActions[] = $entry;
-}
-
-$html .= '<table>';
-$html .= '<thead><tr>'
-    . '<th style="width:7%;">Priority</th>'
-    . '<th style="width:15%;">Area</th>'
-    . '<th style="width:38%;">Finding / Action</th>'
-    . '<th style="width:14%;">Owner</th>'
-    . '<th style="width:14%;">Timeframe</th>'
-    . '<th style="width:6%;">Status</th>'
-    . '<th style="width:6%;">Measure</th>'
-    . '</tr></thead><tbody>';
-
-foreach ($standaloneActions as $entry) {
-    $priority = (string) ($entry['priority'] ?? '');
-    $pill = isset($priorityRank[$priority]) ? $priority : 'Low';
-
-    $html .= '<tr>'
-        . '<td><span class="pill pill-' . cqiE($pill) . '">' . cqiE($priority !== '' ? $priority : 'Low') . '</span></td>'
-        . '<td>' . cqiE($entry['area'] ?? '') . '</td>'
-        . '<td>'
-        .   '<div style="font-weight:bold;margin-bottom:2px;">' . cqiE($entry['finding'] ?? '') . '</div>'
-        .   '<div style="color:#334155;">' . cqiE($entry['action'] ?? '') . '</div>'
-        . '</td>'
-        . '<td>' . cqiE($entry['owner'] ?? '') . '</td>'
-        . '<td>' . cqiE($entry['timeframe'] ?? '') . '</td>'
-        . '<td>' . cqiE($entry['status'] ?? '') . '</td>'
-        . '<td>' . cqiE($entry['measure'] ?? '') . '</td>'
-        . '</tr>';
-}
-
-if ($entityActions) {
-    $termsList = [];
-    $owners    = [];
-    $timeframes = [];
-    $measures  = [];
-    $highest   = 'Low';
-    foreach ($entityActions as $entry) {
-        $term = trim(str_replace('Entity priority: ', '', (string) ($entry['area'] ?? '')));
-        $termsList[] = '<div class="sub">'
-            . '<span class="pill pill-' . cqiE($priorityRank[(string) $entry['priority']] ?? 2) . '">' . cqiE($entry['priority'] ?? '') . '</span> '
-            . '<strong>' . cqiE($term) . '</strong> &mdash; ' . cqiE($entry['finding'] ?? '')
-            . '</div>';
-
-        if (isset($priorityRank[(string) $entry['priority']]) && $priorityRank[(string) $entry['priority']] < $priorityRank[$highest]) {
-            $highest = (string) $entry['priority'];
-        }
-        $owners[]    = (string) ($entry['owner'] ?? '');
-        $timeframes[] = (string) ($entry['timeframe'] ?? '');
-        $measures[]  = (string) ($entry['measure'] ?? '');
-    }
-
-    $grouped = static function (array $values): string {
-        return implode('; ', array_values(array_unique(array_filter($values))));
-    };
-
-    $html .= '<tr>'
-        . '<td><span class="pill pill-' . cqiE($highest) . '">' . cqiE($highest) . '</span></td>'
-        . '<td>Entity taxonomy review (' . count($entityActions) . ' recurring terms)</td>'
-        . '<td>'
-        .   '<div style="font-weight:bold;margin-bottom:3px;">'
-        .     count($entityActions) . ' terms account for a high share of extracted occurrences and are queued for term review.'
-        .   '</div>'
-        .   '<div style="color:#334155;margin-bottom:4px;">Monitor each activity and verify that its classification and aliases remain accurate before the next monthly review.</div>'
-        .   implode('', $termsList)
-        . '</td>'
-        . '<td>' . cqiE($grouped($owners)) . '</td>'
-        . '<td>' . cqiE($grouped($timeframes)) . '</td>'
-        . '<td>Planned</td>'
-        . '<td>' . cqiE($grouped($measures)) . '</td>'
-        . '</tr>';
-}
-
-$html .= '</tbody></table>';
 
 try {
     $mpdf = new \Mpdf\Mpdf([
@@ -311,9 +312,9 @@ try {
         'margin_top'   => 16,
         'margin_bottom' => 18,
     ]);
-    $mpdf->SetTitle('CQI Summary & Action Plan');
+    $mpdf->SetTitle('CQI Analysis Summary');
     $mpdf->SetAuthor('OJT Portal');
-    $mpdf->SetHTMLFooter('<div style="font-size:8px;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;padding-top:4px;">CQI Summary &amp; Action Plan &bull; Generated ' . cqiE($generatedAt) . ' &bull; Page {PAGENO} of {nbpg}</div>');
+    $mpdf->SetHTMLFooter('<div style="font-size:8px;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;padding-top:4px;">CQI Analysis Summary &bull; Generated ' . cqiE($generatedAt) . ' &bull; Page {PAGENO} of {nbpg}</div>');
     $mpdf->WriteHTML($html);
 
     while (ob_get_level() > 0) {
