@@ -120,7 +120,11 @@ if (!function_exists('e')) {
                 </div>
 
 
-                <!-- 1. Top Stat Cards -->
+                <!-- 1. Top Stat Cards
+
+                     Programme-wide totals: these ignore the filters below, and
+                     $completedCount also drives the "Export All Signed" button
+                     above. Labelled so they are not misread as filter-aware. -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
 
                     <!-- Total -->
@@ -137,7 +141,7 @@ if (!function_exists('e')) {
                             </p>
 
                             <p class="text-xs font-semibold text-slate-600 pt-0.5">
-                                Enrolled students
+                                All enrolled students
                             </p>
 
                         </div>
@@ -177,7 +181,7 @@ if (!function_exists('e')) {
                             </p>
 
                             <p class="text-xs font-semibold text-slate-600 pt-0.5">
-                                Signed evaluations
+                                Signed across all course codes
                             </p>
 
                         </div>
@@ -217,7 +221,7 @@ if (!function_exists('e')) {
                             </p>
 
                             <p class="text-xs font-semibold text-slate-600 pt-0.5">
-                                Waiting for supervisor
+                                Awaiting supervisor across all course codes
                             </p>
 
                         </div>
@@ -322,15 +326,16 @@ if (!function_exists('e')) {
                             </button>
 
 
-                            <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
+                            <span
+                                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs"
+                                title="Interns matching the filters below, across every page"
+                            >
 
                                 <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
 
-                                <?= count($filteredEvals ?? []); ?>
+                                <?= (int)$totalFiltered; ?>
 
-                                Total
-
-                                <?= count($filteredEvals ?? []) === 1 ? 'Record' : 'Records'; ?>
+                                <?= (int)$totalFiltered === 1 ? 'Record' : 'Records'; ?>
 
                             </span>
 
@@ -371,7 +376,7 @@ if (!function_exists('e')) {
                                     id="searchInput"
                                     name="search"
                                     value="<?= e($searchQuery ?? ''); ?>"
-                                    placeholder="Search by student name or ID..."
+                                    placeholder="Search all interns by name or ID..."
                                     class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                                 >
 
@@ -506,35 +511,57 @@ if (!function_exists('e')) {
                     <!-- Evaluation Table -->
                     <?php if (!empty($filteredEvals)): ?>
 
-                        <div class="w-full">
+                        <!-- Real table markup inside a horizontal scroller. The previous version
+                             used display:block/flex on thead/tbody/tr, which takes
+                             the rows out of table layout and loses column
+                             alignment. The min-width keeps columns readable on
+                             narrow screens by scrolling rather than squashing. -->
+                        <div class="w-full overflow-x-auto">
 
-                            <table class="w-full text-left border-collapse text-xs table-fixed">
+                            <table class="w-full min-w-[900px] text-left border-collapse text-xs">
 
-                                <thead class="block w-full">
+                                <!-- Widths live here, once, instead of being repeated on
+                                     every th and every td. -->
+                                <colgroup>
+                                    <col class="w-[22%]">
+                                    <col class="w-[10%]">
+                                    <col class="w-[20%]">
+                                    <col class="w-[12%]">
+                                    <col class="w-[14%]">
+                                    <col class="w-[22%]">
+                                </colgroup>
 
-                                    <tr class="bg-slate-100/90 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black flex w-full">
+                                <!-- No sticky header here on purpose. The card clips with overflow-hidden and
+                                     the wrapper above is only a horizontal scroller, so neither
+                                     gives the thead a vertical scroll context to pin to -- the
+                                     page scrolls instead, and a sticky row would scroll away
+                                     with it. Pagination bounds the table to $perPage rows,
+                                     which is what keeps the header in view. -->
+                                <thead>
 
-                                        <th class="py-3 px-3 w-[22%]">
+                                    <tr class="bg-slate-100/90 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
+
+                                        <th class="py-3 px-3">
                                             Student Intern
                                         </th>
 
-<th class="py-3 px-2 w-[10%]">
+                                        <th class="py-3 px-2">
                                             Course Code
                                         </th>
 
-                                        <th class="py-3 px-3 w-[20%]">
+                                        <th class="py-3 px-3">
                                             Host Company &amp; Supervisor
                                         </th>
 
-                                        <th class="py-3 px-2 w-[12%] text-center">
+                                        <th class="py-3 px-2 text-center">
                                             Approved Reports
                                         </th>
 
-                                        <th class="py-3 px-2 w-[14%]">
+                                        <th class="py-3 px-2">
                                             Score &amp; Grade
                                         </th>
 
-                                        <th class="py-3 px-3 w-[24%] text-right">
+                                        <th class="py-3 px-3 text-right">
                                             Action
                                         </th>
 
@@ -543,7 +570,7 @@ if (!function_exists('e')) {
                                 </thead>
 
 
-                                <tbody class="divide-y divide-slate-200/80 text-slate-800 block w-full max-h-[480px] overflow-y-auto">
+                                <tbody class="divide-y divide-slate-200/80 text-slate-800">
 
                                     <?php foreach ($filteredEvals as $eval):
 
@@ -553,11 +580,11 @@ if (!function_exists('e')) {
 
                                     ?>
 
-                                        <tr class="hover:bg-slate-50 transition-colors eval-row flex w-full items-center">
+                                        <tr class="hover:bg-slate-50 transition-colors">
 
 
                                             <!-- Student -->
-                                            <td class="py-3 px-3 w-[22%] truncate align-middle">
+                                            <td class="py-3 px-3 align-middle">
 
                                                 <div class="flex items-center gap-2.5">
 
@@ -582,11 +609,11 @@ if (!function_exists('e')) {
 
                                                     <div class="min-w-0">
 
-                                                        <p class="font-extrabold text-slate-950 text-xs truncate intern-name">
+                                                        <p class="font-extrabold text-slate-950 text-xs truncate">
                                                             <?= e($eval['student_name']); ?>
                                                         </p>
 
-                                                        <p class="text-[10px] text-slate-600 font-semibold truncate intern-id">
+                                                        <p class="text-[10px] text-slate-600 font-semibold truncate">
                                                             ID:
                                                             <?= e($eval['student_number'] ?? 'N/A'); ?>
                                                             &bull;
@@ -600,8 +627,8 @@ if (!function_exists('e')) {
                                             </td>
 
 
-<!-- Course Code -->
-                                            <td class="py-3 px-2 w-[10%] truncate align-middle">
+                                            <!-- Course Code -->
+                                            <td class="py-3 px-2 align-middle">
 
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
 
@@ -613,29 +640,33 @@ if (!function_exists('e')) {
 
 
                                             <!-- Company -->
-                                            <td class="py-3 px-3 w-[20%] truncate align-middle">
+                                            <td class="py-3 px-3 align-middle">
 
-                                                <p class="font-bold text-slate-900 text-xs truncate">
-                                                    <?= e($eval['company_name'] ?? 'Unassigned'); ?>
-                                                </p>
+                                                <div class="min-w-0">
 
-                                                <p class="text-[11px] text-slate-600 font-medium truncate mt-0.5">
-                                                    Office:
-                                                    <?= e($eval['office_name'] ?? 'Unassigned'); ?>
-                                                </p>
+                                                    <p class="font-bold text-slate-900 text-xs truncate">
+                                                        <?= e($eval['company_name'] ?? 'Unassigned'); ?>
+                                                    </p>
 
-                                                <p class="text-[11px] text-slate-600 font-medium truncate mt-0.5">
+                                                    <p class="text-[11px] text-slate-600 font-medium truncate mt-0.5">
+                                                        Office:
+                                                        <?= e($eval['office_name'] ?? 'Unassigned'); ?>
+                                                    </p>
 
-                                                    Sup:
-                                                    <?= e($eval['supervisor_name'] ?? 'Pending Assignment'); ?>
+                                                    <p class="text-[11px] text-slate-600 font-medium truncate mt-0.5">
 
-                                                </p>
+                                                        Sup:
+                                                        <?= e($eval['supervisor_name'] ?? 'Pending Assignment'); ?>
+
+                                                    </p>
+
+                                                </div>
 
                                             </td>
 
 
                                             <!-- Approved Reports -->
-                                            <td class="py-3 px-2 w-[12%] truncate align-middle text-center">
+                                            <td class="py-3 px-2 align-middle text-center">
 
                                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 font-black text-[11px]">
 
@@ -649,11 +680,11 @@ if (!function_exists('e')) {
 
 
                                             <!-- Score -->
-                                            <td class="py-3 px-2 w-[14%] truncate align-middle">
+                                            <td class="py-3 px-2 align-middle">
 
                                                 <?php if ($isCompleted && isset($eval['final_score'])): ?>
 
-                                                    <div class="flex items-center gap-1.5 truncate">
+                                                    <div class="flex items-center gap-1.5">
 
                                                         <span class="text-xs font-black text-[#0F2854]">
 
@@ -689,14 +720,15 @@ if (!function_exists('e')) {
 
 
                                             <!-- Action -->
-                                            <?php /* No truncate on this cell. These are controls, not text, so
-                                                     clipping them silently swallowed the last button once a
-                                                     second one was added to a 15% column. */ ?>
-                                            <td class="py-3 px-3 w-[24%] text-right align-middle">
+                                            <?php /* The cell is deliberately not truncated: these are
+                                                     controls, not text, and clipping them silently swallowed
+                                                     the last button once a second one was added. The
+                                                     inner div is nowrap so the pair always stays on one line. */ ?>
+                                            <td class="py-3 px-3 text-right align-middle">
 
                                                 <?php if ($isCompleted): ?>
 
-                                                    <div class="flex items-center justify-end gap-2">
+                                                    <div class="flex items-center justify-end gap-2 whitespace-nowrap">
 
                                                         <a
                                                             href="export_evaluation.php?student_id=<?= (int)$eval['student_id']; ?>"
@@ -724,7 +756,7 @@ if (!function_exists('e')) {
                                                 <?php elseif ($isTriggered): ?>
 
                                                     <!-- Awaiting + Cancel -->
-                                                    <div class="flex items-center justify-end gap-2">
+                                                    <div class="flex items-center justify-end gap-2 whitespace-nowrap">
 
                                                         <span class="px-2.5 py-1 text-[11px] font-bold text-[#0F2854] bg-blue-50 rounded-xl border border-[#0F2854]/30 inline-block">
                                                             Awaiting
@@ -818,7 +850,62 @@ if (!function_exists('e')) {
                         </div>
 
 
+                        <!-- Pagination Footer -->
+                        <?php if ($totalPages > 1):
+                            // Every filter has to ride along, or the pager would drop the
+                            // coordinator back onto an unfiltered list mid-search.
+                            $baseQuery = 'search=' . urlencode($searchQuery)
+                                . '&section=' . urlencode($selectedSection)
+                                . '&company_id=' . urlencode($selectedCompany)
+                                . '&status=' . urlencode($selectedStatus);
+
+                            $firstShown = $totalFiltered > 0 ? (($page - 1) * $perPage) + 1 : 0;
+                            $lastShown  = $totalFiltered > 0 ? min($page * $perPage, $totalFiltered) : 0;
+                        ?>
+                            <div class="px-4 py-3 border-t border-slate-200/70 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+
+                                <p class="text-[11px] font-semibold text-slate-600">
+                                    Showing <span class="font-black text-slate-900"><?= $firstShown; ?></span>&ndash;<span class="font-black text-slate-900"><?= $lastShown; ?></span>
+                                    of <span class="font-black text-slate-900"><?= (int)$totalFiltered; ?></span>
+                                    &middot; Page <?= (int)$page; ?> of <?= (int)$totalPages; ?>
+                                </p>
+
+                                <div class="flex items-center gap-2">
+                                    <?php if ($page > 1): ?>
+                                        <a href="evaluations.php?<?= $baseQuery; ?>&page=<?= $page - 1; ?>"
+                                           class="px-3 py-1.5 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                            <span>&lsaquo;</span> Prev
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                            <span>&lsaquo;</span> Prev
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <?php if ($page < $totalPages): ?>
+                                        <a href="evaluations.php?<?= $baseQuery; ?>&page=<?= $page + 1; ?>"
+                                           class="px-3 py-1.5 text-xs font-bold text-white bg-[#0F2854] hover:bg-blue-900 border border-[#0F2854] rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                            Next <span>&rsaquo;</span>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                            Next <span>&rsaquo;</span>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+
+                            </div>
+                        <?php endif; ?>
+
+
                     <?php else: ?>
+
+                        <?php
+                        $isFiltered = ($searchQuery !== '')
+                            || ($selectedSection !== 'all')
+                            || ($selectedCompany !== 'all')
+                            || ($selectedStatus !== 'all');
+                        ?>
 
                         <div class="text-center py-16 px-4 space-y-2">
 
@@ -826,13 +913,31 @@ if (!function_exists('e')) {
                                 📋
                             </div>
 
-                            <h4 class="text-sm font-black text-slate-900">
-                                No evaluation records found
-                            </h4>
+                            <?php if ($isFiltered): ?>
 
-                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">
-                                There are no evaluation records matching your filter criteria.
-                            </p>
+                                <h4 class="text-sm font-black text-slate-900">
+                                    No matching interns
+                                </h4>
+
+                                <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">
+                                    No intern on record matches these filters. Try a different search term or reset the list.
+                                </p>
+
+                                <a href="evaluations.php" class="inline-block mt-3 px-3.5 py-1.5 text-xs font-bold text-white bg-[#0F2854] hover:bg-blue-900 rounded-xl transition-colors cursor-pointer">
+                                    Clear filters
+                                </a>
+
+                            <?php else: ?>
+
+                                <h4 class="text-sm font-black text-slate-900">
+                                    No interns yet
+                                </h4>
+
+                                <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">
+                                    Interns appear here once they are enrolled and assigned to a host company.
+                                </p>
+
+                            <?php endif; ?>
 
                         </div>
 
@@ -1407,159 +1512,38 @@ if (!function_exists('e')) {
     </div>
 
 
-    <!-- ========================================================= -->
-    <!-- 4. EVALUATION DETAIL SCORECARD -->
-    <!-- ========================================================= -->
-
-    <?php if ($activeEval):
-
-        $scorecardVariant = 'full';
-
-    ?>
-
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex overflow-y-auto items-center justify-center z-50 p-4">
-
-            <div class="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-
-
-                <!-- Header -->
-                <div class="p-6 border-b border-slate-200/70 flex items-center justify-between bg-slate-50/60 shrink-0">
-
-                    <div>
-
-                        <h3 class="text-xs font-black text-slate-950 uppercase tracking-wider">
-                            Final Evaluation Scorecard
-                        </h3>
-
-                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5">
-                            Signed by
-                            <?= e($activeEval['supervisor_name'] ?? 'Supervisor'); ?>
-                        </p>
-
-                    </div>
-
-
-                    <a
-                        href="evaluations.php"
-                        class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black text-xs border border-slate-300 transition-colors"
-                    >
-                        ✕
-                    </a>
-
-                </div>
-
-
-                <!-- Content -->
-                <div class="p-6 space-y-5 overflow-y-auto text-xs">
-
-
-                    <!-- Meta -->
-                    <div class="grid grid-cols-2 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-
-                        <div>
-
-                            <span class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                                Student Intern
-                            </span>
-
-                            <p class="font-extrabold text-slate-950 text-xs mt-0.5">
-                                <?= e($activeEval['student_name']); ?>
-                            </p>
-
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">
-
-                                ID:
-                                <?= e($activeEval['student_number'] ?? 'N/A'); ?>
-
-                                &bull;
-
-                                <?= e($activeEval['section'] ?? 'IT44A'); ?>
-
-                            </p>
-
-                        </div>
-
-
-                        <div>
-
-                            <span class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                                Company &amp; Supervisor
-                            </span>
-
-                            <p class="font-extrabold text-slate-950 text-xs mt-0.5">
-                                <?= e($activeEval['company_name'] ?? 'Unassigned'); ?>
-                            </p>
-
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">  <?= e($activeEval['supervisor_name'] ?? 'Supervisor'); ?> </p>
-                        </div>
-                    </div>
-
-                    <!-- Scorecard -->
-                    <?php require __DIR__ . '/../../components/evaluation_scorecard.php'; ?>
-                    <!-- Remarks -->
-                    <?php if (!empty($activeEval['feedback'])): ?>
-
-                        <div class="space-y-1">
-                            <span class="block text-[10px] font-black uppercase tracking-wider text-slate-500">
-                                Comments / Remarks
-                            </span>
-
-                            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-slate-800 font-medium leading-relaxed italic">
-                                "&ldquo;<?= e($activeEval['feedback']); ?>&rdquo;"
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
-
-                    <!-- OTP -->
-                    <div class="p-3.5 bg-blue-50 rounded-xl border border-[#0F2854]/30 flex items-center justify-between text-xs">
-                        <div class="flex items-center gap-2 text-[#0F2854] font-black">
-                            <svg class="w-4 h-4 text-[#0F2854] shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"viewBox="0 0 24 24" >
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-2.18-8.204a2.25 2.25 0 00-2.14 0L4.78 4.39A2.25 2.25 0 003.5 6.36v7.38c0 4.26 3.27 8.04 7.5 9.26 4.23-1.22 7.5-5 7.5-9.26V6.36a2.25 2.25 0 00-1.28-1.97l-4.15-2.04z" />
-                            </svg>
-
-                            <span>
-                                OTP Signed &amp; Verified
-                            </span>
-                        </div>
-
-                        <span class="text-slate-600 font-bold text-[11px]">
-                            <?= !empty($activeEval['otp_signed_at'])
-                                ? date("M d, Y \a\\t g:i A", strtotime($activeEval['otp_signed_at']))
-                                : 'Verified Record';
-                            ?>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="p-4 border-t border-slate-200/70 bg-slate-50/60 flex justify-end">
-                    <a href="evaluations.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs border border-slate-300 transition-colors" > Close </a>
-                </div>
-            </div>
-        </div>
-
-    <?php endif; ?>
     <script>
         /* =====================================================
            SEARCH
+
+           Server-side, because the list is now paginated: a JS filter would
+           only ever see the 25 rows on the current page and would silently
+           hide matches sitting on page 2. The input debounces a real GET
+           submit instead, matching coordinator/audit_logs.php.
         ===================================================== */
 
+        const evalFilterForm = document.getElementById('filterForm');
         const searchInput = document.getElementById('searchInput');
 
-        if (searchInput) { searchInput.addEventListener('input', function() {
-                const query = this.value.toLowerCase().trim();
-                const rows = document.querySelectorAll('.eval-row');
+        if (evalFilterForm && searchInput) {
+            let evalSearchTimer = null;
 
-                rows.forEach(function(row) {
-                    const name = row.querySelector('.intern-name') ?.textContent.toLowerCase() || '';
-                    const id = row.querySelector('.intern-id') ?.textContent.toLowerCase() || '';
-                    if ( name.includes(query) || id.includes(query)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
+            // The form carries no hidden "page" input, so a submit always lands
+            // on page 1 -- a filter change correctly restarts at the top.
+            searchInput.addEventListener('input', function () {
+                clearTimeout(evalSearchTimer);
+                evalSearchTimer = setTimeout(function () {
+                    evalFilterForm.submit();
+                }, 350);
+            });
+
+            // Enter submits immediately rather than waiting out the debounce.
+            searchInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    clearTimeout(evalSearchTimer);
+                    evalFilterForm.submit();
+                }
             });
         }
 
