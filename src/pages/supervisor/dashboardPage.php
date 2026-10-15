@@ -81,7 +81,7 @@
                                 <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Action Required</h3>
                                 <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Pending accomplishment reports awaiting verification</p>
                             </div>
-                            <a href="review_reports.php?status=Pending" class="text-xs font-bold text-[#0F2854] hover:underline">
+                            <a href="review_reports.php" class="text-xs font-bold text-[#0F2854] hover:underline">
                                 View Full Queue &rarr;
                             </a>
                         </div>
