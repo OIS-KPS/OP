@@ -245,13 +245,17 @@ function workspaceItFlag(array $entity, string $activityType): string
                             <h1 class="text-base sm:text-lg font-extrabold text-slate-950 tracking-tight leading-snug">
                                 <?= htmlspecialchars($student['student_name'] ?? 'Student'); ?>
                             </h1>
-                            <?php /* Student number, section and host company. Every one of
-                                     these is already on the student's own profile page, so an
-                                     intern reading their own report gets the same line twice.
-                                     Staff are looking at somebody else's report here, which is
-                                     the case where the identity line earns its place, so it is
-                                     kept for them. */ ?>
-                            <?php if ($viewContext !== 'student'): ?>
+                            <?php /* Student number, course code and host company — coordinator only.
+
+                                     An intern already sees all of this on their
+                                     profile page, so showing it here repeated it twice.
+                                     A supervisor does not need it either: the course code
+                                     is already on My Interns and Review Reports, and the
+                                     host company is their own workplace, identical on
+                                     every intern they open. The coordinator keeps the
+                                     line because their copy is the one that becomes
+                                     paperwork. */ ?>
+                            <?php if ($viewContext === 'coordinator'): ?>
                                 <p class="text-xs font-semibold text-slate-600">
                                     ID: <?= htmlspecialchars($student['student_number'] ?? '—'); ?> &bull; <?= htmlspecialchars($student['section'] ?? '—'); ?> &bull; <strong class="text-slate-900"><?= htmlspecialchars($student['company_name'] ?? 'Host Company'); ?></strong>
                                 </p>
