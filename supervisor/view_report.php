@@ -5,6 +5,7 @@
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/csrf.php';
 require_once __DIR__ . '/../src/services/entity_extraction.php';
 require_once __DIR__ . '/../src/services/report_workspace.php';
 
@@ -207,6 +208,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $redirectUrl = 'view_report.php?student_id=' . $studentId
         . ($targetReportId > 0 ? '&report_id=' . $targetReportId : '');
+
+    // CSRF Guard: the verdict form in src/pages/shared/report_workspace.php
+    // already posts a token. Placed after $redirectUrl so a rejection lands the
+    // supervisor back on the same week, and before any verdict is written.
+    csrf_verify($redirectUrl);
 
     if ($action === 'approve' || $action === 'reject') {
         try {

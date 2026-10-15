@@ -27,6 +27,7 @@ if (!$dbLoaded) {
    student report pages. Every definition in that file is guarded by
    function_exists(), so this cannot redeclare anything. */
 require_once __DIR__ . '/src/services/report_workspace.php';
+require_once __DIR__ . '/config/csrf.php';
 /* Support projects whose db.php exposes the PDO connection as $conn. */
 if (!isset($pdo) && isset($conn) && $conn instanceof PDO) {
     $pdo = $conn;
@@ -57,6 +58,15 @@ if (!$reportId && isset($_POST['report_id'])) {
 if (!$reportId) {
     http_response_code(400);
     exit('Invalid report ID.');
+}
+
+/* CSRF Guard: covers the supervisor approve/reject branches below, whose forms
+   live inline on this page. Placed after $reportId resolves so a rejection can
+   send the supervisor back to the same report. This controller is reachable for
+   students too, but the branches below are role-gated, so only the supervisor
+   path can actually reach a state change from here. */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify('review_report.php?report_id=' . (int)$reportId, 'error_message');
 }
 
 /* ============================================================
@@ -1017,6 +1027,20 @@ if ($userRole === 'coordinator') {
         <?php rr_include_component('header.php'); ?>
         <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5">
 
+            <?php /* Red banner channel, written by the CSRF guard above. This page
+                    had no flash rendering at all, so a rejected verdict was
+                    silently dropped and the supervisor just saw a reload. */ ?>
+            <?php $rrError = $_SESSION['error_message'] ?? ''; unset($_SESSION['error_message']); ?>
+            <?php if ($rrError !== ''): ?>
+                <div class="bg-rose-50 border border-rose-300 text-rose-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div class="flex items-center gap-2.5">
+                        <span aria-hidden="true" class="text-rose-700 font-black text-sm">&#9888;</span>
+                        <p class="font-bold text-xs"><?= htmlspecialchars($rrError); ?></p>
+                    </div>
+                    <a href="review_report.php?report_id=<?= (int)$reportId; ?>" class="text-xs font-bold text-rose-800 hover:underline">Dismiss</a>
+                </div>
+            <?php endif; ?>
+
             <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                 <div class="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div class="flex items-start gap-3">
@@ -1051,6 +1075,7 @@ if ($userRole === 'coordinator') {
                         <?php if ($userRole === 'supervisor' && $status !== 'approved'): ?>
                             <!-- Supervisor Approval Button -->
                             <form method="POST" action="review_report.php" class="inline" onsubmit="return confirm('Approve this accomplishment report?');">
+                                <?= csrf_field(); ?>
                                 <input type="hidden" name="report_id" value="<?= (int)$report['id']; ?>">
                                 <input type="hidden" name="action" value="approve">
                                 <button type="submit" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
@@ -1217,6 +1242,7 @@ if ($userRole === 'coordinator') {
         </div>
 
         <form method="POST" action="review_report.php" class="space-y-4">
+            <?= csrf_field(); ?>
             <input type="hidden" name="report_id" value="<?= (int)$report['id']; ?>">
             <input type="hidden" name="action" value="reject">
 

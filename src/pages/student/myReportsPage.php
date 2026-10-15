@@ -1,8 +1,15 @@
 <!-- src/pages/student/myReportsPage.php -->
 <?php
 date_default_timezone_set('Asia/Manila');
+require_once __DIR__ . '/../../../config/csrf.php';
+
 $flashMessage = $_SESSION['flash_message'] ?? '';
 unset($_SESSION['flash_message']);
+
+// Red banner channel, used by the CSRF guard. Kept separate from flash_message
+// so a rejected request never reads as a success.
+$errorMessage = $_SESSION['error_message'] ?? '';
+unset($_SESSION['error_message']);
 
 $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
@@ -62,6 +69,16 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
                 <!-- Alert Messages -->
+                <?php if (!empty($errorMessage)): ?>
+                    <div class="bg-rose-50 border border-rose-300 text-rose-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
+                        <div class="flex items-center gap-2.5">
+                            <span aria-hidden="true" class="text-rose-700 font-black text-sm">&#9888;</span>
+                            <p class="font-bold text-xs"><?= htmlspecialchars($errorMessage); ?></p>
+                        </div>
+                        <a href="reports.php" class="text-xs font-bold text-rose-800 hover:underline">Dismiss</a>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (!empty($flashMessage)): ?>
                     <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-2xs">
                         <div class="flex items-center gap-2.5">
@@ -128,6 +145,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                     </span>
                                     <?php if ($canCancelRequest): ?>
                                         <form method="POST" action="reports.php" class="inline" onsubmit="return confirm('Cancel your final evaluation request? You can submit a new request later.');">
+                                            <?= csrf_field(); ?>
                                             <button type="submit" name="cancel_evaluation_request" class="px-3.5 py-1.5 rounded-full bg-white text-amber-700 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition-colors cursor-pointer">
                                                 Cancel Request
                                             </button>
@@ -136,6 +154,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                 </div>
                             <?php else: ?>
                                 <form method="POST" action="reports.php" onsubmit="return confirm('Confirm that you have completed your internship. Your supervisor will be notified to evaluate you.');">
+                                    <?= csrf_field(); ?>
                                     <button type="submit" name="request_evaluation" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2">
                                         <span>Request Final Evaluation</span>
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>

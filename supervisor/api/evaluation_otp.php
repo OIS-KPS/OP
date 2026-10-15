@@ -4,6 +4,7 @@ session_start();
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../config/csrf.php';
 require_once __DIR__ . '/../../config/evaluation_criteria.php';
 require_once __DIR__ . '/../../src/services/evaluation_questions_store.php';
 require_once __DIR__ . '/../../src/services/MailerService.php';
@@ -18,6 +19,12 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') 
 $supervisorUserId = (int)$_SESSION['user_id'];
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $action = $input['action'] ?? '';
+
+// CSRF Guard: this endpoint is called by fetch(), so the token arrives in the
+// JSON body rather than $_POST and csrf_verify() cannot read it. The JSON
+// variant reports rejection in the body instead of redirecting. One call here
+// covers both actions below, including the final evaluation write.
+csrf_verify_json($input['csrf_token'] ?? '');
 
 // Fetch Supervisor DB ID
 $stmtSup = $pdo->prepare("SELECT id, user_id FROM supervisors WHERE user_id = ? LIMIT 1");

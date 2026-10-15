@@ -1,5 +1,7 @@
 <!-- src/pages/supervisor/evaluateFormPage.php -->
 <?php
+require_once __DIR__ . '/../../../config/csrf.php';
+
 $ojtCriteria  = ojtEvaluationCriteria();
 $ojtScale     = ojtRatingScale();
 $ojtScaleKeys = array_keys($ojtScale);
@@ -7,6 +9,9 @@ $ojtTotal     = count($ojtCriteria);
 // HEX_TAG/HEX_AMP keep the JSON safe to inline inside a <script> block.
 $ojtJsonFlags      = JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 $ojtClientCriteria = json_encode(ojtCriteriaForClient(), $ojtJsonFlags);
+// The OTP endpoint is a JSON API, so it checks the token from the request body
+// instead of $_POST. Same hex-escaping flags as above, for the same reason.
+$ojtCsrfToken      = json_encode(csrf_token(), $ojtJsonFlags);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -282,6 +287,8 @@ $ojtClientCriteria = json_encode(ojtCriteriaForClient(), $ojtJsonFlags);
         // recompute averages without referencing the web-blocked config/ path.
         const OJT_CRITERIA = <?= $ojtClientCriteria; ?>;
         const OJT_TOTAL = <?= $ojtTotal; ?>;
+        // Sent with both fetch() calls so the API can reject a cross-site request.
+        const ICSRF_TOKEN = <?= $ojtCsrfToken; ?>;
 
         let countdownTimer = null;
         let pendingRatings = null;
@@ -364,7 +371,7 @@ $ojtClientCriteria = json_encode(ojtCriteriaForClient(), $ojtJsonFlags);
                 const res = await fetch('/ICS-PORTAL/supervisor/api/evaluation_otp.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'request_otp', student_id: document.getElementById('eval_student_id').value })
+                    body: JSON.stringify({ action: 'request_otp', student_id: document.getElementById('eval_student_id').value, csrf_token: ICSRF_TOKEN })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -425,7 +432,8 @@ $ojtClientCriteria = json_encode(ojtCriteriaForClient(), $ojtJsonFlags);
                 student_id: document.getElementById('eval_student_id').value,
                 criteria_ratings: pendingRatings || collectRatings(),
                 feedback: document.getElementById('feedback').value,
-                otp: code
+                otp: code,
+                csrf_token: ICSRF_TOKEN
             };
 
             try {

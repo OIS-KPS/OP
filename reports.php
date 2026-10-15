@@ -5,10 +5,17 @@ date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/report_deadlines.php';
+require_once __DIR__ . '/config/csrf.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
     header("Location: auth/login.php");
     exit();
+}
+
+// CSRF Guard: covers both evaluation-request branches below. Failures surface
+// in error_message, which myReportsPage renders as a red banner.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify('reports.php', 'error_message');
 }
 
 $sessionUserId = (int)$_SESSION['user_id'];

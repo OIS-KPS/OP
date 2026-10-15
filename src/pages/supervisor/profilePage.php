@@ -1,5 +1,7 @@
 <!-- src/pages/supervisor/profilePage.php -->
 <?php
+require_once __DIR__ . '/../../../config/csrf.php';
+
 if (!function_exists('e')) {
     function e($value) {
         return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
@@ -175,6 +177,7 @@ $notProvided = '<span class="text-slate-400 font-semibold italic">Not provided</
             </div>
 
             <form method="POST" action="profile.php" class="space-y-4 text-xs">
+                <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="update_profile">
 
                 <div>
