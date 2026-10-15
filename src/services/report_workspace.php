@@ -103,20 +103,24 @@ if (!function_exists('reportWorkspaceLoadStudent')) {
             return null;
         }
 
+        /*
+         * Only the columns the workspace actually renders. office_name,
+         * supervisor_name, student_email and company_dept were selected here
+         * but displayed by no role's workspace page, and three of them pulled
+         * in a join (offices, supervisors, users) purely to fetch nothing.
+         * Pages that do show an office or a supervisor name run their own
+         * queries. s.program is kept: it costs nothing off an already-joined
+         * table, and it is the first thing asked for when adding it back.
+         */
         $stmt = $pdo->prepare(
             'SELECT
                 s.id AS student_id, s.student_number, s.program,
                 COALESCE(s.section, ?) AS section,
-                u.name AS student_name, u.email AS student_email, u.avatar_url AS student_avatar,
-                c.name AS company_name, c.department AS company_dept,
-                o.name AS office_name,
-                u_sup.name AS supervisor_name
+                u.name AS student_name, u.avatar_url AS student_avatar,
+                c.name AS company_name
              FROM students s
              JOIN users u ON s.user_id = u.id
              LEFT JOIN companies c ON s.company_id = c.id
-             LEFT JOIN offices o ON s.office_id = o.id
-             LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
-             LEFT JOIN users u_sup ON sup.user_id = u_sup.id
              WHERE s.id = ?
              LIMIT 1'
         );
