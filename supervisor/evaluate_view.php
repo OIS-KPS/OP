@@ -11,8 +11,23 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') 
     exit();
 }
 
+$userId        = (int)$_SESSION['user_id'];
 $evaluation_id = isset($_GET['id']) ? intval($_GET['id']) : null;
 $student_id    = isset($_GET['student_id']) ? intval($_GET['student_id']) : null;
+
+// Resolve this supervisor's own supervisors.id. Every sibling controller
+// (interns.php, evaluate_interns.php, evaluate_form.php, view_report.php)
+// scopes its queries on this value. Without it ?id= would happily read any
+// evaluation row in the table, not just the ones this supervisor signed.
+$stmtSup = $pdo->prepare("SELECT id FROM supervisors WHERE user_id = ? LIMIT 1");
+$stmtSup->execute([$userId]);
+$supervisorId = (int)($stmtSup->fetchColumn() ?: 0);
+
+if ($supervisorId <= 0) {
+    $_SESSION['review_message'] = "Supervisor profile not found. Please contact the administrator.";
+    header("Location: evaluate_interns.php");
+    exit();
+}
 
 $evaluation = null;
 
@@ -28,7 +43,7 @@ try {
             e.communication_score,
             e.punctuality_score,
             e.criteria_ratings,
-        e.criteria_snapshot,
+            e.criteria_snapshot,
             e.final_score,
             e.grade_equivalent,
             e.feedback AS remarks,
@@ -57,11 +72,12 @@ try {
         JOIN users u_sup ON sup.user_id = u_sup.id
         LEFT JOIN companies c ON sup.company_id = c.id
         WHERE " . ($evaluation_id ? "e.id = ?" : "e.student_id = ?") . "
+          AND e.supervisor_id = ?
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$evaluation_id ?: $student_id]);
+    $stmt->execute([$evaluation_id ?: $student_id, $supervisorId]);
     $evaluation = $stmt->fetch(PDO::FETCH_ASSOC);
 
 } catch (Exception $e) {

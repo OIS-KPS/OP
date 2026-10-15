@@ -27,9 +27,6 @@ if (!function_exists('e')) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
     <script src="/ICS-PORTAL/public/js/loadingOverlay.js"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
@@ -44,7 +41,7 @@ if (!function_exists('e')) {
         <?php include __DIR__ . '/../../components/header.php'; ?>
 
         <!-- Main Workspace -->
-        <main class="p-8 max-w-[1150px] w-full mx-auto space-y-6 flex-1 relative">
+        <main class="p-6 sm:p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1 relative">
 
             <!-- Unified Reports Container -->
             <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
@@ -99,7 +96,7 @@ if (!function_exists('e')) {
                         <input
                             type="text"
                             id="searchInput"
-                            placeholder="Search by intern name or ID number..."
+                            placeholder="Search by name, ID number, or course code..."
                             class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                         >
                     </div>
@@ -108,17 +105,15 @@ if (!function_exists('e')) {
                 <!-- 4. Interns Summary Table -->
                 <?php if (!empty($interns)): ?>
                     <div class="overflow-x-auto">
-                        <table class="w-full min-w-[880px] table-fixed text-left border-collapse text-xs">
+                        <table class="w-full min-w-[820px] max-w-[1040px] mx-auto table-fixed text-left border-collapse text-xs">
                             <colgroup>
-                                <col style="width: 30%;">
-                                <col style="width: 9%;">
                                 <col style="width: 38%;">
-                                <col style="width: 23%;">
+                                <col style="width: 40%;">
+                                <col style="width: 22%;">
                             </colgroup>
                             <thead>
                                 <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
                                     <th class="py-4 px-4">Student Intern</th>
-                                    <th class="py-4 px-4">Section</th>
                                     <th class="py-4 px-4">Pending for Review</th>
                                     <th class="py-4 px-4 text-right">Action</th>
                                 </tr>
@@ -145,16 +140,13 @@ if (!function_exists('e')) {
                                                 </div>
                                                 <div class="min-w-0">
                                                     <p class="font-extrabold text-slate-950 text-sm intern-name break-words"><?= e($intern['student_name']); ?></p>
-                                                    <p class="text-[11px] text-slate-600 font-semibold intern-id mt-0.5">ID: <?= e($intern['student_number'] ?? 'N/A'); ?></p>
+                                                    <div class="flex items-center gap-1.5 mt-1 min-w-0 flex-wrap">
+                                                        <p class="text-[11px] text-slate-600 font-semibold intern-id">ID: <?= e($intern['student_number'] ?? 'N/A'); ?></p>
+                                                        <span aria-hidden="true" class="w-px h-3 bg-slate-300 shrink-0"></span>
+                                                        <span class="intern-section inline-flex items-center px-1.5 py-px rounded bg-slate-100 text-slate-700 font-bold text-[10px] border border-slate-200 shrink-0"><?= e($intern['section'] ?? 'A'); ?></span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </td>
-
-                                        <!-- Section Badge -->
-                                        <td class="py-4 px-4 whitespace-nowrap align-middle">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px] border border-slate-300">
-                                                Sec <?= e($intern['section'] ?? 'A'); ?>
-                                            </span>
                                         </td>
 
                                         <!-- Pending for Review -->
@@ -237,10 +229,11 @@ if (!function_exists('e')) {
             const rows = document.querySelectorAll('.intern-row');
 
             rows.forEach(function(row) {
-                const name = row.querySelector('.intern-name')?.textContent.toLowerCase() || '';
-                const id   = row.querySelector('.intern-id')?.textContent.toLowerCase() || '';
+                const name    = row.querySelector('.intern-name')?.textContent.toLowerCase() || '';
+                const id      = row.querySelector('.intern-id')?.textContent.toLowerCase() || '';
+                const section = row.querySelector('.intern-section')?.textContent.toLowerCase() || '';
 
-                if (name.includes(query) || id.includes(query)) {
+                if (name.includes(query) || id.includes(query) || section.includes(query)) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';

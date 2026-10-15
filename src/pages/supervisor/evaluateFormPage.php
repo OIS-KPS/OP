@@ -444,7 +444,11 @@ $ojtCsrfToken      = json_encode(csrf_token(), $ojtJsonFlags);
                 });
                 const data = await res.json();
                 if (data.success) {
-                    window.location.href = 'evaluate_interns.php?evaluated=success';
+                    // No query param: the API endpoint sets
+                    // $_SESSION['flash_success'] before answering, so the
+                    // banner on evaluate_interns.php dismisses itself and
+                    // does not re-arm on reload.
+                    window.location.href = 'evaluate_interns.php';
                 } else {
                     showOtpError(data.error || 'Verification failed.');
                     verifyBtn.innerText = 'Verify & Submit';

@@ -108,10 +108,26 @@ if (!function_exists('e')) {
 
                                             <!-- Status Badge -->
                                             <td class="py-4 px-6 whitespace-nowrap">
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                                                    Active
-                                                </span>
+                                                <?php
+                                                /*
+                                                 * Read from users.status rather than hardcoded. The
+                                                 * roster used to paint every intern emerald/Active,
+                                                 * so a suspended account looked healthy here while
+                                                 * review_reports.php was already hiding it.
+                                                 */
+                                                $internIsActive = strtolower($intern['status'] ?? '') === 'active';
+                                                ?>
+                                                <?php if ($internIsActive): ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                                        Active
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold shadow-2xs">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                                        <?= e(ucfirst($intern['status'] ?? 'inactive')); ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
 
                                             <!-- Action Link -->

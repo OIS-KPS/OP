@@ -59,7 +59,8 @@ try {
                 s.program,
                 u.name,
                 u.email,
-                u.avatar_url
+                u.avatar_url,
+                u.status
             FROM students s
             JOIN users u ON s.user_id = u.id
             WHERE s.id = ? AND s.supervisor_id = ?
@@ -109,12 +110,13 @@ try {
             u.name,
             u.email,
             u.avatar_url,
+            u.status,
             COUNT(r.id) AS submitted_reports
         FROM students s
         JOIN users u ON s.user_id = u.id
         LEFT JOIN reports r ON s.id = r.student_id
         WHERE s.supervisor_id = ?
-        GROUP BY s.id, s.student_number, s.program, u.name, u.email, u.avatar_url
+        GROUP BY s.id, s.student_number, s.program, u.name, u.email, u.avatar_url, u.status
         ORDER BY u.name ASC
     ";
     
