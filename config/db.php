@@ -128,6 +128,53 @@ if (!function_exists('normalizeSectionCode')) {
 }
 
 /**
+ * Order student rows by the canonical course code sequence, then by surname.
+ *
+ * Every printed or exported list of interns has to come out in the sequence
+ * the portal declares (IT44A -> IT44B -> IT44C -> IT44D) rather than in
+ * whatever order the codes happen to sort as strings. The two agree today,
+ * but only by coincidence, and a renamed or added block would silently
+ * reorder the paperwork.
+ *
+ * Rows whose section is not part of the canonical list are kept, and print
+ * after every known block.
+ *
+ * @param array $rows Rows carrying a 'section' and a 'student_name'.
+ * @return array The same rows, reordered.
+ */
+if (!function_exists('sortByCourseCodeSequence')) {
+    function sortByCourseCodeSequence(array $rows): array
+    {
+        $codeRank = array_flip(section_course_codes());
+
+        usort($rows, static function (array $a, array $b) use ($codeRank): int {
+            $codeA = (string)($a['section'] ?? '');
+            $codeB = (string)($b['section'] ?? '');
+
+            $rankA = $codeRank[$codeA] ?? PHP_INT_MAX;
+            $rankB = $codeRank[$codeB] ?? PHP_INT_MAX;
+
+            if ($rankA !== $rankB) {
+                return $rankA <=> $rankB;
+            }
+
+            // Both are unknown codes: alphabetise them so the output is stable.
+            if ($rankA === PHP_INT_MAX && strcmp($codeA, $codeB) !== 0) {
+                return strcmp($codeA, $codeB);
+            }
+
+            $lastA = strtoupper(substr(strrchr(' ' . trim((string)($a['student_name'] ?? '')), ' '), 1));
+            $lastB = strtoupper(substr(strrchr(' ' . trim((string)($b['student_name'] ?? '')), ' '), 1));
+            $cmp = strcmp($lastA, $lastB);
+
+            return $cmp !== 0 ? $cmp : strcmp((string)($a['student_name'] ?? ''), (string)($b['student_name'] ?? ''));
+        });
+
+        return $rows;
+    }
+}
+
+/**
  * Produce a message that is safe to show on screen.
  *
  * PDOException messages carry SQL text (table and column names, driver

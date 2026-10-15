@@ -2,12 +2,16 @@
 <?php
 date_default_timezone_set('Asia/Manila');
 
+$selectedSection = $selectedSection ?? 'all';
+$selectedCompany = $selectedCompany ?? 'all';
+$searchQuery     = $searchQuery ?? '';
+$courseCodeOptions = $courseCodeOptions ?? section_course_codes();
+
 // Base query string without section restriction for the "All" export option
 $exportParamsAll = http_build_query([
-    'week'       => $selectedWeek ?? 'all',
-    'company_id' => $selectedCompany ?? 'all',
+    'company_id' => $selectedCompany,
     'section'    => 'all',
-    'search'     => $searchQuery ?? ''
+    'search'     => $searchQuery
 ]);
 ?>
 <!DOCTYPE html>
@@ -61,6 +65,13 @@ $exportParamsAll = http_build_query([
                                 <?= count($filteredStudents ?? []); ?> Total <?= count($filteredStudents ?? []) === 1 ? 'Student' : 'Students'; ?>
                             </span>
 
+                            <?php if ($selectedSection !== 'all'): ?>
+                                <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 text-xs font-bold">
+                                    <span>Course Code:</span>
+                                    <?= htmlspecialchars($selectedSection); ?>
+                                </span>
+                            <?php endif; ?>
+
                             <!-- Download Summary Menu with Dynamic Section Options -->
                             <div class="relative inline-block text-left">
                                 <button type="button" onclick="toggleExportMenu()" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer">
@@ -80,15 +91,20 @@ $exportParamsAll = http_build_query([
                                     </a>
 
                                     <div class="my-1 border-t border-slate-200"></div>
+
+                                    <a href="export_summary.php?format=pdf&<?= $exportParamsAll; ?>" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors">
+                                        <span>Print Summary / PDF</span>
+                                    </a>
+
+                                    <div class="my-1 border-t border-slate-200"></div>
                                     <div class="px-3 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">Export by Course Code</div>
 
                                     <!-- Dynamic Course Code Export Links -->
-                                    <?php foreach ($activeSections as $sec): 
+                                    <?php foreach ($courseCodeOptions as $sec): 
                                         $secParams = http_build_query([
-                                            'week'       => $selectedWeek ?? 'all',
-                                            'company_id' => $selectedCompany ?? 'all',
+                                            'company_id' => $selectedCompany,
                                             'section'    => $sec,
-                                            'search'     => $searchQuery ?? ''
+                                            'search'     => $searchQuery
                                         ]);
                                     ?>
                                         <a href="export_summary.php?format=csv&<?= $secParams; ?>" class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-slate-700 hover:bg-slate-100 font-semibold transition-colors">
@@ -96,38 +112,14 @@ $exportParamsAll = http_build_query([
                                             <span><?= htmlspecialchars($sec); ?> (CSV)</span>
                                         </a>
                                     <?php endforeach; ?>
-
-                                    <div class="my-1 border-t border-slate-200"></div>
-                                    <a href="export_summary.php?format=pdf&<?= $exportParamsAll; ?>" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-xl text-[#0F2854] hover:bg-blue-50 font-bold transition-colors">
-                                        <span>Print / PDF Document</span>
-                                    </a>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Course Code Tabs Bar (Includes All & the codes actually in use) -->
-                    <div class="px-6 pt-4 bg-white border-b border-slate-200/70 flex items-center gap-2 overflow-x-auto">
-                        <span class="text-xs font-bold text-slate-500 mr-2 uppercase tracking-wider">Course Codes:</span>
-                        
-                        <a href="approved_reports.php?section=all&company_id=<?= htmlspecialchars($selectedCompany); ?>&search=<?= htmlspecialchars($searchQuery); ?>" class="px-4 py-2 rounded-xl text-xs font-bold transition-all border <?= ($selectedSection === 'all') ? 'bg-[#0F2854] text-white border-[#0F2854] shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'; ?>">
-                            All Course Codes
-                        </a>
-
-                        <?php foreach ($activeSections as $sec): 
-                            $isTabActive = ($selectedSection === $sec);
-                        ?>
-                            <a href="approved_reports.php?section=<?= htmlspecialchars($sec); ?>&company_id=<?= htmlspecialchars($selectedCompany); ?>&search=<?= htmlspecialchars($searchQuery); ?>" class="px-4 py-2 rounded-xl text-xs font-bold transition-all border <?= $isTabActive ? 'bg-[#0F2854] text-white border-[#0F2854] shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'; ?>">
-                                <?= htmlspecialchars($sec); ?>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-
                     <!-- 2. Integrated Filter & Live Search Toolbar -->
                     <div class="p-4 border-b border-slate-200/70 bg-white">
                         <form id="filterForm" method="GET" action="approved_reports.php" class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-                            <input type="hidden" name="section" value="<?= htmlspecialchars($selectedSection); ?>">
-                            
                             <!-- Live Search Input -->
                             <div class="relative flex-1 w-full">
                                 <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
@@ -135,32 +127,41 @@ $exportParamsAll = http_build_query([
                                     type="text" 
                                     id="searchInput"
                                     name="search" 
-                                    value="<?= htmlspecialchars($searchQuery ?? ''); ?>" 
+                                    value="<?= htmlspecialchars($searchQuery); ?>" 
                                     placeholder="Search by student name or ID number..." 
                                     class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                                 >
                             </div>
 
+                            <!-- Filter by Course Code -->
+                            <div class="w-full md:w-52">
+                                <select 
+                                    name="section" 
+                                    onchange="this.form.submit()" 
+                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer"
+                                >
+                                    <option value="all" <?= $selectedSection === 'all' ? 'selected' : ''; ?>>All Course Codes</option>
+                                    <?php foreach ($courseCodeOptions as $sec): ?>
+                                        <option value="<?= htmlspecialchars($sec); ?>" <?= $selectedSection === $sec ? 'selected' : ''; ?>>
+                                            <?= htmlspecialchars($sec); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
                             <!-- Filter Host Company -->
                             <div class="w-full md:w-56">
                                 <select name="company_id" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer">
-                                    <option value="all" <?= ($selectedCompany ?? 'all') === 'all' ? 'selected' : ''; ?>>All Companies</option>
+                                    <option value="all" <?= $selectedCompany === 'all' ? 'selected' : ''; ?>>All Companies</option>
                                     <?php foreach ($companiesList as $comp): ?>
-                                        <option value="<?= $comp['id']; ?>" <?= ($selectedCompany ?? '') == $comp['id'] ? 'selected' : ''; ?>>
+                                        <option value="<?= (int)$comp['id']; ?>" <?= $selectedCompany === (string)$comp['id'] ? 'selected' : ''; ?>>
                                             <?= htmlspecialchars($comp['name']); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
 
-                            <?php if (!empty($searchQuery) || ($selectedCompany ?? 'all') !== 'all'): ?>
-                                <div class="w-full md:w-auto">
-                                    <a href="approved_reports.php?section=<?= htmlspecialchars($selectedSection); ?>" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 transition-colors inline-block text-center whitespace-nowrap">
-                                        Reset
-                                    </a>
-                                </div>
-                            <?php endif; ?>
-                        </form>
+                            </form>
                     </div>
 
                     <!-- 3. Students Summary Table -->
@@ -273,7 +274,17 @@ $exportParamsAll = http_build_query([
                                 📄
                             </div>
                             <h4 class="text-sm font-black text-slate-900">No students found</h4>
-                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">There are no students matching your criteria.</p>
+                            <p class="text-xs font-semibold text-slate-600 max-w-md mx-auto">
+                                <?php if ($selectedSection !== 'all' || $selectedCompany !== 'all' || $searchQuery !== ''): ?>
+                                    No student with an approved report matches the selected
+                                    <?= $selectedSection !== 'all' ? 'course code (' . htmlspecialchars($selectedSection) . ')' : '' ?>
+                                    <?= $selectedCompany !== 'all' ? 'company' : '' ?>
+                                    <?= $searchQuery !== '' ? 'search term' : '' ?>.
+                                    Adjust the filters above to see more students.
+                                <?php else: ?>
+                                    No student has an approved weekly accomplishment report yet.
+                                <?php endif; ?>
+                            </p>
                         </div>
                     <?php endif; ?>
 
