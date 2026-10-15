@@ -60,9 +60,12 @@ $exportParamsAll = http_build_query([
 
                         <!-- Header Actions -->
                         <div class="flex items-center gap-3 shrink-0">
-                            <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
+                            <span
+                                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs"
+                                title="Students matching the filters below, across every page"
+                            >
                                 <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
-                                <?= count($filteredStudents ?? []); ?> Total <?= count($filteredStudents ?? []) === 1 ? 'Student' : 'Students'; ?>
+                                <?= (int)$totalFiltered; ?> Total <?= (int)$totalFiltered === 1 ? 'Student' : 'Students'; ?>
                             </span>
 
                             <?php if ($selectedSection !== 'all'): ?>
@@ -128,7 +131,7 @@ $exportParamsAll = http_build_query([
                                     id="searchInput"
                                     name="search" 
                                     value="<?= htmlspecialchars($searchQuery); ?>" 
-                                    placeholder="Search by student name or ID number..." 
+                                    placeholder="Search all students by name or ID number..." 
                                     class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                                 >
                             </div>
@@ -166,15 +169,18 @@ $exportParamsAll = http_build_query([
 
                     <!-- 3. Students Summary Table -->
                     <?php if (!empty($filteredStudents)): ?>
-                        <div class="overflow-hidden">
-                            <table class="w-full table-fixed text-left border-collapse text-xs">
+                        <!-- overflow-x-auto, not overflow-hidden: the previous wrapper clipped
+                             anything wider than the card. The min-width keeps the columns
+                             readable on narrow screens by scrolling rather than squashing. -->
+                        <div class="w-full overflow-x-auto">
+                            <table class="w-full min-w-[900px] table-fixed text-left border-collapse text-xs">
                                 <colgroup>
-                                    <col style="width: 24%;">
-                                    <col style="width: 8%;">
-                                    <col style="width: 25%;">
-                                    <col style="width: 15%;">
-                                    <col style="width: 16%;">
-                                    <col style="width: 12%;">
+                                    <col class="w-[24%]">
+                                    <col class="w-[8%]">
+                                    <col class="w-[25%]">
+                                    <col class="w-[15%]">
+                                    <col class="w-[16%]">
+                                    <col class="w-[12%]">
                                 </colgroup>
                                 <thead>
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
@@ -188,7 +194,7 @@ $exportParamsAll = http_build_query([
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                     <?php foreach ($filteredStudents as $student): ?>
-                                        <tr class="hover:bg-slate-50 transition-colors student-row">
+                                        <tr class="hover:bg-slate-50 transition-colors">
                                             
                                             <!-- Student Name & ID -->
                                             <td class="py-4 px-4 align-middle">
@@ -201,8 +207,8 @@ $exportParamsAll = http_build_query([
                                                         <?php endif; ?>
                                                     </div>
                                                     <div class="min-w-0">
-                                                        <p class="font-extrabold text-slate-950 text-sm intern-name break-words"><?= htmlspecialchars($student['student_name']); ?></p>
-                                                        <p class="text-[11px] text-slate-600 font-semibold intern-id">ID: <?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
+                                                        <p class="font-extrabold text-slate-950 text-sm break-words"><?= htmlspecialchars($student['student_name']); ?></p>
+                                                        <p class="text-[11px] text-slate-600 font-semibold">ID: <?= htmlspecialchars($student['student_number'] ?? 'N/A'); ?> &bull; <?= htmlspecialchars($student['program'] ?? 'BSIT'); ?></p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -268,6 +274,51 @@ $exportParamsAll = http_build_query([
                                 </tbody>
                             </table>
                         </div>
+
+
+                        <!-- Pagination Footer -->
+                        <?php if ($totalPages > 1):
+                            // Every filter has to ride along, or the pager would drop the
+                            // coordinator back onto an unfiltered list mid-search.
+                            $baseQuery = 'search=' . urlencode($searchQuery)
+                                . '&section=' . urlencode($selectedSection)
+                                . '&company_id=' . urlencode($selectedCompany);
+
+                            $firstShown = $totalFiltered > 0 ? (($page - 1) * $perPage) + 1 : 0;
+                            $lastShown  = $totalFiltered > 0 ? min($page * $perPage, $totalFiltered) : 0;
+                        ?>
+                            <div class="px-4 py-3 border-t border-slate-200/70 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                <p class="text-[11px] font-semibold text-slate-600">
+                                    Showing <span class="font-black text-slate-900"><?= $firstShown; ?></span>&ndash;<span class="font-black text-slate-900"><?= $lastShown; ?></span>
+                                    of <span class="font-black text-slate-900"><?= (int)$totalFiltered; ?></span>
+                                    &middot; Page <?= (int)$page; ?> of <?= (int)$totalPages; ?>
+                                </p>
+
+                                <div class="flex items-center gap-2">
+                                    <?php if ($page > 1): ?>
+                                        <a href="approved_reports.php?<?= $baseQuery; ?>&page=<?= $page - 1; ?>"
+                                           class="px-3 py-1.5 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                            <span>&lsaquo;</span> Prev
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                            <span>&lsaquo;</span> Prev
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <?php if ($page < $totalPages): ?>
+                                        <a href="approved_reports.php?<?= $baseQuery; ?>&page=<?= $page + 1; ?>"
+                                           class="px-3 py-1.5 text-xs font-bold text-white bg-[#0F2854] hover:bg-blue-900 border border-[#0F2854] rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                            Next <span>&rsaquo;</span>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                            Next <span>&rsaquo;</span>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div class="text-center py-16 px-4 space-y-2">
                             <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mx-auto text-lg font-black border border-slate-300">
@@ -309,23 +360,32 @@ $exportParamsAll = http_build_query([
             }
         });
 
-        // Instant Client-Side Search
+        /* Search is server-side: the list is now paginated, so a JS row filter
+           would only ever see the current page and would silently hide matches
+           sitting on page 2. The input debounces a real GET submit instead,
+           matching coordinator/audit_logs.php and coordinator/evaluations.php. */
+        const reportFilterForm = document.getElementById('filterForm');
         const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                const query = this.value.toLowerCase().trim();
-                const rows = document.querySelectorAll('.student-row');
 
-                rows.forEach(function(row) {
-                    const name = row.querySelector('.intern-name')?.textContent.toLowerCase() || '';
-                    const id   = row.querySelector('.intern-id')?.textContent.toLowerCase() || '';
-                    
-                    if (name.includes(query) || id.includes(query)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
+        if (reportFilterForm && searchInput) {
+            let reportSearchTimer = null;
+
+            // The form has no hidden "page" input, so a submit always lands on
+            // page 1 -- a filter change correctly restarts at the top.
+            searchInput.addEventListener('input', function () {
+                clearTimeout(reportSearchTimer);
+                reportSearchTimer = setTimeout(function () {
+                    reportFilterForm.submit();
+                }, 350);
+            });
+
+            // Enter submits immediately rather than waiting out the debounce.
+            searchInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    clearTimeout(reportSearchTimer);
+                    reportFilterForm.submit();
+                }
             });
         }
     </script>
