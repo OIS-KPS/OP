@@ -80,73 +80,102 @@
                                 <!-- All Interns + Sections Dropdown -->
                                 <div class="relative inline-block text-left">
                                     <div class="inline-flex items-center">
-                                        <button type="button" id="allFilterTab" onclick="filterByStatus('all', this)" class="filter-tab px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]">
+                                        <?php
+                                        /*
+                                         * Status tabs are links, not buttons. They used to be
+                                         * <button onclick="filterByStatus(...)"> filtering in JS,
+                                         * which could only ever see the rows on screen. Now that
+                                         * the list is paginated and the filter is server-side, each
+                                         * tab is just a URL -- so the filtered view is shareable and
+                                         * survives a reload, and filterByStatus() could be deleted.
+                                         *
+                                         * PHP closures do NOT inherit the enclosing scope, so
+                                         * these read their inputs through an explicit `use`.
+                                         */
+                                        $statusLink = static function (string $value) use ($selectedSection, $searchQuery): string {
+                                            $params = ['section' => $selectedSection, 'status' => $value];
+                                            if ($searchQuery !== '') {
+                                                $params['search'] = $searchQuery;
+                                            }
+                                            return 'assignments.php?' . http_build_query($params);
+                                        };
+                                        // Course-code menu: the mirror image, so switching block
+                                        // keeps the status tab and the search instead of resetting.
+                                        $sectionLink = static function (string $value) use ($selectedStatus, $searchQuery): string {
+                                            $params = ['section' => $value, 'status' => $selectedStatus];
+                                            if ($searchQuery !== '') {
+                                                $params['search'] = $searchQuery;
+                                            }
+                                            return 'assignments.php?' . http_build_query($params);
+                                        };
+                                        $isTab = static fn(string $value): bool => ($selectedStatus === $value);
+                                        ?>
+                                        <a href="<?= $statusLink('all'); ?>" id="allFilterTab" class="filter-tab px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer <?= $isTab('all') ? 'bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 rounded-l-lg rounded-r-none border border-slate-300'; ?>">
                                             <span>All Interns<?= ($selectedSection ?? 'all') !== 'all' ? ' · ' . htmlspecialchars($selectedSection) : ''; ?></span>
-                                            <span class="ml-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white"><?= count($students ?? []); ?></span>
-                                        </button>
-                                        <button type="button" onclick="toggleSectionsMenu(event)" class="px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 border-[#0F2854] bg-[#0F2854] text-white" aria-label="Toggle sections">
+                                            <span class="ml-0.5 px-2 py-0.5 rounded-full text-[10px] font-black <?= $isTab('all') ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= (int)$totalFiltered; ?></span>
+                                        </a>
+                                        <button type="button" onclick="toggleSectionsMenu(event)" class="px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 <?= $isTab('all') ? 'border-[#0F2854] bg-[#0F2854] text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'; ?>" aria-label="Toggle sections">
                                             <svg id="sectionsMenuChevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
                                         </button>
                                     </div>
 
                                     <div id="sectionsMenu" class="hidden absolute left-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-300 z-50 text-xs overflow-hidden p-1.5">
-                                        <a href="assignments.php?section=all" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? 'all') === 'all' ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
+                                        <a href="<?= $sectionLink('all'); ?>" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? 'all') === 'all' ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
                                             All Course Codes
                                         </a>
                                         <?php foreach ($activeSections as $sec): ?>
-                                            <a href="assignments.php?section=<?= urlencode($sec); ?>" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? '') === $sec ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
+                                            <a href="<?= $sectionLink($sec); ?>" class="block px-3 py-2 rounded-xl font-bold transition-colors <?= ($selectedSection ?? '') === $sec ? 'bg-[#0F2854] text-white' : 'text-slate-800 hover:bg-slate-100'; ?>">
                                                 <?= htmlspecialchars($sec); ?>
                                             </a>
                                         <?php endforeach; ?>
                                     </div>
                                 </div>
 
-                                <?php
-                                    $assignedCount   = 0;
-                                    $unassignedCount = 0;
-                                    foreach ($students as $st) {
-                                        if (!empty($st['company_id']) && !empty($st['supervisor_id'])) {
-                                            $assignedCount++;
-                                        } else {
-                                            $unassignedCount++;
-                                        }
-                                    }
-                                ?>
-                                <button type="button" onclick="filterByStatus('assigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer inline-flex items-center gap-2">
+                                <a href="<?= $statusLink('assigned'); ?>" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= $isTab('assigned') ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?> cursor-pointer">
                                     <span>Assigned</span>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300"><?= $assignedCount; ?></span>
-                                </button>
-                                <button type="button" onclick="filterByStatus('unassigned', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer inline-flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300"><?= (int)$assignedTotal; ?></span>
+                                </a>
+                                <a href="<?= $statusLink('unassigned'); ?>" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-2 <?= $isTab('unassigned') ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?> cursor-pointer">
                                     <span>Unassigned</span>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300"><?= $unassignedCount; ?></span>
-                                </button>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300"><?= (int)$unassignedTotal; ?></span>
+                                </a>
                             </div>
                         </div>
 
                         <!-- Full-Width Search -->
-                        <div class="p-4 border-b border-slate-200/70 bg-white">
+                        <!-- A real GET form now. The input previously had no name attribute and
+                             sat outside any form, so filtering happened entirely in JS and could
+                             only ever see the rows on screen. The course code and status tab
+                             ride along as hidden inputs so searching does not reset them. -->
+                        <form id="assignmentFilterForm" method="GET" action="assignments.php" class="p-4 border-b border-slate-200/70 bg-white">
+                            <input type="hidden" name="section" value="<?= htmlspecialchars($selectedSection ?? 'all'); ?>">
+                            <input type="hidden" name="status" value="<?= htmlspecialchars($selectedStatus ?? 'all'); ?>">
                             <div class="relative w-full">
                                 <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     id="assignmentSearchInput"
-                                    placeholder="Search..." 
+                                    name="search"
+                                    value="<?= htmlspecialchars($searchQuery ?? ''); ?>"
+                                    placeholder="Search all interns by name, ID, company or supervisor..."
                                     class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                                 >
                             </div>
-                        </div>
+                        </form>
 
                     <!-- 3. Placement Table -->
                     <?php if (!empty($students)): ?>
-                        <div class="overflow-hidden">
-                            <table class="w-full table-fixed text-left border-collapse text-xs">
+                        <!-- overflow-x-auto, not overflow-hidden: the previous wrapper clipped
+                             anything wider than the card. -->
+                        <div class="w-full overflow-x-auto">
+                            <table class="w-full min-w-[900px] table-fixed text-left border-collapse text-xs">
                                 <colgroup>
-                                    <col style="width: 24%;">
-                                    <col style="width: 9%;">
-                                    <col style="width: 15%;">
-                                    <col style="width: 17%;">
-                                    <col style="width: 16%;">
-                                    <col style="width: 19%;">
+                                    <col class="w-[24%]">
+                                    <col class="w-[9%]">
+                                    <col class="w-[15%]">
+                                    <col class="w-[17%]">
+                                    <col class="w-[16%]">
+                                    <col class="w-[19%]">
                                 </colgroup>
                                 <thead>
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
@@ -165,7 +194,7 @@
                                         $hasPlacement = $hasCompany && $hasSupervisor;
                                         $rowStatus    = $hasPlacement ? 'assigned' : 'unassigned';
                                     ?>
-                                        <tr class="hover:bg-slate-50 transition-colors group assignment-row" data-status="<?= $rowStatus; ?>" data-status-label="<?= $hasPlacement ? 'assigned' : 'not assigned'; ?>">
+                                        <tr class="hover:bg-slate-50 transition-colors">
                                             
                                             <!-- Student Info -->
                                             <td class="py-4 px-4 align-middle">
@@ -178,8 +207,8 @@
                                                         <?php endif; ?>
                                                     </div>
                                                     <div class="min-w-0">
-                                                        <p class="font-extrabold text-slate-950 text-sm intern-name break-words"><?= htmlspecialchars($s['name']); ?></p>
-                                                        <p class="text-[11px] text-slate-600 font-semibold mt-0.5 intern-id">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?></p>
+                                                        <p class="font-extrabold text-slate-950 text-sm break-words"><?= htmlspecialchars($s['name']); ?></p>
+                                                        <p class="text-[11px] text-slate-600 font-semibold mt-0.5">ID: <?= htmlspecialchars($s['student_number'] ?? 'N/A'); ?></p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -214,7 +243,7 @@
                                             <!-- Host Company -->
                                             <td class="py-4 px-4 align-middle">
                                                 <?php if (!empty($s['company_name'])): ?>
-                                                    <p class="font-bold text-slate-900 text-xs company-name break-words"><?= htmlspecialchars($s['company_name']); ?></p>
+                                                    <p class="font-bold text-slate-900 text-xs break-words"><?= htmlspecialchars($s['company_name']); ?></p>
                                                     <p class="text-[11px] text-slate-600 font-medium mt-0.5 break-words"><?= htmlspecialchars($s['office_name'] ?? $s['company_dept'] ?? 'Main Office'); ?></p>
                                                 <?php else: ?>
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
@@ -226,7 +255,7 @@
                                             <!-- Assigned Supervisor -->
                                             <td class="py-4 px-4 align-middle">
                                                 <?php if (!empty($s['supervisor_name'])): ?>
-                                                    <p class="font-bold text-slate-900 text-xs supervisor-name break-words"><?= htmlspecialchars($s['supervisor_name']); ?></p>
+                                                    <p class="font-bold text-slate-900 text-xs break-words"><?= htmlspecialchars($s['supervisor_name']); ?></p>
                                                     <p class="text-[11px] text-slate-600 font-medium mt-0.5">Company Supervisor</p>
                                                 <?php else: ?>
                                                     <span class="text-slate-500 text-xs font-semibold italic">Pending Assignment</span>
@@ -245,22 +274,71 @@
 
                                         </tr>
                                     <?php endforeach; ?>
-                                    <tr id="noResultsRow" class="hidden">
-                                        <td colspan="6" class="py-10 px-6 text-center">
-                                            <p class="text-xs font-black text-slate-700">No students match your filter</p>
-                                            <p class="text-[11px] font-semibold text-slate-500 mt-1">Try a different status tab or search term.</p>
-                                        </td>
-                                    </tr>
+                                    <?php /* The old <tr id="noResultsRow"> row is gone. It was
+                                             toggled by applyCombinedFilter() when the JS filter
+                                             hid everything; the empty state is now rendered by
+                                             PHP below. */ ?>
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Pagination Footer -->
+                        <?php if ($totalPages > 1):
+                            $baseQuery = 'section=' . urlencode($selectedSection)
+                                . '&status=' . urlencode($selectedStatus)
+                                . '&search=' . urlencode($searchQuery ?? '');
+
+                            $firstShown = $totalFiltered > 0 ? (($page - 1) * $perPage) + 1 : 0;
+                            $lastShown  = $totalFiltered > 0 ? min($page * $perPage, $totalFiltered) : 0;
+                        ?>
+                            <div class="px-4 py-3 border-t border-slate-200/70 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                <p class="text-[11px] font-semibold text-slate-600">
+                                    Showing <span class="font-black text-slate-900"><?= $firstShown; ?></span>&ndash;<span class="font-black text-slate-900"><?= $lastShown; ?></span>
+                                    of <span class="font-black text-slate-900"><?= (int)$totalFiltered; ?></span>
+                                    &middot; Page <?= (int)$page; ?> of <?= (int)$totalPages; ?>
+                                </p>
+
+                                <div class="flex items-center gap-2">
+                                    <?php if ($page > 1): ?>
+                                        <a href="assignments.php?<?= $baseQuery; ?>&page=<?= $page - 1; ?>"
+                                           class="px-3 py-1.5 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                            <span>&lsaquo;</span> Prev
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                            <span>&lsaquo;</span> Prev
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <?php if ($page < $totalPages): ?>
+                                        <a href="assignments.php?<?= $baseQuery; ?>&page=<?= $page + 1; ?>"
+                                           class="px-3 py-1.5 text-xs font-bold text-white bg-[#0F2854] hover:bg-blue-900 border border-[#0F2854] rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                            Next <span>&rsaquo;</span>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                            Next <span>&rsaquo;</span>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div class="text-center py-16 px-4 space-y-2">
                             <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mx-auto text-lg font-black border border-slate-300">
                                 👥
                             </div>
                             <h4 class="text-sm font-black text-slate-900">No students found</h4>
-                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">There are no registered students under this course code.</p>
+                            <p class="text-xs font-semibold text-slate-600 max-w-xs mx-auto">
+                                <?php if (($selectedStatus ?? 'all') !== 'all' || ($searchQuery ?? '') !== '' || ($selectedSection ?? 'all') !== 'all'): ?>
+                                    No intern matches the current status tab, course code or search term.
+                                    <?php if (($selectedStatus ?? 'all') !== 'all'): ?>
+                                        <a href="<?= $statusLink('all'); ?>" class="text-[#0F2854] font-bold hover:underline">Clear filters</a>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    There are no registered students under this course code.
+                                <?php endif; ?>
+                            </p>
                         </div>
                     <?php endif; ?>
 
@@ -389,7 +467,6 @@
     <!-- Scripts -->
     <script>
         const allSupervisors = <?= json_encode($supervisors ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        let currentStatusFilter = 'all';
 
         /* ---------------------------------------------------------------
          * Two-panel placement picker
@@ -673,30 +750,6 @@ function isPlaced(stu) {
             }
         }
 
-        // Live Filtering by Status Tab
-        function filterByStatus(status, btnElement) {
-            currentStatusFilter = status;
-            
-            document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.className = 'filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 cursor-pointer inline-flex items-center gap-2';
-            });
-            // The "All Interns" tab is fused to the sections chevron, so it needs its
-// own shape back (rounded-l-lg rounded-r-none) whenever it is the active tab.
-btnElement.className = (status === 'all')
-                ? 'filter-tab px-3.5 py-1.5 text-xs font-bold cursor-pointer inline-flex items-center gap-2 bg-[#0F2854] text-white rounded-l-lg rounded-r-none border border-[#0F2854]'
-                : 'filter-tab px-3.5 py-1.5 text-xs font-bold cursor-pointer inline-flex items-center gap-2 bg-[#0F2854] text-white rounded-lg border border-[#0F2854]';
-
-            const chevronBtn = document.querySelector('button[aria-label="Toggle sections"]');
-            if (chevronBtn) {
-                if (status === 'all') {
-                    chevronBtn.className = 'px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 border-[#0F2854] bg-[#0F2854] text-white';
-                } else {
-                    chevronBtn.className = 'px-2 py-1.5 cursor-pointer rounded-r-lg rounded-l-none border border-l-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-100';
-                }
-            }
-
-            applyCombinedFilter();
-        }
 
         function toggleSectionsMenu(event) {
             if (event) event.stopPropagation();
@@ -715,40 +768,31 @@ btnElement.className = (status === 'all')
             }
         });
 
-        // Live Search Listener
-        const searchInput = document.getElementById('assignmentSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', applyCombinedFilter);
-        }
+        /* Search is server-side now, because the list is paginated: a JS filter
+           would only ever see the rows on this page. The input debounces a real
+           GET submit, and the form's hidden inputs keep the status tab and the
+           course code. There is no hidden "page" input, so a new search lands
+           on page 1. */
+        const assignmentFilterForm = document.getElementById('assignmentFilterForm');
+        const assignmentSearchInput = document.getElementById('assignmentSearchInput');
 
-        function applyCombinedFilter() {
-            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
-            const rows = document.querySelectorAll('.assignment-row');
+        if (assignmentFilterForm && assignmentSearchInput) {
+            let assignmentSearchTimer = null;
 
-            let visibleCount = 0;
-            rows.forEach(row => {
-                const rowStatus = row.getAttribute('data-status');
-                const name = row.querySelector('.intern-name')?.textContent.toLowerCase() || '';
-                const id   = row.querySelector('.intern-id')?.textContent.toLowerCase() || '';
-                const comp = row.querySelector('.company-name')?.textContent.toLowerCase() || '';
-                const sup  = row.querySelector('.supervisor-name')?.textContent.toLowerCase() || '';
-                const status = row.getAttribute('data-status-label') || '';
-
-                const matchesSearch = name.includes(query) || id.includes(query) || comp.includes(query) || sup.includes(query) || status.includes(query);
-                const matchesStatus = (currentStatusFilter === 'all') || (rowStatus === currentStatusFilter);
-
-                if (matchesSearch && matchesStatus) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
+            assignmentSearchInput.addEventListener('input', function () {
+                clearTimeout(assignmentSearchTimer);
+                assignmentSearchTimer = setTimeout(function () {
+                    assignmentFilterForm.submit();
+                }, 350);
             });
 
-            const noResultsRow = document.getElementById('noResultsRow');
-            if (noResultsRow) {
-                noResultsRow.classList.toggle('hidden', visibleCount > 0);
-            }
+            assignmentSearchInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    clearTimeout(assignmentSearchTimer);
+                    assignmentFilterForm.submit();
+                }
+            });
         }
     </script>
 </body>

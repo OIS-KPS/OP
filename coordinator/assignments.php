@@ -15,9 +15,33 @@ $coordinatorId   = $_SESSION['user_id'];
 $selectedSection = ($_GET['section'] ?? 'all') === 'all'
     ? 'all'
     : normalizeSectionCode($_GET['section']);
+
+// Whitelisted, so a hand-edited ?status= falls back to 'all' rather than
+// silently returning an unfiltered list under a bogus selection.
+$selectedStatus  = in_array($_GET['status'] ?? '', ['all', 'assigned', 'unassigned'], true)
+    ? $_GET['status']
+    : 'all';
+
+$searchQuery     = trim($_GET['search'] ?? '');
+
 $success         = $_SESSION['flash_success'] ?? null;
 $error           = $_SESSION['flash_error'] ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+
+/*
+ * Paging. 25 per page, matching the other coordinator list screens.
+ *
+ * Only the visible table is paginated. $rosterStudents, $companies,
+ * $supervisors and $offices deliberately stay unpaginated: the placement picker
+ * switches course codes client-side without a reload, so it needs every
+ * student, and the dropdowns need every company/office/supervisor.
+ */
+$perPage       = 25;
+$page          = 1;
+$totalPages    = 1;
+$totalFiltered = 0;
+$assignedTotal = 0;
+$unassignedTotal = 0;
 
 // CSRF Guard: covers the whole POST surface of this controller.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -141,7 +165,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
-    header("Location: assignments.php" . ($selectedSection !== 'all' ? "?section=" . urlencode($selectedSection) : ""));
+    // Preserve the whole filtered view, not just the section: placing or unplacing
+    // a student used to drop the coordinator back on an unfiltered list.
+    $returnParams = [];
+
+    if ($selectedSection !== 'all') {
+        $returnParams['section'] = $selectedSection;
+    }
+    if ($selectedStatus !== 'all') {
+        $returnParams['status'] = $selectedStatus;
+    }
+    if ($searchQuery !== '') {
+        $returnParams['search'] = $searchQuery;
+    }
+    if ($page > 1) {
+        $returnParams['page'] = $page;
+    }
+
+    header(
+        'Location: assignments.php'
+        . ($returnParams ? '?' . http_build_query($returnParams) : '')
+    );
     exit();
 }
 
@@ -162,6 +206,10 @@ try {
 
     // Query Students
     $whereStudent = ["u.status = 'active'"];
+    // FILTER PARAMS ONLY. :defaultSection backs the COALESCE in the SELECT list
+    // below, which a COUNT(*) has no use for, so it is added further down just
+    // before the list runs. Seeding it here would bind a value with no matching
+    // marker and break the count.
     $stdParams = [];
 
     if ($selectedSection !== 'all') {
@@ -169,7 +217,133 @@ try {
         $stdParams['sec'] = $selectedSection;
     }
 
+    /*
+     * Status filter, moved here from the client.
+     *
+     * "Assigned" must mean exactly what the row rendering means by it, which is
+     * $hasPlacement at the view: a company AND a supervisor. Anything with only
+     * one of the two still needs attention, so it falls to "Unassigned" -- the
+     * OR is deliberate, not an oversight.
+     */
+    if ($selectedStatus === 'assigned') {
+        $whereStudent[] = "s.company_id IS NOT NULL AND s.supervisor_id IS NOT NULL";
+    } elseif ($selectedStatus === 'unassigned') {
+        $whereStudent[] = "(s.company_id IS NULL OR s.supervisor_id IS NULL)";
+    }
+
+    /*
+     * Search, moved here from applyCombinedFilter() in the view.
+     *
+     * It used to match the row's status label too, so typing "assigned" matched
+     * BOTH "assigned" and "not assigned". Status is now an explicit filter, so
+     * the text search covers the four things a coordinator actually types.
+     *
+     * Each column needs its own marker: native prepares (EMULATE_PREPARES is
+     * off) cannot reuse a named placeholder.
+     */
+    if ($searchQuery !== '') {
+        $whereStudent[] = "(LOWER(u.name) LIKE :s_name
+            OR LOWER(s.student_number) LIKE :s_num
+            OR LOWER(COALESCE(c.name, '')) LIKE :s_comp
+            OR LOWER(COALESCE(u_sup.name, '')) LIKE :s_sup)";
+
+        $like = '%' . strtolower($searchQuery) . '%';
+        $stdParams['s_name'] = $like;
+        $stdParams['s_num']  = $like;
+        $stdParams['s_comp'] = $like;
+        $stdParams['s_sup']  = $like;
+    }
+
     $whereStudentSql = "WHERE " . implode(' AND ', $whereStudent);
+
+    /*
+     * |----------------------------------------------------------------------
+     * Tab badges: assigned / unassigned totals.
+     * |----------------------------------------------------------------------
+     *
+     * Scoped to the selected course code but NOT to the status filter or the
+     * search, so each badge keeps describing the whole bucket it labels. These
+     * are separate statements because the status clause differs per value and
+     * one named marker cannot be reused across them.
+     */
+    $countBaseWhere = "WHERE u.status = 'active'";
+    $countBaseParams = [];
+
+    if ($selectedSection !== 'all') {
+        $countBaseWhere .= " AND s.section = :countSec";
+        $countBaseParams['countSec'] = $selectedSection;
+    }
+
+    foreach (['assigned', 'unassigned'] as $bucket) {
+        $bucketClause = $bucket === 'assigned'
+            ? "s.company_id IS NOT NULL AND s.supervisor_id IS NOT NULL"
+            : "(s.company_id IS NULL OR s.supervisor_id IS NULL)";
+
+        $stmtBucket = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            {$countBaseWhere}
+              AND {$bucketClause}
+        ");
+
+        foreach ($countBaseParams as $key => $value) {
+            $stmtBucket->bindValue(':' . $key, $value);
+        }
+
+        $stmtBucket->execute();
+
+        if ($bucket === 'assigned') {
+            $assignedTotal = (int) $stmtBucket->fetchColumn();
+        } else {
+            $unassignedTotal = (int) $stmtBucket->fetchColumn();
+        }
+    }
+
+    /*
+     * |----------------------------------------------------------------------
+     * Total rows matching the current filters, which drives the pager.
+     * |----------------------------------------------------------------------
+     *
+     * Same FROM/JOIN chain as the list below, because the search reaches through
+     * c.name and u_sup.name.
+     */
+    $stmtStudentCount = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN companies c ON s.company_id = c.id
+        LEFT JOIN offices o ON s.office_id = o.id
+        LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+        LEFT JOIN users u_sup ON sup.user_id = u_sup.id
+        {$whereStudentSql}
+    ");
+
+    foreach ($stdParams as $key => $value) {
+        $stmtStudentCount->bindValue(':' . $key, $value);
+    }
+
+    $stmtStudentCount->execute();
+
+    $totalFiltered = (int) $stmtStudentCount->fetchColumn();
+
+
+    /*
+     * |----------------------------------------------------------------------
+     * Requested page, clamped into range
+     * |----------------------------------------------------------------------
+     */
+    $totalPages = max(1, (int) ceil($totalFiltered / $perPage));
+
+    $page = max(1, (int) ($_GET['page'] ?? 1));
+
+    if ($page > $totalPages) {
+        $page = $totalPages;
+    }
+
+    $offset = ($page - 1) * $perPage;
+
+    // Only now, because this placeholder exists solely in the list query below.
     $stdParams['defaultSection'] = $defaultSection;
 
     $sqlStudents = "
@@ -195,10 +369,29 @@ try {
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
         {$whereStudentSql}
-        ORDER BY s.section ASC, u.name ASC
+        ORDER BY s.section ASC, u.name ASC,
+
+            /*
+             * Tiebreaker. Section and name are not unique, so without a final
+             * deterministic key MySQL may order equal rows differently per query,
+             * which makes a row land on two pages or none as the LIMIT window
+             * slides. s.id is stable and unique.
+             */
+            s.id ASC
+
+        LIMIT :lim OFFSET :off
     ";
     $stmtStd = $pdo->prepare($sqlStudents);
-    $stmtStd->execute($stdParams);
+
+    // EMULATE_PREPARES is off, so LIMIT/OFFSET must be bound as integers.
+    $stmtStd->bindValue(':lim', $perPage, PDO::PARAM_INT);
+    $stmtStd->bindValue(':off', $offset, PDO::PARAM_INT);
+
+    foreach ($stdParams as $key => $value) {
+        $stmtStd->bindValue(':' . $key, $value);
+    }
+
+    $stmtStd->execute();
     $students = $stmtStd->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     // Full active roster for the bulk placement picker. It is deliberately NOT
