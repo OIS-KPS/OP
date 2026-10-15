@@ -504,59 +504,66 @@ function workspaceItFlag(array $entity, string $activityType): string
                                             <div class="flex items-start justify-between gap-2">
                                                 <p class="font-extrabold text-slate-950 text-xs leading-snug"><?= htmlspecialchars((string)$ent['entity_name']); ?></p>
                                                 <div class="flex items-center gap-1.5 shrink-0">
-                                                    <?php /* Attribution: shown to EVERY viewer (coordinator, supervisor,
-                                                           intern) so it is clear which terms came from a coordinator
-                                                           rather than from the extractor.
+                                                    <?php /* Entity provenance, and the management controls beside it: coordinator
+                                                             only.
 
-                                                           Three coordinator states, decided by reclassified_at and
-                                                           original_it_related:
+                                                             These badges exist so a coordinator can tell which
+                                                             terms the extractor produced and which they typed in
+                                                             or corrected by hand. That is internal workflow — a
+                                                             supervisor reading somebody else's report has no use
+                                                             for it, and the intern panel is hidden outright.
+                                                             Everyone else sees just the classification chip below.
 
-                                                             no stamp, no original  typed into Add Entity from nothing
-                                                             stamp + value differs  extracted, then corrected
-                                                             stamp + value matches the coordinator put it back, so
-                                                                            there is no override left to report
+                                                             Three coordinator states, decided by reclassified_at
+                                                             and original_it_related:
 
-                                                           confidence_score is deliberately not used for this: every
-                                                           'predefined' row sits at exactly 100.00, so a reclassified
-                                                           predefined term would be indistinguishable from a typed one. */ ?>
-                                                    <?php if (($ent['source'] ?? '') === 'manual_addition'):
-                                                        $stamped     = !empty($ent['reclassified_at']);
-                                                        $original    = $ent['original_it_related'] ?? null;
-                                                        $isReverted  = ($original !== null && (string)$original === (string)($ent['it_related'] ?? ''));
-                                                        $isReclassified = $stamped && !$isReverted;
-                                                    ?>
-                                                        <?php if ($isReclassified): ?>
-                                                            <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/40 border-dashed px-2 py-0.5 rounded border" title="Extracted from the document, then reclassified by a coordinator"><span aria-hidden="true">&#9998;</span> Reclassified</span>
-                                                        <?php elseif (!$isReverted): ?>
-                                                            <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/30 px-2 py-0.5 rounded border" title="Typed in by a coordinator, not extracted from your document">Added</span>
-                                                        <?php endif; ?>
-                                                    <?php endif; ?>
-                                                    <?php /* Dictionary matches. Slate rather than amber: this is
-                                                             provenance, not a warning. A term found in
-                                                             predefined_entities is a certain match, so it is
-                                                             never treated as a low-confidence prediction. */ ?>
-                                                    <?php if (reportWorkspaceIsPredefined($ent)): ?>
-                                                        <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded" title="Matched a term in the predefined entity list, not predicted by the model">Predefined</span>
-                                                    <?php endif; ?>
-                                                    <?php /* ML predictions below the extractor threshold. Amber, because
-                                                             amber is already this system's "pending" colour and a weak
-                                                             prediction is pending verification rather than wrong.
+                                                               no stamp, no original  typed into Add Entity from nothing
+                                                               stamp + value differs  extracted, then corrected
+                                                               stamp + value matches the coordinator put it back, so
+                                                                                      there is no override left to report
 
-                                                             Only ever true for source = 'spacy'; dictionary rows carry
-                                                             100.00 and are labelled above instead. */ ?>
-                                                    <?php if (reportWorkspaceIsLowConfidence($ent)): ?>
-                                                        <span class="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded" title="The model was less than <?= htmlspecialchars((string)REPORT_WORKSPACE_LOW_CONFIDENCE, ENT_QUOTES, 'UTF-8'); ?>% sure about this term. Check it against the report.">
-                                                            <span aria-hidden="true">&#9888;</span> Low confidence
-                                                        </span>
-                                                    <?php endif; ?>
+                                                             confidence_score is deliberately not used for this:
+                                                             every 'predefined' row sits at exactly 100.00, so a
+                                                             reclassified predefined term would be
+                                                             indistinguishable from a typed one. */ ?>
                                                     <?php if ($canManageEntities): ?>
+                                                        <?php if (($ent['source'] ?? '') === 'manual_addition'):
+                                                            $stamped        = !empty($ent['reclassified_at']);
+                                                            $original       = $ent['original_it_related'] ?? null;
+                                                            $isReverted     = ($original !== null && (string)$original === (string)($ent['it_related'] ?? ''));
+                                                            $isReclassified = $stamped && !$isReverted;
+                                                        ?>
+                                                            <?php if ($isReclassified): ?>
+                                                                <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/40 border-dashed px-2 py-0.5 rounded border" title="Extracted from the document, then reclassified by a coordinator"><span aria-hidden="true">&#9998;</span> Reclassified</span>
+                                                            <?php elseif (!$isReverted): ?>
+                                                                <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/30 px-2 py-0.5 rounded border" title="Typed in by a coordinator, not extracted from your document">Added</span>
+                                                            <?php endif; ?>
+                                                        <?php endif; ?>
+                                                        <?php /* Dictionary matches. Slate rather than amber: this is
+                                                                 provenance, not a warning. A term found in
+                                                                 predefined_entities is a certain match, so it is
+                                                                 never treated as a low-confidence prediction. */ ?>
+                                                        <?php if (reportWorkspaceIsPredefined($ent)): ?>
+                                                            <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded" title="Matched a term in the predefined entity list, not predicted by the model">Predefined</span>
+                                                        <?php endif; ?>
+                                                        <?php /* ML predictions below the extractor threshold. Amber, because
+                                                                 amber is already this system's "pending" colour and a weak
+                                                                 prediction is pending verification rather than wrong.
+
+                                                                 Only ever true for source = 'spacy'; dictionary rows carry
+                                                                 100.00 and are labelled above instead. */ ?>
+                                                        <?php if (reportWorkspaceIsLowConfidence($ent)): ?>
+                                                            <span class="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded" title="The model was less than <?= htmlspecialchars((string)REPORT_WORKSPACE_LOW_CONFIDENCE, ENT_QUOTES, 'UTF-8'); ?>% sure about this term. Check it against the report.">
+                                                                <span aria-hidden="true">&#9888;</span> Low confidence
+                                                            </span>
+                                                        <?php endif; ?>
                                                         <?php if (isset($ent['confidence_score']) && $ent['confidence_score'] !== null): ?>
                                                             <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
                                                                 <?= number_format((float)$ent['confidence_score'], 1); ?>% Conf.
                                                             </span>
                                                         <?php endif; ?>
                                                         <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" onsubmit="return confirm('Archive this entity?');">
-                                        <?= csrf_field(); ?>
+                                                            <?= csrf_field(); ?>
                                                             <input type="hidden" name="action" value="delete_entity">
                                                             <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
                                                             <input type="hidden" name="entity_id" value="<?= (int)$ent['id']; ?>">
