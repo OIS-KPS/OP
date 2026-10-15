@@ -149,7 +149,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                             <?php elseif ($isRequested): ?>
                                 <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">Evaluation Requested</span>
                             <?php else: ?>
-                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-[#0F2854] border border-[#0F2854]/30">Eligible for Final Evaluation</span>
+                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-[#0F2854] border border-[#0F2854]/30">Final Evaluation</span>
                             <?php endif; ?>
                             <p class="text-xs font-medium text-slate-600 truncate">
                                 <?php if ($isEvaluated): ?>
@@ -157,7 +157,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                 <?php elseif ($isRequested): ?>
                                     Your request is with your supervisor for review and signature.
                                 <?php else: ?>
-                                    You have completed <?= (int)$totalApproved; ?> weekly reports.
+                                    Finished your OJT? Request your final evaluation from your supervisor.
                                 <?php endif; ?>
                             </p>
                         </div>
