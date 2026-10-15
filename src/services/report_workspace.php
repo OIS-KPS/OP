@@ -10,6 +10,57 @@
  */
 
 /**
+ * Lowest confidence an ML ("spacy") prediction may carry before it is flagged
+ * for a coordinator to look at.
+ *
+ * This mirrors HybridJournalPipeline's default `confidence_threshold` of 0.80
+ * in python/scripts/pipeline.py. spaCy tags anything under it "NEEDS_REVIEW",
+ * but that flag was never read on the PHP side, so nothing surfaced it.
+ *
+ * Only applies to source = 'spacy'. Rows matched from the predefined_entities
+ * dictionary are written with a confidence of 100.00 -- a literal dictionary
+ * hit is not a prediction -- so they are never flagged, they are labelled as
+ * dictionary matches instead.
+ */
+if (!defined('REPORT_WORKSPACE_LOW_CONFIDENCE')) {
+    define('REPORT_WORKSPACE_LOW_CONFIDENCE', 80.0);
+}
+
+/**
+ * True when this entity is an ML prediction the coordinator should verify.
+ */
+if (!function_exists('reportWorkspaceIsLowConfidence')) {
+    function reportWorkspaceIsLowConfidence(array $entity): bool
+    {
+        if ((string)($entity['source'] ?? '') !== 'spacy') {
+            return false;
+        }
+
+        $score = $entity['confidence_score'] ?? null;
+
+        return $score !== null
+            && is_numeric($score)
+            && (float)$score < REPORT_WORKSPACE_LOW_CONFIDENCE;
+    }
+}
+
+/**
+ * True when the entity came from the predefined_entities dictionary rather
+ * than from the model. Both "predefined" and "spacy_predefined" qualify,
+ * matching how coordinator/view_report.php groups them when counting.
+ */
+if (!function_exists('reportWorkspaceIsPredefined')) {
+    function reportWorkspaceIsPredefined(array $entity): bool
+    {
+        return in_array(
+            (string)($entity['source'] ?? ''),
+            ['predefined', 'spacy_predefined'],
+            true
+        );
+    }
+}
+
+/**
  * Turn a reports.file_path value into a browser-reachable URL.
  */
 if (!function_exists('reportWorkspacePdfUrl')) {
@@ -142,8 +193,7 @@ if (!function_exists('reportWorkspaceLoadEntities')) {
         $stmtAll = $pdo->prepare(
             "SELECT
                 re.id, re.report_id, re.entity_name, re.canonical_name, re.category,
-                re.activity_type, re.activity_type AS classification,
-                re.it_related, re.source, re.confidence_score, re.created_at,
+                re.it_related, re.source, re.reclassified_at, re.original_it_related, re.confidence_score, re.created_at,
                 r.week_number
              FROM report_entities re
              JOIN reports r ON re.report_id = r.id
@@ -154,7 +204,7 @@ if (!function_exists('reportWorkspaceLoadEntities')) {
 
         $stmtArchived = $pdo->prepare(
             "SELECT
-                re.id, re.report_id, re.entity_name, re.category, re.activity_type, r.week_number
+                re.id, re.report_id, re.entity_name, re.category, r.week_number
              FROM report_entities re
              JOIN reports r ON re.report_id = r.id
              WHERE re.report_id IN ($placeholders) AND re.is_archived = 1
@@ -204,9 +254,11 @@ if (!function_exists('reportWorkspaceRatio')) {
         $clerical = 0;
 
         foreach ($entities as $entity) {
-            if (strtolower(trim((string)($entity['activity_type'] ?? ''))) === 'clerical') {
+            $itFlag = strtolower(trim((string)($entity['it_related'] ?? '')));
+            if ($itFlag === 'no') {
                 $clerical++;
-            } elseif (trim((string)($entity['activity_type'] ?? '')) !== '') {
+            } elseif ($itFlag === 'yes' || $itFlag === 'unknown' || $itFlag === '') {
+                // unknown and empty string count as IT, matching legacy behaviour
                 $technical++;
             }
         }

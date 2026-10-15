@@ -28,7 +28,57 @@ import scripts
 import spacy
 from spacy.language import Language
 from spacy.tokens import Doc, Span
+from spacy.util import load_config
 from scripts.annotation import load_terms_dictionary
+
+
+def _load_model_for_runtime(model_path: str) -> Language:
+    """Loads a spaCy model, disabling GPU-only mixed precision when CUDA is absent.
+
+    A model trained with `spacy train` on a GPU box stores `mixed_precision = true`
+    (and `gpu_allocator = "pytorch"`) in its config.cfg. thinc reuses that setting on
+    every forward pass by entering `torch.autocast(device_type="cuda")`, which makes
+    PyTorch emit "CUDA is not available ... Disabling autocast" on CPU-only machines.
+    Autocast is a no-op without CUDA, so turning it off changes no predictions.
+
+    The config is only overridden in memory; the on-disk model stays untouched, which
+    keeps the fp16 path available if the same model is later deployed on a GPU host.
+    """
+    if os.environ.get("MODEL_PATH_DISABLE_MP_OVERRIDE") == "1":
+        return spacy.load(model_path)
+
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            logger.info("CUDA detected; keeping the model's mixed-precision setting.")
+            return spacy.load(model_path)
+    except Exception as exc:  # torch missing or driver misbehaving -> treat as CPU
+        logger.warning("Could not query CUDA availability (%s); assuming CPU.", exc)
+
+    config_path = os.path.join(model_path, "config.cfg")
+    if not os.path.isfile(config_path):
+        return spacy.load(model_path)
+
+    try:
+        config = load_config(config_path)
+        transformer = config.get("components", {}).get("transformer", {})
+        model_cfg = transformer.get("model", {})
+        if model_cfg.get("mixed_precision", False):
+            model_cfg["mixed_precision"] = False
+            logger.info(
+                "No CUDA device found; disabled the model's GPU mixed-precision flag "
+                "for this process (config file left unchanged)."
+            )
+            return spacy.load(model_path, config=config)
+    except Exception as exc:
+        logger.warning(
+            "Could not override mixed_precision for CPU inference (%s); "
+            "falling back to the model's stored config.",
+            exc,
+        )
+
+    return spacy.load(model_path)
 
 logger = logging.getLogger("ojt_pipeline.inference")
 
@@ -147,7 +197,7 @@ class HybridJournalPipeline:
         self._lower_terms_set = {t.lower(): (t, lbl) for t, lbl in self.terms_dict.items()}
 
         logger.info(f"Loading transformer model from '{model_path}'...")
-        self.nlp = spacy.load(model_path)
+        self.nlp = _load_model_for_runtime(model_path)
 
         # Ensure EntityRuler is NOT before NER in the transformer pipeline
         # (Transformer must run unconstrained to prevent span truncation)

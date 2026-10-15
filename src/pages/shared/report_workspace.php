@@ -154,12 +154,12 @@ function workspaceItFlag(array $entity, string $activityType): string
 
                 <!-- Alert Messages -->
                 <?php if (!empty($_SESSION['flash_success'])): ?>
-                    <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs p-4 rounded-2xl font-bold flex items-center justify-between shadow-2xs">
+                    <div class="bg-blue-50 border border-[#0F2854]/30 text-[#0F2854] text-xs p-4 rounded-2xl font-bold flex items-center justify-between shadow-2xs">
                         <div class="flex items-center gap-2.5">
-                            <span class="text-emerald-700 font-black">&check;</span>
+                            <span class="font-black">&check;</span>
                             <span><?= htmlspecialchars($_SESSION['flash_success']); ?></span>
                         </div>
-                        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 font-black hover:text-emerald-950 cursor-pointer">&times;</button>
+                        <button type="button" onclick="this.parentElement.remove()" class="font-black hover:text-slate-700 cursor-pointer">&times;</button>
                     </div>
                     <?php unset($_SESSION['flash_success']); ?>
                 <?php endif; ?>
@@ -176,12 +176,12 @@ function workspaceItFlag(array $entity, string $activityType): string
                 <?php endif; ?>
 
                 <?php if (!empty($_SESSION['review_message'])): ?>
-                    <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs p-4 rounded-2xl font-bold flex items-center justify-between shadow-2xs">
+                    <div class="bg-blue-50 border border-[#0F2854]/30 text-[#0F2854] text-xs p-4 rounded-2xl font-bold flex items-center justify-between shadow-2xs">
                         <div class="flex items-center gap-2.5">
-                            <span class="text-emerald-700 font-black">&check;</span>
+                            <span class="font-black">&check;</span>
                             <span><?= htmlspecialchars($_SESSION['review_message']); ?></span>
                         </div>
-                        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 font-black hover:text-emerald-950 cursor-pointer">&times;</button>
+                        <button type="button" onclick="this.parentElement.remove()" class="font-black hover:text-slate-700 cursor-pointer">&times;</button>
                     </div>
                     <?php unset($_SESSION['review_message']); ?>
                 <?php endif; ?>
@@ -219,7 +219,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                             Active Inspection: Week <?= $activeWeekNumber ?? '—'; ?>
                         </span>
                         <?php if ($canExportCsv): ?>
-                            <a href="<?= htmlspecialchars($workspaceQuery . '&export=csv'); ?>" class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl transition-colors text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer">
+                            <a href="<?= htmlspecialchars($workspaceQuery . '&export=csv'); ?>" class="px-3.5 py-1.5 bg-white hover:bg-blue-50 border border-[#0F2854]/40 text-[#0F2854] rounded-xl transition-colors text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer">
                                 <span>Export CSV Summary</span>
                             </a>
                         <?php endif; ?>
@@ -269,7 +269,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                             <?php if ($activeReport && $pdfUrl !== ''): ?>
                                 <div class="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs font-bold text-slate-200 shrink-0 gap-2">
                                     <span class="flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                        <span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
                                         Week <?= (int)$activeReport['week_number']; ?> Report Document<?= !empty($activeReport['is_late']) ? ' (Late Submission)' : ''; ?>
                                     </span>
 
@@ -279,7 +279,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                                             &#128229; Sub: <strong class="text-white"><?= htmlspecialchars($activeSubmittedAt); ?></strong>
                                         </span>
                                         <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-                                            &#9989; Appr: <strong class="text-emerald-400"><?= htmlspecialchars($activeApprovedAt); ?></strong>
+                                            &#9989; Appr: <strong class="text-slate-200"><?= htmlspecialchars($activeApprovedAt); ?></strong>
                                         </span>
                                     </div>
 
@@ -309,8 +309,8 @@ function workspaceItFlag(array $entity, string $activityType): string
                                 <div class="flex items-center justify-between">
                                     <h3 class="font-extrabold text-xs text-slate-950 uppercase tracking-wider">Review Verdict</h3>
                                     <?php if ($activeStatus === 'approved'): ?>
-                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Approved
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 text-xs font-bold">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span> Approved
                                         </span>
                                     <?php elseif ($activeStatus === 'rejected'): ?>
                                         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">
@@ -366,13 +366,13 @@ function workspaceItFlag(array $entity, string $activityType): string
                                     <span class="text-[#0F2854] flex items-center gap-1.5">
                                         <span>&#128187;</span> IT Related: <?= $itPct; ?>%
                                     </span>
-                                    <span class="text-rose-700 flex items-center gap-1.5">
+                                    <span class="text-slate-600 flex items-center gap-1.5">
                                         <span>&#128193;</span> Clerical: <?= $clericalPct; ?>%
                                     </span>
                                 </div>
                                 <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex border border-slate-200 shadow-inner">
                                     <div class="bg-[#0F2854] h-full transition-all duration-300" style="width: <?= $itPct; ?>%"></div>
-                                    <div class="bg-rose-500 h-full transition-all duration-300" style="width: <?= $clericalPct; ?>%"></div>
+                                    <div class="bg-slate-400 h-full transition-all duration-300" style="width: <?= $clericalPct; ?>%"></div>
                                 </div>
                             </div>
                         </div>
@@ -405,11 +405,11 @@ function workspaceItFlag(array $entity, string $activityType): string
                                     <div class="pt-3 border-t border-slate-200 space-y-1.5">
                                         <div class="flex items-center justify-between text-[11px] font-bold">
                                             <span class="text-[#0F2854]">Week <?= (int)$activeReport['week_number']; ?> IT: <?= $weekItPct; ?>%</span>
-                                            <span class="text-rose-700">Clerical: <?= $weekClericalPct; ?>%</span>
+                                            <span class="text-slate-600">Clerical: <?= $weekClericalPct; ?>%</span>
                                         </div>
                                         <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
                                             <div class="bg-[#0F2854] h-full transition-all duration-300" style="width: <?= $weekItPct; ?>%"></div>
-                                            <div class="bg-rose-500 h-full transition-all duration-300" style="width: <?= $weekClericalPct; ?>%"></div>
+                                            <div class="bg-slate-400 h-full transition-all duration-300" style="width: <?= $weekClericalPct; ?>%"></div>
                                         </div>
                                     </div>
                                 <?php endif; ?>
@@ -428,24 +428,63 @@ function workspaceItFlag(array $entity, string $activityType): string
                                         $currentType = workspaceActivityType($ent);
                                         $itFlag = workspaceItFlag($ent, $currentType);
                                         [$itBadgeLabel, $itBadgeClass] = match ($itFlag) {
-                                            'yes' => ['IT Related', 'text-emerald-800 bg-emerald-50 border-emerald-200'],
-                                            'no' => ['Non-IT', 'text-slate-700 bg-slate-100 border-slate-300'],
-                                            default => ['Unclassified', 'text-amber-800 bg-amber-50 border-amber-200'],
+                                            'yes' => ['IT Related', 'text-[#0F2854] bg-blue-50 border-[#0F2854]/30'],
+                                            'no' => ['Clerical', 'text-slate-700 bg-slate-100 border-slate-300'],
+                                            default => ['Unclassified', 'text-slate-600 bg-slate-100 border-slate-300'],
                                         };
                                     ?>
-                                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-300 space-y-2 shadow-2xs hover:border-slate-400 transition-colors">
-                                            <div class="flex items-center justify-between gap-2">
-                                                <p class="font-extrabold text-slate-950 text-xs"><?= htmlspecialchars((string)$ent['entity_name']); ?></p>
-                                                <div class="flex items-center gap-2 shrink-0">
+                                        <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-2 shadow-2xs hover:border-slate-300 transition-colors">
+                                            <div class="flex items-start justify-between gap-2">
+                                                <p class="font-extrabold text-slate-950 text-xs leading-snug"><?= htmlspecialchars((string)$ent['entity_name']); ?></p>
+                                                <div class="flex items-center gap-1.5 shrink-0">
                                                     <?php /* Attribution: shown to EVERY viewer (coordinator, supervisor,
-                                                           intern) so it is clear the term was typed in by a coordinator
-                                                           rather than extracted from the document. */ ?>
-                                                    <?php if (($ent['source'] ?? '') === 'manual_addition'): ?>
-                                                        <span class="text-[10px] font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded border border-purple-200" title="Added by a coordinator, not extracted from the document">Coordinator Added</span>
+                                                           intern) so it is clear which terms came from a coordinator
+                                                           rather than from the extractor.
+
+                                                           Three coordinator states, decided by reclassified_at and
+                                                           original_it_related:
+
+                                                             no stamp, no original  typed into Add Entity from nothing
+                                                             stamp + value differs  extracted, then corrected
+                                                             stamp + value matches the coordinator put it back, so
+                                                                            there is no override left to report
+
+                                                           confidence_score is deliberately not used for this: every
+                                                           'predefined' row sits at exactly 100.00, so a reclassified
+                                                           predefined term would be indistinguishable from a typed one. */ ?>
+                                                    <?php if (($ent['source'] ?? '') === 'manual_addition'):
+                                                        $stamped     = !empty($ent['reclassified_at']);
+                                                        $original    = $ent['original_it_related'] ?? null;
+                                                        $isReverted  = ($original !== null && (string)$original === (string)($ent['it_related'] ?? ''));
+                                                        $isReclassified = $stamped && !$isReverted;
+                                                    ?>
+                                                        <?php if ($isReclassified): ?>
+                                                            <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/40 border-dashed px-2 py-0.5 rounded border" title="Extracted from the document, then reclassified by a coordinator"><span aria-hidden="true">&#9998;</span> Reclassified</span>
+                                                        <?php elseif (!$isReverted): ?>
+                                                            <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/30 px-2 py-0.5 rounded border" title="Typed in by a coordinator, not extracted from your document">Added</span>
+                                                        <?php endif; ?>
+                                                    <?php endif; ?>
+                                                    <?php /* Dictionary matches. Slate rather than amber: this is
+                                                             provenance, not a warning. A term found in
+                                                             predefined_entities is a certain match, so it is
+                                                             never treated as a low-confidence prediction. */ ?>
+                                                    <?php if (reportWorkspaceIsPredefined($ent)): ?>
+                                                        <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded" title="Matched a term in the predefined entity list, not predicted by the model">Predefined</span>
+                                                    <?php endif; ?>
+                                                    <?php /* ML predictions below the extractor threshold. Amber, because
+                                                             amber is already this system's "pending" colour and a weak
+                                                             prediction is pending verification rather than wrong.
+
+                                                             Only ever true for source = 'spacy'; dictionary rows carry
+                                                             100.00 and are labelled above instead. */ ?>
+                                                    <?php if (reportWorkspaceIsLowConfidence($ent)): ?>
+                                                        <span class="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded" title="The model was less than <?= htmlspecialchars((string)REPORT_WORKSPACE_LOW_CONFIDENCE, ENT_QUOTES, 'UTF-8'); ?>% sure about this term. Check it against the report.">
+                                                            <span aria-hidden="true">&#9888;</span> Low confidence
+                                                        </span>
                                                     <?php endif; ?>
                                                     <?php if ($canManageEntities): ?>
                                                         <?php if (isset($ent['confidence_score']) && $ent['confidence_score'] !== null): ?>
-                                                            <span class="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                            <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
                                                                 <?= number_format((float)$ent['confidence_score'], 1); ?>% Conf.
                                                             </span>
                                                         <?php endif; ?>
@@ -456,15 +495,11 @@ function workspaceItFlag(array $entity, string $activityType): string
                                                             <input type="hidden" name="entity_id" value="<?= (int)$ent['id']; ?>">
                                                             <button type="submit" class="text-rose-600 hover:text-rose-800 text-xs font-bold p-1 cursor-pointer" title="Archive">&times;</button>
                                                         </form>
-                                                    <?php else: ?>
-                                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded border <?= $itBadgeClass; ?>">
-                                                            <?= $itBadgeLabel; ?>
-                                                        </span>
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
 
-                                            <!-- Reclassification Form (coordinator only) -->
+                                            <!-- Classification dropdown (coordinator only) -->
                                             <?php if ($canManageEntities): ?>
                                                 <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" class="flex items-center gap-2 pt-1 border-t border-slate-200/80">
                                         <?= csrf_field(); ?>
@@ -472,13 +507,17 @@ function workspaceItFlag(array $entity, string $activityType): string
                                                     <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
                                                     <input type="hidden" name="entity_id" value="<?= (int)$ent['id']; ?>">
                                                     <select name="it_related" onchange="this.form.submit()" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
-                                                        <?php /* Preselect from $itFlag (the effective flag, which falls back to
-                                                               activity_type for legacy rows) rather than $currentType, so
-                                                               pre-existing Software/Hardware rows show the right choice. */ ?>
+                                                        <?php /* Preselect from $itFlag, the effective flag after normalisation
+                                                               to it_related, so the control always shows the value that is
+                                                               actually stored and used by the reporting queries. */ ?>
                                                         <option value="yes" <?= $itFlag !== 'no' ? 'selected' : ''; ?>>IT Related</option>
                                                         <option value="no" <?= $itFlag === 'no' ? 'selected' : ''; ?>>Clerical</option>
                                                     </select>
                                                 </form>
+                                            <?php else: ?>
+                                                <span class="text-[10px] font-bold px-2 py-0.5 rounded border <?= $itBadgeClass; ?>">
+                                                    <?= $itBadgeLabel; ?>
+                                                </span>
                                             <?php endif; ?>
                                         </div>
                                     <?php endforeach; ?>
@@ -498,52 +537,59 @@ function workspaceItFlag(array $entity, string $activityType): string
     <?php if ($canManageEntities): ?>
     <div id="addEntityModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex overflow-y-auto items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="font-extrabold text-sm text-slate-950">Add Missing Entity / Keyword</h3>
-                <button type="button" onclick="document.getElementById('addEntityModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer">&times;</button>
+            <div class="flex items-start justify-between gap-3">
+                <div class="space-y-1">
+                    <h3 class="font-extrabold text-sm text-slate-950">Add Entity</h3>
+                    <p class="text-[11px] font-medium text-slate-500 leading-snug">Record a keyword the extractor missed on this report.</p>
+                </div>
+                <button type="button" onclick="document.getElementById('addEntityModal').classList.add('hidden')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center cursor-pointer shrink-0">&#10005;</button>
             </div>
 
-            <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" class="space-y-4 text-xs">
+            <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" class="space-y-3 text-xs">
                                         <?= csrf_field(); ?>
                 <input type="hidden" name="action" value="add_entity">
                 <input type="hidden" name="report_id" value="<?= $activeReport ? (int)$activeReport['id'] : 0; ?>">
 
                 <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Entity / Tool Name</label>
-                    <input type="text" name="entity_name" required placeholder="e.g. Python, Docker, Excel" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
+                    <label for="addEntityName" class="font-bold text-slate-700">Entity name <span class="text-[#0F2854]" title="Required">*</span></label>
+                    <input type="text" id="addEntityName" name="entity_name" required
+                           placeholder="e.g. Figma, Photoshop, Excel, Filing"
+                           class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:border-[#0F2854]">
+                    <p class="text-[11px] font-medium text-slate-500">Required.</p>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Aliases</label>
-                    <input type="text" name="aliases" placeholder="e.g. figma design|figma prototype|figma ui" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 focus:outline-none focus:border-[#0F2854]">
-                </div>
-
-                <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Type</label>
-                    <select name="it_related" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
+                    <label for="addEntityType" class="font-bold text-slate-700">Type <span class="text-[#0F2854]" title="Required">*</span></label>
+                    <select id="addEntityType" name="it_related" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
                         <option value="yes">IT Related</option>
-                        <option value="no">Non-IT / Clerical</option>
+                        <option value="no">Clerical</option>
                     </select>
                 </div>
 
-                <div class="space-y-1 rounded-xl border border-slate-300 bg-slate-50/70 p-3">
+                <div class="space-y-1">
+                    <label for="addEntityAliases" class="font-bold text-slate-700">Aliases <span class="font-semibold text-slate-400">(optional)</span></label>
+                    <input type="text" id="addEntityAliases" name="aliases" placeholder="Separate with commas"
+                           class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:border-[#0F2854]">
+                    <p class="text-[11px] font-medium text-slate-500 leading-relaxed">Other names for the same thing. Example: Figma design, Figma prototype.</p>
+                </div>
+
+                <div class="space-y-1 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
                     <label class="flex items-start gap-2.5 cursor-pointer">
                         <input type="checkbox" name="add_to_dictionary" value="1" class="mt-0.5 w-4 h-4 accent-[#0F2854] shrink-0 cursor-pointer">
                         <span class="text-sm font-bold text-slate-800 leading-snug">
                             Also add to the Entity Dictionary
                         </span>
                     </label>
-                    <p class="text-[11px] font-medium text-slate-500 leading-snug mt-1.5 pl-6.5">
-                        Optional. Only tick this for a term specific enough to reuse, such as a
-                        tool name. Generic words like &ldquo;data&rdquo; or &ldquo;filing&rdquo;
-                        belong to this report only. Dictionary terms override the automatic
-                        extractor on future reports.
+                    <p class="text-[11px] font-medium text-slate-500 leading-relaxed mt-2 pl-6.5">
+                        Saves it for every future report. Tick this for a real tool or
+                        system, like &ldquo;Troubleshooting&rdquo;. Skip it for common words
+                        like &ldquo;data&rdquo;.
                     </p>
                 </div>
 
-                <div class="flex justify-end gap-2.5 pt-2">
+                <div class="flex justify-end gap-2.5 pt-1">
                     <button type="button" onclick="document.getElementById('addEntityModal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-xs">Save Entity</button>
+                    <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-xs">Add Entity</button>
                 </div>
             </form>
         </div>
@@ -554,7 +600,7 @@ function workspaceItFlag(array $entity, string $activityType): string
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4 max-h-[80vh] flex flex-col">
             <div class="flex items-center justify-between shrink-0">
                 <h3 class="font-extrabold text-sm text-slate-950">Archived / Ignored Entities</h3>
-                <button type="button" onclick="document.getElementById('archiveModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer">&times;</button>
+                <button type="button" onclick="document.getElementById('archiveModal').classList.add('hidden')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center cursor-pointer shrink-0">&#10005;</button>
             </div>
 
             <div class="space-y-2.5 overflow-y-auto flex-1 pr-1">
@@ -573,7 +619,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                                         <?= csrf_field(); ?>
                                     <input type="hidden" name="action" value="restore_entity">
                                     <input type="hidden" name="entity_id" value="<?= (int)$arch['id']; ?>">
-                                    <button type="submit" class="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded-lg cursor-pointer transition-colors">Restore</button>
+                                    <button type="submit" class="px-3 py-1 bg-white hover:bg-blue-50 border border-[#0F2854]/40 text-[#0F2854] font-bold rounded-lg cursor-pointer transition-colors">Restore</button>
                                 </form>
                                 <!-- Permanent Delete Action -->
                                 <form method="POST" action="<?= htmlspecialchars($archiveFormAction); ?>" onsubmit="return confirm('Permanently delete this entity? This cannot be undone.');">
