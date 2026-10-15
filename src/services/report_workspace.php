@@ -10,6 +10,57 @@
  */
 
 /**
+ * Lowest confidence an ML ("spacy") prediction may carry before it is flagged
+ * for a coordinator to look at.
+ *
+ * This mirrors HybridJournalPipeline's default `confidence_threshold` of 0.80
+ * in python/scripts/pipeline.py. spaCy tags anything under it "NEEDS_REVIEW",
+ * but that flag was never read on the PHP side, so nothing surfaced it.
+ *
+ * Only applies to source = 'spacy'. Rows matched from the predefined_entities
+ * dictionary are written with a confidence of 100.00 -- a literal dictionary
+ * hit is not a prediction -- so they are never flagged, they are labelled as
+ * dictionary matches instead.
+ */
+if (!defined('REPORT_WORKSPACE_LOW_CONFIDENCE')) {
+    define('REPORT_WORKSPACE_LOW_CONFIDENCE', 80.0);
+}
+
+/**
+ * True when this entity is an ML prediction the coordinator should verify.
+ */
+if (!function_exists('reportWorkspaceIsLowConfidence')) {
+    function reportWorkspaceIsLowConfidence(array $entity): bool
+    {
+        if ((string)($entity['source'] ?? '') !== 'spacy') {
+            return false;
+        }
+
+        $score = $entity['confidence_score'] ?? null;
+
+        return $score !== null
+            && is_numeric($score)
+            && (float)$score < REPORT_WORKSPACE_LOW_CONFIDENCE;
+    }
+}
+
+/**
+ * True when the entity came from the predefined_entities dictionary rather
+ * than from the model. Both "predefined" and "spacy_predefined" qualify,
+ * matching how coordinator/view_report.php groups them when counting.
+ */
+if (!function_exists('reportWorkspaceIsPredefined')) {
+    function reportWorkspaceIsPredefined(array $entity): bool
+    {
+        return in_array(
+            (string)($entity['source'] ?? ''),
+            ['predefined', 'spacy_predefined'],
+            true
+        );
+    }
+}
+
+/**
  * Turn a reports.file_path value into a browser-reachable URL.
  */
 if (!function_exists('reportWorkspacePdfUrl')) {

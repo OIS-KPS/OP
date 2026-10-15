@@ -19,6 +19,14 @@ if (!$dbLoaded) {
     http_response_code(500);
     exit('Database configuration file was not found. Expected config/db.php or src/config/db.php.');
 }
+
+/* Shared workspace helpers. Required for REPORT_WORKSPACE_LOW_CONFIDENCE and
+   the reportWorkspaceIsPredefined() / reportWorkspaceIsLowConfidence()
+   predicates, so the confidence flag and the Predefined badge on this page use
+   the same threshold and the same rules as the coordinator, supervisor and
+   student report pages. Every definition in that file is guarded by
+   function_exists(), so this cannot redeclare anything. */
+require_once __DIR__ . '/src/services/report_workspace.php';
 /* Support projects whose db.php exposes the PDO connection as $conn. */
 if (!isset($pdo) && isset($conn) && $conn instanceof PDO) {
     $pdo = $conn;
@@ -518,12 +526,40 @@ function rr_prepare_report_entities(
 
         $seen[$uniqueKey] = true;
 
+        /**
+         * Carry the extractor's real confidence through to the insert.
+         *
+         * FastAPI returns 0.0-1.0; report_entities stores 0-100. Dictionary
+         * matches arrive as a literal 1.0 and become 100.00, which is correct
+         * for an exact phrase hit but must not be mistaken for a prediction.
+         *
+         * This value used to be dropped here and a hardcoded 100.00 was written
+         * instead, so every extracted row looked perfectly certain and the
+         * "low confidence" flag could never be meaningful.
+         */
+        $confidence = $entity['confidence']
+            ?? $entity['confidence_score']
+            ?? null;
+
+        if ($confidence === null || !is_numeric($confidence)) {
+            $confidence = 0.0;
+        } else {
+            $confidence = (float)$confidence;
+
+            if ($confidence <= 1) {
+                $confidence *= 100;
+            }
+        }
+
+        $confidence = max(0, min(100, $confidence));
+
         $prepared[] = [
             'entity_name'     => $entityName,
             'canonical_name'  => $canonical,
             'category'        => $category !== '' ? $category : 'Other',
             'it_related'      => $itRelated,
             'source'          => $source,
+            'confidence_score'=> round($confidence, 2),
         ];
     }
 
@@ -573,6 +609,23 @@ try {
 
         $pdo->beginTransaction();
 
+        /**
+         * Clears the whole report, then re-inserts the fresh extraction.
+         *
+         * KNOWN LIMITATION: this removes coordinator decisions along with
+         * extraction output. Two kinds of row do not survive:
+         *
+         *   source = 'manual_addition'  a term the coordinator typed in
+         *   is_archived = 1             a term the coordinator hid/ignored
+         *
+         * src/services/entity_extraction.php::saveExtractedEntities() scopes
+         * its delete to avoid this; this statement does not. Narrowing it the
+         * same way was tried and deliberately reverted, because surviving
+         * manual rows would then collide with freshly extracted terms of the
+         * same name and produce duplicate rows. Fixing that properly needs a
+         * name check against the existing manual rows, not just a wider WHERE
+         * clause -- do not widen this without doing that first.
+         */
         $deleteStmt = $pdo->prepare(
             'DELETE FROM report_entities WHERE report_id = :report_id'
         );
@@ -609,7 +662,10 @@ try {
                 ':category'        => $entity['category'],
                 ':it_related'      => $entity['it_related'],
                 ':source'          => $entity['source'],
-                ':confidence_score'=> 100.00,
+                // The value the extractor actually returned. This was a
+                // hardcoded 100.00, which made every ML prediction look
+                // certain regardless of how weak the model was.
+                ':confidence_score'=> $entity['confidence_score'],
             ]);
         }
 
@@ -1226,6 +1282,12 @@ if ($userRole === 'coordinator') {
             })[character]
         );
     }
+    /* Mirrors REPORT_WORKSPACE_LOW_CONFIDENCE from
+       src/services/report_workspace.php, which is required at the top of this
+       file. Injected rather than hardcoded so the coordinator, supervisor,
+       student and this page all flag at the same score. */
+    const LOW_CONFIDENCE_THRESHOLD = <?= json_encode(REPORT_WORKSPACE_LOW_CONFIDENCE ?? 80.0) ?>;
+
     function getValue(entity, keys, fallback = '') {
         for (const key of keys) {
             if (
@@ -1324,6 +1386,42 @@ if ($userRole === 'coordinator') {
                 itRelated === 'yes' ||
                 itRelated === '1' ||
                 itRelated === 'true';
+
+            /* Dictionary matches get a neutral "Predefined" badge: a term found
+               in predefined_entities is a certain match, so this is provenance
+               rather than a warning, and it never counts as a prediction. */
+            const source = String(getValue(entity, ['source'], '')).trim();
+            const isPredefined =
+                source === 'predefined' || source === 'spacy_predefined';
+
+            /* Only ML predictions are flagged, and only below the extractor's
+               threshold. Dictionary rows carry 100.00 by construction, so this
+               is structurally spacy-only as well as semantically so. */
+            const rawConfidence = getValue(
+                entity,
+                ['confidence_score', 'confidence'],
+                null
+            );
+            const confidence =
+                rawConfidence === null || rawConfidence === ''
+                    ? null
+                    : Number(rawConfidence);
+            const isLowConfidence =
+                source === 'spacy' &&
+                confidence !== null &&
+                Number.isFinite(confidence) &&
+                confidence < LOW_CONFIDENCE_THRESHOLD;
+
+            const provenanceBadge = [
+                isPredefined
+                    ? '<span class="rounded-full px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600" title="Matched a term in the predefined entity list, not predicted by the model">Predefined</span>'
+                    : '',
+                isLowConfidence
+                    ? '<span class="rounded-full px-2 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200" title="The model was less than ' +
+                      LOW_CONFIDENCE_THRESHOLD +
+                      '% sure about this term. Check it against the report.">&#9888; Low confidence</span>'
+                    : '',
+            ].join('');
             const card = document.createElement('button');
             card.type = 'button';
             card.className =
@@ -1363,6 +1461,13 @@ if ($userRole === 'coordinator') {
                         ${escapeHtml(activityType)}
                     </span>
                 </div>
+                ${
+                    provenanceBadge
+                        ? '<div class="mt-2 flex flex-wrap gap-1.5">' +
+                          provenanceBadge +
+                          '</div>'
+                        : ''
+                }
             `;
             card.addEventListener('click', () => {
                 if (activeEntityKey === key) {

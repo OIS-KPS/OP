@@ -464,6 +464,24 @@ function workspaceItFlag(array $entity, string $activityType): string
                                                             <span class="text-[10px] font-bold text-[#0F2854] bg-blue-50 border-[#0F2854]/30 px-2 py-0.5 rounded border" title="Typed in by a coordinator, not extracted from your document">Added</span>
                                                         <?php endif; ?>
                                                     <?php endif; ?>
+                                                    <?php /* Dictionary matches. Slate rather than amber: this is
+                                                             provenance, not a warning. A term found in
+                                                             predefined_entities is a certain match, so it is
+                                                             never treated as a low-confidence prediction. */ ?>
+                                                    <?php if (reportWorkspaceIsPredefined($ent)): ?>
+                                                        <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded" title="Matched a term in the predefined entity list, not predicted by the model">Predefined</span>
+                                                    <?php endif; ?>
+                                                    <?php /* ML predictions below the extractor threshold. Amber, because
+                                                             amber is already this system's "pending" colour and a weak
+                                                             prediction is pending verification rather than wrong.
+
+                                                             Only ever true for source = 'spacy'; dictionary rows carry
+                                                             100.00 and are labelled above instead. */ ?>
+                                                    <?php if (reportWorkspaceIsLowConfidence($ent)): ?>
+                                                        <span class="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded" title="The model was less than <?= htmlspecialchars((string)REPORT_WORKSPACE_LOW_CONFIDENCE, ENT_QUOTES, 'UTF-8'); ?>% sure about this term. Check it against the report.">
+                                                            <span aria-hidden="true">&#9888;</span> Low confidence
+                                                        </span>
+                                                    <?php endif; ?>
                                                     <?php if ($canManageEntities): ?>
                                                         <?php if (isset($ent['confidence_score']) && $ent['confidence_score'] !== null): ?>
                                                             <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
