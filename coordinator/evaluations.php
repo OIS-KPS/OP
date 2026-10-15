@@ -346,49 +346,42 @@ if (
 
     if ($saveResult['ok']) {
 
-        // Name the competencies whose wording actually changed, so the audit
-        // trail records what was edited rather than just that "something" was.
+        // Count how many competencies actually changed, so the audit trail
+        // records what was edited rather than just that "something" was.
         // Comparing against the live wording (not the typed draft) means a
         // save that rewrote a field with identical text is not logged as a
         // change.
-        $changedKeys = [];
+        $changedCount = 0;
 
         foreach ($liveBeforeSave as $criterion) {
             $key = (string) $criterion['key'];
             $newText = trim((string) ($submittedQuestions[$key] ?? ''));
 
             if ($newText !== '' && $newText !== trim((string) $criterion['text'])) {
-                $changedKeys[] = $key;
+                $changedCount++;
             }
         }
 
-        $changedCount = count($changedKeys);
+        $competencyTotal = count($liveBeforeSave);
 
-        if ($changedCount > 0) {
-            $auditDetail = sprintf(
-                '%d of %d competencies changed (%s). Evaluations already submitted keep their original questions.',
-                $changedCount,
-                count($liveBeforeSave),
-                implode(', ', $changedKeys)
-            );
-        } else {
-            $auditDetail = sprintf(
-                'Resaved all %d competencies with no wording changes. Evaluations already submitted keep their original questions.',
-                count($liveBeforeSave)
-            );
-        }
-
+        // Kept deliberately short. An earlier version listed the changed
+        // criterion keys and closed with "Evaluations already submitted keep
+        // their original questions." That second sentence is explained in the
+        // editor itself, and repeating it in every log line only made the
+        // entry harder to read at a glance.
         logActivity(
             $pdo,
             (int) ($_SESSION['user_id'] ?? 0),
             'coordinator',
             'EVALUATION_FORM_UPDATED',
-            "Updated the wording of {$saveResult['saved']} evaluation competencies. " . $auditDetail
+            $changedCount > 0
+                ? sprintf('%d of %d competencies changed.', $changedCount, $competencyTotal)
+                : sprintf('Resaved all %d competencies with no wording changes.', $competencyTotal)
         );
 
         $_SESSION['flash_success'] = $changedCount > 0
-            ? "Evaluation form updated. {$changedCount} competency/competencies changed and will use the new wording on the next submission; completed evaluations keep their original questions."
-            : 'Evaluation form saved. No wording had changed; completed evaluations keep their original questions.';
+            ? "Evaluation form updated. {$changedCount} of {$competencyTotal} competencies changed."
+            : 'Evaluation form saved. No wording had changed.';
 
     } else {
 

@@ -100,11 +100,16 @@
                         <div class="overflow-y-auto overflow-x-auto max-h-[620px] thin-scrollbar">
                             <table class="w-full table-fixed text-left border-collapse text-xs">
                                 <colgroup>
-                                    <col style="width: 18%;">
-                                    <col style="width: 18%;">
-                                    <col style="width: 10%;">
-                                    <col style="width: 16%;">
-                                    <col style="width: 38%;">
+                                    <!-- Widths were rebalanced so the description gets the
+                                         most room. It used to carry "truncate", which forced
+                                         every entry onto one line with an ellipsis: the exact
+                                         part an auditor needs (the changed item, the report
+                                         id, the failure reason) was always what got cut. -->
+                                    <col style="width: 15%;">
+                                    <col style="width: 17%;">
+                                    <col style="width: 9%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 44%;">
                                 </colgroup>
                                 <thead class="sticky top-0 z-10 bg-slate-100 shadow-2xs">
                                     <tr class="text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
@@ -149,12 +154,9 @@
                                             // which would replace the real text and make a form
                                             // edit look like a supervisor signing an evaluation.
                                             //
-                                            // The stored description is kept as-is here rather
-                                            // than replaced with a house-style sentence: it
-                                            // already names the competencies that changed, which
-                                            // is the part an auditor actually needs.
-                                            $cleanDesc = 'Updated the OJT Performance Evaluation Form questions: '
-                                                . preg_replace('/^Updated the wording of \d+ evaluation competencies\.?\s*/i', '', (string) ($log['description'] ?? ''));
+                                            // The stored description is already short and
+                                            // self-contained, so it is used as-is.
+                                            $cleanDesc = (string) ($log['description'] ?? '');
                                         } elseif (stripos($rawAction, 'EVALUATION') !== false) {
                                             $cleanDesc = 'Signed final performance evaluation with digital OTP';
                                         }
@@ -162,7 +164,11 @@
                                         <tr class="hover:bg-slate-50 transition-colors group log-row" data-role="<?= htmlspecialchars($role); ?>">
                                             
                                             <!-- Timestamp -->
-                                            <td class="py-4 px-4 whitespace-nowrap text-slate-600 font-semibold align-middle">
+                                            <!-- No whitespace-nowrap: with the narrower column a
+                                                 fixed date can overflow into the next cell on a
+                                                 narrow screen. It stays on one line whenever it
+                                                 fits and wraps only when it genuinely has to. -->
+                                            <td class="py-4 px-4 text-slate-600 font-semibold align-middle leading-relaxed">
                                                 <?= date("M d, Y \a\\t g:i A", strtotime($log['created_at'])); ?>
                                             </td>
 
@@ -203,8 +209,14 @@
                                             </td>
 
                                             <!-- Activity Description -->
-                                            <td class="py-4 px-4 text-slate-700 font-medium truncate desc-target align-middle" title="<?= htmlspecialchars($log['description']); ?>">
-                                                <span><?= htmlspecialchars($cleanDesc); ?></span>
+                                            <!-- No "truncate": the description wraps onto as many
+                                                 lines as it needs, so nothing is hidden behind an
+                                                 ellipsis. The title attribute still carries the
+                                                 raw stored description for hover. -->
+                                            <td class="py-4 px-4 text-slate-700 font-medium align-middle">
+                                                <span class="block break-words whitespace-normal leading-relaxed desc-target" title="<?= htmlspecialchars($log['description']); ?>">
+                                                    <?= htmlspecialchars($cleanDesc); ?>
+                                                </span>
                                             </td>
 
                                             </tr>
