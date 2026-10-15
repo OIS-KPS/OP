@@ -413,21 +413,24 @@ if (
 */
 
 $selectedCompany = $_GET['company_id'] ?? 'all';
-$selectedStatus  = $_GET['status'] ?? 'all';
+
+// Whitelisted rather than compared inline further down, so a hand-edited
+// ?status= falls back to 'all' instead of silently returning an unfiltered
+// list under a bogus selection.
+$selectedStatus  = in_array($_GET['status'] ?? '', ['all', 'Completed', 'Pending'], true)
+    ? $_GET['status']
+    : 'all';
+
 $selectedSection = ($_GET['section'] ?? 'all') === 'all'
     ? 'all'
     : normalizeSectionCode($_GET['section']);
 $searchQuery     = trim($_GET['search'] ?? '');
-$viewEvalId      = isset($_GET['view_id'])
-    ? intval($_GET['view_id'])
-    : null;
 
 $filteredEvals   = [];
 $companiesList   = [];
 $defaultSection  = section_course_codes()[0];
 $activeSections  = [];
 $eligibleStudents = [];
-$activeEval      = null;
 
 // Data for the "Update Evaluation Form" editor. The draft wins over the live
 // wording only when a save failed validation, so the coordinator does not lose
@@ -441,6 +444,13 @@ unset($_SESSION['evaluation_question_draft'], $_SESSION['evaluation_form_errors'
 $totalCount      = 0;
 $completedCount  = 0;
 $pendingCount    = 0;
+
+// Paging. 25 per page, matching coordinator/audit_logs.php so both list
+// screens paginate identically.
+$perPage         = 25;
+$page            = 1;
+$totalPages      = 1;
+$totalFiltered   = 0;
 
 
 /*
@@ -557,6 +567,66 @@ try {
     $whereSql =
         "WHERE " . implode(' AND ', $whereClauses);
 
+
+    /*
+     * |----------------------------------------------------------------------
+     * Total rows matching the current filters, which drives the pager.
+     * |----------------------------------------------------------------------
+     *
+     * The count repeats the same FROM/JOIN chain as the list below because the
+     * filters reference c.id, s.section, u.name, s.student_number and the
+     * evaluations columns. The offices/supervisors joins are not needed here:
+     * nothing filters or selects through them.
+     *
+     * $params['defSection'] is only added further down, for the list query's
+     * COALESCE placeholder, so this statement must not receive it. Binding from
+     * a filtered copy keeps the two statements from drifting apart.
+     */
+    $stmtCount = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM students s
+
+        JOIN users u
+            ON s.user_id = u.id
+
+        LEFT JOIN companies c
+            ON s.company_id = c.id
+
+        LEFT JOIN evaluations e
+            ON s.id = e.student_id
+
+        {$whereSql}
+    ");
+
+    foreach ($params as $key => $value) {
+        $stmtCount->bindValue(':' . $key, $value);
+    }
+
+    $stmtCount->execute();
+
+    $totalFiltered =
+        (int) $stmtCount->fetchColumn();
+
+
+    /*
+     * |----------------------------------------------------------------------
+     * Requested page, clamped into range
+     * |----------------------------------------------------------------------
+     *
+     * A ?page= beyond the end shows the last page rather than an empty table.
+     */
+    $totalPages =
+        max(1, (int) ceil($totalFiltered / $perPage));
+
+    $page = max(1, (int) ($_GET['page'] ?? 1));
+
+    if ($page > $totalPages) {
+        $page = $totalPages;
+    }
+
+    $offset = ($page - 1) * $perPage;
+
+
     $params['defSection'] =
         $defaultSection;
 
@@ -642,13 +712,34 @@ try {
 
         ORDER BY
             s.section ASC,
-            u.name ASC
+            u.name ASC,
+
+            /*
+             * Tiebreaker. Section and name are not unique, so without a final
+             * deterministic key MySQL is free to order equal rows differently
+             * per query -- which makes a row appear on two pages, or on none,
+             * as the LIMIT window slides. s.id is stable and unique.
+             */
+            s.id ASC
+
+        LIMIT :lim OFFSET :off
     ";
 
 
     $stmt = $pdo->prepare($sql);
 
-    $stmt->execute($params);
+    /*
+     * EMULATE_PREPARES is off, so LIMIT/OFFSET have to be bound as integers.
+     * They cannot ride along in the string params array.
+     */
+    $stmt->bindValue(':lim', $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+
+    foreach ($params as $key => $value) {
+        $stmt->bindValue(':' . $key, $value);
+    }
+
+    $stmt->execute();
 
     $filteredEvals =
         $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -690,6 +781,12 @@ try {
 
     /*
      * 4. Metric Counts
+     *
+     * Programme-wide totals, deliberately NOT scoped to the active filters.
+     * These feed the three stat cards, and $completedCount also drives the
+     * "Export All Signed (N)" label, which has to mean every signed record
+     * rather than the current page. The view labels the cards as
+     * all-cohort figures so they are not read as filter-aware.
      */
     $stmtTotals = $pdo->query("
         SELECT
@@ -734,46 +831,6 @@ try {
         intval($stats['pending_evals'] ?? 0);
 
 
-    /*
-     * 5. Modal Record Loader
-     */
-    if ($viewEvalId) {
-
-        /*
-         * First try evaluation ID.
-         */
-        foreach ($filteredEvals as $ev) {
-
-            if (
-                intval($ev['eval_id'] ?? 0)
-                === $viewEvalId
-            ) {
-
-                $activeEval = $ev;
-                break;
-            }
-        }
-
-
-        /*
-         * If not found, try student ID.
-         */
-        if (!$activeEval) {
-
-            foreach ($filteredEvals as $ev) {
-
-                if (
-                    intval($ev['student_id'])
-                    === $viewEvalId
-                ) {
-
-                    $activeEval = $ev;
-                    break;
-                }
-            }
-        }
-    }
-
 } catch (PDOException $e) {
 
     error_log(
@@ -784,6 +841,11 @@ try {
     $filteredEvals = [];
 
     $eligibleStudents = [];
+
+    // The view renders these outside the try block, so they need a sane
+    // fallback here too -- otherwise the pager and the records pill would
+    // report stale numbers next to an empty table.
+    $totalFiltered = 0;
 }
 
 

@@ -6,42 +6,41 @@
 // Expects:
 //   $evaluation  array  row containing at least: criteria_ratings, final_score, grade_equivalent
 // Optional:
-//   $scorecardVariant  'full' (coordinator only: adds overall rating + group averages)
+//   $scorecardVariant  'uniform' (coordinator: grid + overall rating + group averages)
 //                       | 'compact' (supervisor: competency grid + legend only)
+//
+// Every rating renders in a single colour. A third variant, 'full', used to
+// colour-code each 1-5 value for the coordinator scorecard overlay on
+// coordinator/evaluations.php. Nothing linked to that overlay, so it and the
+// variant are gone; no remaining caller wants traffic-light coding.
 //
 // Reference: public/files/OJT_performance_evaluation_form.docx
 // Docx section order preserved: COMPETENCY table -> Legend -> COMMENTS/REMARKS.
 
 if (!function_exists('ojtScorecardRatingClasses')) {
     /**
-     * Traffic-light classes for a 1-5 rating.
+     * Classes for a 1-5 rating.
      *
- * $uniform collapses the whole scale to ONE colour, used by the supervisor
- * view and by the coordinator evaluation view so neither is colour-coded.
- * The coordinator scorecard modal keeps the per-value colour coding.
+ * One colour for every value, so the grid reads as a record rather than a judgement.
      */
-    function ojtScorecardRatingClasses(int $rating, bool $uniform = false): array
+    function ojtScorecardRatingClasses(int $rating): array
     {
-        if ($uniform) {
+        if ($rating >= 1 && $rating <= 5) {
             return ['bg-slate-800', 'text-white', 'border-slate-900'];
         }
-        $map = [
-            5 => ['bg-emerald-600', 'text-white', 'border-emerald-700'],
-            4 => ['bg-emerald-50', 'text-emerald-800', 'border-emerald-400'],
-            3 => ['bg-blue-50', 'text-blue-800', 'border-blue-400'],
-            2 => ['bg-amber-50', 'text-amber-800', 'border-amber-400'],
-            1 => ['bg-rose-50', 'text-rose-800', 'border-rose-400'],
-        ];
-        return $map[$rating] ?? ['bg-slate-100', 'text-slate-400', 'border-slate-200'];
+
+        // Unrated competency: no chip is rendered, so this only backs the
+        // legend and any defensive call.
+        return ['bg-slate-100', 'text-slate-400', 'border-slate-200'];
     }
 }
 
-$scorecardVariant = $scorecardVariant ?? 'full';
+$scorecardVariant = $scorecardVariant ?? 'compact';
+
 // 'compact' = supervisor: competency grid only.
-// 'full'    = coordinator scorecard: grid + overall rating + group averages, colour-coded.
-// 'uniform' = coordinator evaluation view: same content as 'full', one colour for every rating.
-$isFullVariant    = ($scorecardVariant !== 'compact');
-$scorecardUniform = in_array($scorecardVariant, ['compact', 'uniform'], true);
+// 'uniform' = coordinator: the same grid plus the overall rating and the
+//             per-group breakdown, which stays coordinator-only.
+$showOverallRating = ($scorecardVariant !== 'compact');
 
 // Rendered from the wording FROZEN onto this evaluation, not the live form
 // wording, so a record the supervisor already signed keeps showing the
@@ -92,12 +91,12 @@ $scorecardScale  = ojtRatingScale();
                     <tbody class="divide-y divide-slate-100">
                         <?php foreach ($scorecardCriteria as $index => $criterion):
                             $rowRating = (int) ($scorecardRatings[$criterion['key']] ?? 0);
-                            [$cellBg, $cellText, $cellBorder] = ojtScorecardRatingClasses($rowRating, $scorecardUniform);
-                            // The row counter is not a score: keep it neutral in uniform mode
+                            [$cellBg, $cellText, $cellBorder] = ojtScorecardRatingClasses($rowRating);
+                            // The row counter is not a score: keep it neutral
                             // so only the rating chip carries colour.
                             if ($rowRating > 0) {
-                                $rowBadgeBg   = $scorecardUniform ? 'bg-slate-200' : $cellBg;
-                                $rowBadgeText = $scorecardUniform ? 'text-slate-700' : $cellText;
+                                $rowBadgeBg   = $cellBg;
+                                $rowBadgeText = $cellText;
                             } else {
                                 $rowBadgeBg   = 'bg-slate-100';
                                 $rowBadgeText = 'text-slate-400';
@@ -129,7 +128,7 @@ $scorecardScale  = ojtRatingScale();
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Legend</span>
                 <?php foreach ($scorecardScale as $value => $label):
-                    [$legendBg, $legendText] = ojtScorecardRatingClasses($value, $scorecardUniform);
+                    [$legendBg, $legendText] = ojtScorecardRatingClasses($value);
                 ?>
                     <span class="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
                         <span class="w-4 h-4 rounded <?= $legendBg ?> <?= $legendText ?> flex items-center justify-center font-black text-[9px]"><?= $value; ?></span>
@@ -139,7 +138,7 @@ $scorecardScale  = ojtRatingScale();
             </div>
         </div>
 
-        <?php if ($isFullVariant): ?>
+        <?php if ($showOverallRating): ?>
             <div class="border-t border-slate-200/70"></div>
         <?php endif; ?>
 
@@ -149,14 +148,14 @@ $scorecardScale  = ojtRatingScale();
             <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <p class="text-[11px] font-medium text-amber-900 leading-relaxed">
                 This evaluation was recorded before the 12-competency OJT form was adopted, so no per-competency answers were captured.
-                <?php if ($isFullVariant): ?>
+                <?php if ($showOverallRating): ?>
                     The overall rating below is the score stored on the legacy 1-100 scale.
                 <?php endif; ?>
             </p>
         </div>
     <?php endif; ?>
 
-    <?php if ($isFullVariant): ?>
+    <?php if ($showOverallRating): ?>
     <!-- ============ OVERALL RATING (coordinator only) ============ -->
     <!-- Deliberately withheld from the supervisor: the 'compact' variant is used by
          the supervisor's preview modal and report view. The overall rating and the
