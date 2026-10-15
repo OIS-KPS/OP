@@ -779,7 +779,10 @@ if (!function_exists('e')) {
 
                                                 <?php elseif (!empty($eval['completion_requested'])): ?>
 
-                                                    <!-- Approve Pending Evaluation Request -->
+                                                    <!-- The intern asked for this, so the coordinator is
+                                                         answering a request rather than starting an
+                                                         evaluation. The modal and the audit entry both
+                                                         follow that distinction. -->
                                                     <?php if ($eval['supervisor_name'] === 'Pending Assignment'): ?>
 
                                                         <span
@@ -795,13 +798,14 @@ if (!function_exists('e')) {
                                                             type="button"
                                                             onclick="openSingleConfirmModal(
                                                                 <?= (int)$eval['student_id']; ?>,
-                                                                '<?= htmlspecialchars(addslashes($eval['student_name'])); ?>'
+                                                                '<?= htmlspecialchars(addslashes($eval['student_name'])); ?>',
+                                                                true
                                                             )"
-                                                            class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer"
+                                                            class="px-2.5 py-1 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
                                                         >
 
                                                             <span>
-                                                                Approve
+                                                                Approve Request
                                                             </span>
 
                                                         </button>
@@ -1285,7 +1289,11 @@ if (!function_exists('e')) {
                         🔒
                     </div>
 
-                    <h3 class="text-xs font-black text-slate-950 uppercase tracking-wider">
+                    <!-- Title, body lead and CTA are rewritten by openSingleConfirmModal(),
+                         because this one modal serves both "approve a request"
+                         and "start an evaluation" and the two read very
+                         differently to the coordinator. -->
+                    <h3 id="confirmModalTitle" class="text-xs font-black text-slate-950 uppercase tracking-wider">
                         Confirm Final Evaluation
                     </h3>
 
@@ -1326,13 +1334,25 @@ if (!function_exists('e')) {
 
                 <p class="text-slate-700 leading-relaxed">
 
-                    Are you sure you want to request a final evaluation for
+                    <span id="confirmModalLead">
+                        Are you sure you want to request a final evaluation for
+                    </span>
 
                     <strong
                         id="confirmStudentName"
                         class="text-slate-950"
                     ></strong>?
 
+                </p>
+
+
+                <!-- Shown only when approving an intern's own request, because the
+                     next step differs: here the supervisor still owes an evaluation. -->
+                <p
+                    id="confirmModalNote"
+                    class="hidden text-[11px] text-[#0F2854] bg-blue-50 border border-[#0F2854]/30 rounded-xl p-3 leading-relaxed"
+                >
+                    Their supervisor will be asked to complete and sign the evaluation. The intern is not being graded by this step.
                 </p>
 
 
@@ -1376,7 +1396,9 @@ if (!function_exists('e')) {
                         type="submit"
                         class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl cursor-pointer"
                     >
-                        Yes, Request Evaluation
+                        <span id="confirmModalSubmit">
+                            Yes, Request Evaluation
+                        </span>
                     </button>
 
                 </div>
@@ -1585,9 +1607,36 @@ if (!function_exists('e')) {
            SINGLE EVALUATION MODAL
         ===================================================== */
 
-        function openSingleConfirmModal(studentId, studentName) {
+        /*
+         * One modal serves two very different actions, so the wording is
+         * swapped here rather than duplicated into a second modal.
+         *
+         * isApproval is true only from the "Approve Request" button, i.e. the
+         * intern asked for this themselves. Everything is reset on every open,
+         * so closing an approval and reopening a plain trigger cannot leave the
+         * previous wording behind.
+         */
+        function openSingleConfirmModal(studentId, studentName, isApproval) {
             document.getElementById('confirmStudentId').value = studentId;
             document.getElementById('confirmStudentName').textContent = studentName;
+
+            const title = document.getElementById('confirmModalTitle');
+            const lead  = document.getElementById('confirmModalLead');
+            const note  = document.getElementById('confirmModalNote');
+            const cta   = document.getElementById('confirmModalSubmit');
+
+            if (isApproval) {
+                title.textContent = 'Approve Evaluation Request';
+                lead.textContent  = 'Approve the final evaluation request from';
+                cta.textContent   = 'Yes, Approve Request';
+                note.classList.remove('hidden');
+            } else {
+                title.textContent = 'Confirm Final Evaluation';
+                lead.textContent  = 'Are you sure you want to request a final evaluation for';
+                cta.textContent   = 'Yes, Request Evaluation';
+                note.classList.add('hidden');
+            }
+
             const modal = document.getElementById('singleConfirmModal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');

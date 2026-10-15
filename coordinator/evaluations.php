@@ -88,7 +88,8 @@ if (
 
     if (!empty($studentIds) && is_array($studentIds)) {
 
-        $count = 0;
+        $approvedCount = 0;
+        $triggeredCount = 0;
 
         $stmtTrigger = $pdo->prepare("
             UPDATE students
@@ -115,9 +116,15 @@ if (
              * Only trigger students who have an assigned supervisor.
              * This follows the same eligibility rule used by the
              * existing bulk selection.
+             *
+             * completion_requested comes along because it is what separates
+             * "the coordinator approved this intern's request" from "the
+             * coordinator started an evaluation nobody asked for". Both end up
+             * setting evaluation_triggered the same way, but they are different
+             * events and the audit log has to be able to tell them apart.
              */
             $stmtSupervisor = $pdo->prepare("
-                SELECT supervisor_id
+                SELECT supervisor_id, completion_requested
                 FROM students
                 WHERE id = ?
                 LIMIT 1
@@ -134,6 +141,9 @@ if (
                 continue;
             }
 
+            $wasRequested =
+                !empty($studentRecord['completion_requested']);
+
             $stmtTrigger->execute([$studentId]);
 
             /*
@@ -147,22 +157,66 @@ if (
 
             /*
              * Activity Log
+             *
+             * The bulk modal can list interns who already requested alongside
+             * ones nobody requested for, so this branch is evaluated per student
+             * rather than assuming the whole submission came from one button.
              */
-            logActivity(
-                $pdo,
-                $_SESSION['user_id'] ?? null,
-                'coordinator',
-                'EVAL_TRIGGERED',
-                "Coordinator triggered final evaluation request for student {$studName}."
-            );
+            if ($wasRequested) {
 
-            $count++;
+                logActivity(
+                    $pdo,
+                    $_SESSION['user_id'] ?? null,
+                    'coordinator',
+                    'EVAL_REQUEST_APPROVED',
+                    "Coordinator approved the final evaluation request from student {$studName}."
+                );
+
+                $approvedCount++;
+
+            } else {
+
+                logActivity(
+                    $pdo,
+                    $_SESSION['user_id'] ?? null,
+                    'coordinator',
+                    'EVAL_TRIGGERED',
+                    "Coordinator triggered final evaluation request for student {$studName}."
+                );
+
+                $triggeredCount++;
+            }
         }
+
+        $count = $approvedCount + $triggeredCount;
 
         if ($count > 0) {
 
-            $_SESSION['flash_success'] =
-                "Evaluation requests successfully sent for {$count} selected student(s).";
+            /*
+             * A bulk selection can mix approvals with coordinator-initiated
+             * triggers, and one sentence cannot be true of both, so each case
+             * gets its own wording.
+             */
+            if ($approvedCount > 0 && $triggeredCount > 0) {
+
+                $_SESSION['flash_success'] = sprintf(
+                    'Approved %d evaluation request(s) and triggered %d more.',
+                    $approvedCount,
+                    $triggeredCount
+                );
+
+            } elseif ($approvedCount > 0) {
+
+                $_SESSION['flash_success'] = sprintf(
+                    'Approved %d final evaluation request(s).',
+                    $approvedCount
+                );
+
+            } else {
+
+                $_SESSION['flash_success'] =
+                    "Evaluation requests successfully sent for {$triggeredCount} selected student(s).";
+            }
 
         } else {
 
