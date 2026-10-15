@@ -245,9 +245,17 @@ function workspaceItFlag(array $entity, string $activityType): string
                             <h1 class="text-base sm:text-lg font-extrabold text-slate-950 tracking-tight leading-snug">
                                 <?= htmlspecialchars($student['student_name'] ?? 'Student'); ?>
                             </h1>
-                            <p class="text-xs font-semibold text-slate-600">
-                                ID: <?= htmlspecialchars($student['student_number'] ?? '—'); ?> &bull; <?= htmlspecialchars($student['section'] ?? '—'); ?> &bull; <strong class="text-slate-900"><?= htmlspecialchars($student['company_name'] ?? 'Host Company'); ?></strong>
-                            </p>
+                            <?php /* Student number, section and host company. Every one of
+                                     these is already on the student's own profile page, so an
+                                     intern reading their own report gets the same line twice.
+                                     Staff are looking at somebody else's report here, which is
+                                     the case where the identity line earns its place, so it is
+                                     kept for them. */ ?>
+                            <?php if ($viewContext !== 'student'): ?>
+                                <p class="text-xs font-semibold text-slate-600">
+                                    ID: <?= htmlspecialchars($student['student_number'] ?? '—'); ?> &bull; <?= htmlspecialchars($student['section'] ?? '—'); ?> &bull; <strong class="text-slate-900"><?= htmlspecialchars($student['company_name'] ?? 'Host Company'); ?></strong>
+                                </p>
+                            <?php endif; ?>
                         </div>
                     </div>
 
@@ -281,8 +289,8 @@ function workspaceItFlag(array $entity, string $activityType): string
                         </div>
 
                         <!-- Week Selector Category Dropdown Bar (Clean & Separated) -->
-                        <div class="p-4 bg-slate-100/80 border-b border-slate-200/70 flex items-center gap-3 shrink-0">
-                            <form method="GET" action="<?= htmlspecialchars($selfPath); ?>" class="flex items-center gap-3 w-full text-xs">
+                        <div class="p-4 bg-slate-100/80 border-b border-slate-200/70 flex flex-wrap items-center gap-3 shrink-0">
+                            <form method="GET" action="<?= htmlspecialchars($selfPath); ?>" class="flex items-center gap-3 flex-1 text-xs">
                                 <?php if ($viewContext === 'coordinator'): ?>
                                     <input type="hidden" name="student_id" value="<?= (int)$studentId; ?>">
                                 <?php endif; ?>
@@ -301,31 +309,45 @@ function workspaceItFlag(array $entity, string $activityType): string
                                     </select>
                                 </div>
                             </form>
+
+                            <?php /* The week number and the approval state are already spelled
+                                     out by the select above ("Week 3 [Approved]"), so this row
+                                     deliberately does not repeat them. A dark bar used to sit
+                                     between the two and carry "Week N Report Document" plus Sub
+                                     and Appr badges, which read as the same facts twice, one row
+                                     apart. What is left is what the select cannot express.
+
+                                     The late warning is amber-filled so it is read as a flag
+                                     rather than as another label; the submitted stamp is white on
+                                     slate, matching the select beside it, so it stays a quiet
+                                     fact. Ordering is warning-first on purpose: a late report is
+                                     the one thing here that needs acting on. */ ?>
+                            <?php if ($activeReport && !empty($activeReport['is_late'])): ?>
+                                <span class="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold"
+                                      title="This report was submitted after its deadline.">
+                                    <span aria-hidden="true">&#9888;</span>
+                                    Late submission
+                                </span>
+                            <?php endif; ?>
+
+                            <?php if ($activeReport): ?>
+                                <span class="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-300 text-[11px] font-bold"
+                                      title="When this report was submitted.">
+                                    <span aria-hidden="true">&#128229;</span>
+                                    Submitted <?= htmlspecialchars($activeSubmittedAt); ?>
+                                </span>
+                            <?php endif; ?>
+
+                            <?php if ($activeReport && $pdfUrl !== ''): ?>
+                                <a href="<?= htmlspecialchars($pdfUrl); ?>" target="_blank" rel="noopener" class="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] font-bold shadow-xs inline-flex items-center gap-1">
+                                    <span>Open Fullscreen &nearr;</span>
+                                </a>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Full-Size Embedded PDF Viewer Stage for Active Report -->
                         <div class="flex-1 min-h-0 bg-[#0F172A] relative flex flex-col">
                             <?php if ($activeReport && $pdfUrl !== ''): ?>
-                                <div class="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs font-bold text-slate-200 shrink-0 gap-2">
-                                    <span class="flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
-                                        Week <?= (int)$activeReport['week_number']; ?> Report Document<?= !empty($activeReport['is_late']) ? ' (Late Submission)' : ''; ?>
-                                    </span>
-
-                                    <!-- Separated Submission & Approval Timestamp Badges -->
-                                    <div class="flex items-center gap-2 text-[11px] font-medium">
-                                        <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-                                            &#128229; Sub: <strong class="text-white"><?= htmlspecialchars($activeSubmittedAt); ?></strong>
-                                        </span>
-                                        <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-                                            &#9989; Appr: <strong class="text-slate-200"><?= htmlspecialchars($activeApprovedAt); ?></strong>
-                                        </span>
-                                    </div>
-
-                                    <a href="<?= htmlspecialchars($pdfUrl); ?>" target="_blank" rel="noopener" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] shadow-xs flex items-center gap-1 shrink-0">
-                                        <span>Open Fullscreen &nearr;</span>
-                                    </a>
-                                </div>
                                 <div class="flex-1 min-h-0 relative w-full h-full bg-slate-950">
                                     <embed src="<?= htmlspecialchars($pdfUrl . $pdfViewerFragment); ?>" type="application/pdf" class="w-full h-full border-0">
                                 </div>
