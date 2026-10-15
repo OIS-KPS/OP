@@ -5,11 +5,19 @@ date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/report_deadlines.php';
+require_once __DIR__ . '/config/csrf.php';
 
 // Auth Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
     header("Location: auth/login.php");
     exit();
+}
+
+// CSRF Guard: covers the report upload branch below. The fallback keeps the
+// requested week so a rejected submission does not reset the form to Week 1.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrfWeek = intval($_GET['week'] ?? $_POST['week'] ?? 1);
+    csrf_verify('submit_report.php?week=' . ($csrfWeek > 0 ? $csrfWeek : 1), 'error_message');
 }
 
 $sessionUserId = (int)$_SESSION['user_id'];
@@ -169,6 +177,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
             $errors[] = "Database Error: " . $e->getMessage();
         }
     }
+}
+
+// Surface the session-level errors this controller writes at the approval check,
+// the lock check and the CSRF guard. They used to be stored and never read, so
+// the intern saw a blank page with no explanation. Unset either way so a stale
+// message cannot survive into the next submission.
+if (!empty($_SESSION['error_message'])) {
+    $errors[] = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
 }
 
 require_once __DIR__ . '/src/pages/student/submitReportPage.php';

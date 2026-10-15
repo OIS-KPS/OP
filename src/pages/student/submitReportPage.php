@@ -1,4 +1,5 @@
 <!-- src/pages/student/submitReportPage.php -->
+<?php require_once __DIR__ . '/../../../config/csrf.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -66,6 +67,7 @@
                 <!-- Submission Form -->
                 <?php if (!empty($isAssigned)): ?>
                 <form action="submit_report.php?week=<?= htmlspecialchars($weekNumber); ?>" method="POST" enctype="multipart/form-data" class="space-y-5">
+                    <?= csrf_field(); ?>
 
                     <!-- Drag & Drop PDF Box -->
                     <div id="drop-zone" class="relative border border-dashed border-slate-300 hover:border-[#0F2854] rounded-2xl p-8 bg-white hover:bg-blue-50/20 transition-all text-center cursor-pointer flex flex-col items-center justify-center min-h-[180px]">

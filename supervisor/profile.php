@@ -3,6 +3,7 @@
 session_start();
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/csrf.php';
 
 // -------------------------------------------------------------
 // 1. Authorization Guard
@@ -10,6 +11,12 @@ require_once __DIR__ . '/../config/db.php';
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') {
     header("Location: ../auth/login.php");
     exit();
+}
+
+// CSRF Guard: covers the profile update below. profilePage.php already renders
+// flash_error, so a rejection explains itself on the redirected-to page.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify('profile.php');
 }
 
 $userId       = (int)$_SESSION['user_id'];
