@@ -36,7 +36,8 @@ if ($studentId <= 0 && $requestedReportId > 0) {
 }
 
 /**
- * Resolve PDF path (same logic as review_reports.php)
+ * Resolve PDF path (mirrors the coordinator's view_report.php; the intern list
+ * no longer needs this, it only links here).
  */
 function resolveReportPdfPath($filePath)
 {
@@ -116,11 +117,16 @@ $weekItPct = 0;
 $weekClericalPct = 0;
 $weekTotalCount = 0;
 $pdfUrl = '';
+$pageError = '';
 
 /**
  * Apply a supervisor verdict to one of their intern's reports.
+ *
+ * Returns ['ok' => bool, 'message' => string] rather than a bare string: the
+ * caller used to re-guess success from the POST payload, which reported an
+ * ownership failure or an empty remarks box as a success banner.
  */
-function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, string $action, string $remarks): string
+function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, string $action, string $remarks): array
 {
     $stmt = $pdo->prepare(
         'SELECT r.week_number, u.name AS student_name
@@ -134,7 +140,10 @@ function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, stri
     $target = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$target) {
-        return 'This report does not belong to one of your interns.';
+        return [
+            'ok' => false,
+            'message' => 'This report does not belong to one of your interns.'
+        ];
     }
 
     $weekNumber = $target['week_number'];
@@ -155,11 +164,17 @@ function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, stri
             "Supervisor approved Week {$weekNumber} accomplishment report for {$studentName}."
         );
 
-        return "Week {$weekNumber} report for {$studentName} was approved.";
+        return [
+            'ok' => true,
+            'message' => "Week {$weekNumber} report for {$studentName} was approved."
+        ];
     }
 
     if (trim($remarks) === '') {
-        return 'Please describe the changes the intern needs to make.';
+        return [
+            'ok' => false,
+            'message' => 'Please describe the changes the intern needs to make.'
+        ];
     }
 
     $pdo->prepare(
@@ -176,7 +191,10 @@ function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, stri
         "Supervisor requested changes on Week {$weekNumber} accomplishment report for {$studentName}."
     );
 
-    return "Change request sent to {$studentName} for Week {$weekNumber}.";
+    return [
+        'ok' => true,
+        'message' => "Change request sent to {$studentName} for Week {$weekNumber}."
+    ];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -192,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'approve' || $action === 'reject') {
         try {
-            $notice = applySupervisorVerdict(
+            $result = applySupervisorVerdict(
                 $pdo,
                 $supervisorId,
                 $targetReportId,
@@ -200,11 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string) ($_POST['supervisor_remarks'] ?? '')
             );
 
-            if ($action === 'approve' || trim((string) ($_POST['supervisor_remarks'] ?? '')) !== '') {
-                $_SESSION['flash_success'] = $notice;
-            } else {
-                $_SESSION['flash_error'] = $notice;
-            }
+            $_SESSION[$result['ok'] ? 'flash_success' : 'flash_error'] = $result['message'];
         } catch (Throwable $exception) {
             error_log('Error updating report in supervisor/view_report.php: ' . $exception->getMessage());
             $_SESSION['flash_error'] = 'Unable to update the report right now.';
@@ -237,17 +251,48 @@ try {
     $weekClericalPct = $workspace['weekClericalPct'];
     $weekTotalCount = $workspace['weekTotalCount'];
     $pdfUrl = $workspace['pdfUrl'];
+} catch (Throwable $exception) {
+    /*
+     * The workspace is the page; if it cannot be built there is nothing left
+     * to render, so surface the reason instead of showing an empty shell. The
+     * banner is read (and unset) by src/pages/shared/report_workspace.php.
+     */
+    error_log('Error loading report workspace in supervisor/view_report.php: ' . $exception->getMessage());
 
-    // Auto-extract entities on every view to pick up new predefined entities
-    if (!empty($activeReport) && (int)$activeReport['id'] > 0) {
-        $reportIdActive = (int)$activeReport['id'];
-        $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
-        if ($pdfPath !== false) {
+    $pageError = 'Unable to load this report right now. Please try again later.';
+
+    $_SESSION['flash_error'] = $pageError;
+}
+
+/*
+ * Auto-extract entities on every view to pick up new predefined entities.
+ * Kept out of the workspace try/catch on purpose: a FastAPI outage should
+ * never cost the supervisor the page, only the refreshed entity list.
+ */
+if (!empty($activeReport) && (int) $activeReport['id'] > 0 && $pageError === '') {
+    $reportIdActive = (int) $activeReport['id'];
+
+    $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
+
+    if ($pdfPath === false) {
+        $_SESSION['flash_error'] =
+            'The uploaded PDF for this report could not be found on the server. ' .
+            'Entity extraction was skipped.';
+
+        error_log(
+            'Missing report PDF for report ' . $reportIdActive .
+            ' (stored path: ' . ($activeReport['file_path'] ?? 'empty') . ')'
+        );
+    } else {
+        try {
             extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
+
+            // Re-read so the freshly stored entities appear immediately.
             $workspace = reportWorkspaceBuild($pdo, $studentId, [
                 'reportId' => $requestedReportId,
                 'status' => null,
             ]);
+
             $student = $workspace['student'];
             $reportsList = $workspace['reportsList'];
             $activeReport = $workspace['activeReport'];
@@ -260,10 +305,17 @@ try {
             $weekClericalPct = $workspace['weekClericalPct'];
             $weekTotalCount = $workspace['weekTotalCount'];
             $pdfUrl = $workspace['pdfUrl'];
+        } catch (Throwable $exception) {
+            error_log(
+                'Error extracting entities for report ' . $reportIdActive . ': ' .
+                $exception->getMessage()
+            );
+
+            $_SESSION['flash_error'] =
+                'Entity extraction failed, so the entity list may be out of date. ' .
+                'The report itself is still shown below.';
         }
     }
-} catch (Throwable $exception) {
-    error_log('Error loading report workspace in supervisor/view_report.php: ' . $exception->getMessage());
 }
 
 require_once __DIR__ . '/../src/pages/supervisor/viewReportPage.php';
