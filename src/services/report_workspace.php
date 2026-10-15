@@ -196,7 +196,7 @@ if (!function_exists('reportWorkspaceLoadEntities')) {
 
         $stmtAll = $pdo->prepare(
             "SELECT
-                re.id, re.report_id, re.entity_name, re.canonical_name, re.category,
+                re.id, re.report_id, re.entity_name, re.category,
                 re.it_related, re.source, re.reclassified_at, re.original_it_related, re.confidence_score, re.created_at,
                 r.week_number
              FROM report_entities re
@@ -245,6 +245,109 @@ if (!function_exists('reportWorkspacePrepareEntities')) {
         }
 
         return $entities;
+    }
+}
+
+/**
+ * Normalize legacy/database values before the workspace renders them.
+ *
+ * The database may contain old rows with activity_type=Other and
+ * it_related=unknown from before the extraction persistence fix. Both the
+ * classification chip and the grouping below have to agree on the answer,
+ * so this lives here rather than in the view where the two would drift.
+ */
+if (!function_exists('workspaceActivityType')) {
+    function workspaceActivityType(array $entity): string
+    {
+        $activityType = ucfirst(strtolower(trim((string)($entity['activity_type'] ?? ''))));
+        $category = strtoupper(trim((string)($entity['category'] ?? '')));
+
+        if (
+            $activityType === '' ||
+            $activityType === 'Other' ||
+            !in_array($activityType, ['Software', 'Hardware', 'Clerical', 'Other'], true)
+        ) {
+            if (str_contains($category, 'HARDWARE')) {
+                return 'Hardware';
+            }
+            if (str_contains($category, 'CLERICAL') || str_contains($category, 'ADMINISTRATIVE')) {
+                return 'Clerical';
+            }
+            if (
+                str_contains($category, 'IT') ||
+                str_contains($category, 'SOFTWARE') ||
+                str_contains($category, 'TECHNICAL') ||
+                str_contains($category, 'PROGRAMMING') ||
+                str_contains($category, 'DATABASE') ||
+                str_contains($category, 'DESIGN')
+            ) {
+                return 'Software';
+            }
+        }
+
+        return in_array($activityType, ['Software', 'Hardware', 'Clerical', 'Other'], true)
+            ? $activityType
+            : 'Other';
+    }
+}
+
+if (!function_exists('workspaceItFlag')) {
+    function workspaceItFlag(array $entity, string $activityType): string
+    {
+        $flag = strtolower(trim((string)($entity['it_related'] ?? '')));
+        if (in_array($flag, ['yes', 'no'], true)) {
+            return $flag;
+        }
+
+        return in_array($activityType, ['Software', 'Hardware'], true)
+            ? 'yes'
+            : ($activityType === 'Clerical' ? 'no' : 'unknown');
+    }
+}
+
+/**
+ * Bucket entities into the three groups the supervisor's chip layout shows.
+ *
+ * Grouping by the same workspaceItFlag() the classification chip uses, so a
+ * chip can never read "Clerical" while sitting under an "IT Related" heading.
+ * reportWorkspaceRatio() deliberately uses a looser rule (it counts unknown
+ * as IT to match legacy ratio bars) and so must not be reused here.
+ *
+ * Each bucket is sorted case-insensitively. The query orders by re.id DESC,
+ * which is insertion order, so the same report renders in a different order
+ * every time the extractor re-runs.
+ *
+ * @param array $entities Rows from reportWorkspacePrepareEntities().
+ * @return array{it:string[], clerical:string[], unknown:string[]}
+ */
+if (!function_exists('reportWorkspaceGroupEntities')) {
+    function reportWorkspaceGroupEntities(array $entities): array
+    {
+        $groups = ['it' => [], 'clerical' => [], 'unknown' => []];
+
+        foreach ($entities as $entity) {
+            $flag = workspaceItFlag($entity, workspaceActivityType($entity));
+
+            $name = trim((string)($entity['entity_name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            if ($flag === 'no') {
+                $groups['clerical'][] = $name;
+            } elseif ($flag === 'yes') {
+                $groups['it'][] = $name;
+            } else {
+                $groups['unknown'][] = $name;
+            }
+        }
+
+        foreach ($groups as &$names) {
+            usort($names, 'strcasecmp');
+        }
+        unset($names);
+
+        return $groups;
     }
 }
 

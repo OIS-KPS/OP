@@ -110,55 +110,12 @@ $pdfViewerFragment = $pdfView === 'fit'
     ? '#navpanes=0&view=Fit&zoom=page-fit'
     : '#navpanes=0&view=FitH';
 
-/**
- * Normalize legacy/database values before rendering the shared panel.
- * The database may contain old rows with activity_type=Other and
- * it_related=unknown from before the extraction persistence fix.
+/*
+ * workspaceActivityType() and workspaceItFlag() now live in
+ * src/services/report_workspace.php, guarded by function_exists(), so this
+ * view and reportWorkspaceGroupEntities() agree on one classification. The
+ * require at the top of this file is what loads them.
  */
-function workspaceActivityType(array $entity): string
-{
-    $activityType = ucfirst(strtolower(trim((string)($entity['activity_type'] ?? ''))));
-    $category = strtoupper(trim((string)($entity['category'] ?? '')));
-
-    if (
-        $activityType === '' ||
-        $activityType === 'Other' ||
-        !in_array($activityType, ['Software', 'Hardware', 'Clerical', 'Other'], true)
-    ) {
-        if (str_contains($category, 'HARDWARE')) {
-            return 'Hardware';
-        }
-        if (str_contains($category, 'CLERICAL') || str_contains($category, 'ADMINISTRATIVE')) {
-            return 'Clerical';
-        }
-        if (
-            str_contains($category, 'IT') ||
-            str_contains($category, 'SOFTWARE') ||
-            str_contains($category, 'TECHNICAL') ||
-            str_contains($category, 'PROGRAMMING') ||
-            str_contains($category, 'DATABASE') ||
-            str_contains($category, 'DESIGN')
-        ) {
-            return 'Software';
-        }
-    }
-
-    return in_array($activityType, ['Software', 'Hardware', 'Clerical', 'Other'], true)
-        ? $activityType
-        : 'Other';
-}
-
-function workspaceItFlag(array $entity, string $activityType): string
-{
-    $flag = strtolower(trim((string)($entity['it_related'] ?? '')));
-    if (in_array($flag, ['yes', 'no'], true)) {
-        return $flag;
-    }
-
-    return in_array($activityType, ['Software', 'Hardware'], true)
-        ? 'yes'
-        : ($activityType === 'Clerical' ? 'no' : 'unknown');
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -453,9 +410,15 @@ function workspaceItFlag(array $entity, string $activityType): string
                                         <h2 class="font-extrabold text-xs text-slate-950 uppercase tracking-wider">
                                             Week <?= $activeWeekNumber ?? '—'; ?> Entities
                                         </h2>
-                                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Extracted Entities<?= $canManageEntities ? ' &amp; manual additions' : ''; ?></p>
+                                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5"><?= $canManageEntities ? 'Extracted entities &amp; manual additions' : 'Extracted from this submission'; ?></p>
                                     </div>
                                     <div class="flex items-center gap-2">
+                                        <?php /* Entity count, for every role. This panel is the
+                                             only place a supervisor is told how much was
+                                             pulled out of the document. */ ?>
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-300 text-xs font-black text-slate-900 shadow-2xs">
+                                            <?= count($weekEntities); ?> <?= count($weekEntities) === 1 ? 'entity' : 'entities'; ?>
+                                        </span>
                                         <?php if ($canManageEntities): ?>
                                             <button type="button" onclick="document.getElementById('archiveModal').classList.remove('hidden')" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer">
                                                 Archive (<?= count($archivedEntities); ?>)
@@ -483,12 +446,50 @@ function workspaceItFlag(array $entity, string $activityType): string
                             </div>
 
                             <!-- Entities List for Selected Week -->
-                            <div class="p-4 space-y-3 overflow-y-auto flex-1">
+                            <div class="p-4 overflow-y-auto flex-1">
                                 <?php if (empty($weekEntities)): ?>
                                     <div class="py-12 text-center text-slate-400 space-y-1">
                                         <div class="text-2xl">&#128269;</div>
                                         <p class="font-bold text-slate-700 text-xs">No entities for this week</p>
                                         <p class="text-[11px] text-slate-500 max-w-xs mx-auto"><?= $canManageEntities ? 'Click "+ Add Entity" above to manually record any missed keywords.' : 'No technical keywords were extracted from this document.'; ?></p>
+                                    </div>
+                                <?php elseif (!$canManageEntities): ?>
+                                    <?php /* Supervisor: compact grouped chips.
+                                             The card list below is sized for editing — a card per
+                                             entity is roughly 62px to show a name and one chip,
+                                             which is four screens of scrolling at 40 entities.
+                                             The supervisor only reads this list, so the same
+                                             facts render as wrapped chips that fit on one
+                                             screen. Grouping carries the IT/clerical split
+                                             the ratio bar gives the coordinator, since
+                                             $showItPercentages is off for this role. */ ?>
+                                    <?php
+                                    $entityGroups = reportWorkspaceGroupEntities($weekEntities);
+                                    $entityGroupMeta = [
+                                        'it' => ['label' => 'IT Related', 'chip' => 'text-[#0F2854] bg-blue-50 border-[#0F2854]/30'],
+                                        'clerical' => ['label' => 'Clerical', 'chip' => 'text-slate-700 bg-slate-100 border-slate-300'],
+                                        'unknown' => ['label' => 'Unclassified', 'chip' => 'text-slate-600 bg-slate-100 border-slate-300'],
+                                    ];
+                                    ?>
+                                    <div class="space-y-5">
+                                        <?php foreach ($entityGroupMeta as $groupKey => $groupMeta):
+                                            $groupNames = $entityGroups[$groupKey] ?? [];
+                                            if (empty($groupNames)) {
+                                                continue;
+                                            }
+                                        ?>
+                                            <div>
+                                                <div class="flex items-center justify-between gap-2 mb-2">
+                                                    <span class="text-[10px] font-black uppercase tracking-wider text-slate-400"><?= htmlspecialchars($groupMeta['label']); ?></span>
+                                                    <span class="text-[11px] font-bold text-slate-500"><?= count($groupNames); ?></span>
+                                                </div>
+                                                <div class="flex flex-wrap gap-1.5">
+                                                    <?php foreach ($groupNames as $entityName): ?>
+                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border <?= $groupMeta['chip']; ?>"><?= htmlspecialchars($entityName); ?></span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
                                 <?php else: ?>
                                     <?php foreach ($weekEntities as $ent):
