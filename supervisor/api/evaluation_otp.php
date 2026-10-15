@@ -138,7 +138,13 @@ if ($action === 'verify_and_submit_evaluation') {
     }
 
     // Ensure the coordinator has authorized this evaluation
-    $stmtAuth = $pdo->prepare("SELECT evaluation_triggered FROM students WHERE id = ? LIMIT 1");
+    $stmtAuth = $pdo->prepare("
+        SELECT s.evaluation_triggered, u.name AS student_name
+        FROM students s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.id = ?
+        LIMIT 1
+    ");
     $stmtAuth->execute([$studentId]);
     $authRow = $stmtAuth->fetch(PDO::FETCH_ASSOC);
 
@@ -231,6 +237,16 @@ if ($action === 'verify_and_submit_evaluation') {
         $pdo->prepare("DELETE FROM evaluation_otps WHERE student_id = ?")->execute([$studentId]);
 
         $pdo->commit();
+
+        /*
+         * Set here rather than in the browser: this endpoint already owns the
+         * session, so the confirmation survives the redirect as a normal flash
+         * and gets the shared auto-dismiss from components/header.php.
+         */
+        $_SESSION['flash_success'] = 'The final performance appraisal for '
+            . ($authRow['student_name'] ?? 'the intern')
+            . ' has been verified and recorded.';
+
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
         $pdo->rollBack();

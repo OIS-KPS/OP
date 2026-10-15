@@ -90,7 +90,7 @@ if (!isset($pendingEvalBadgeCount)) {
                 <p class="px-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Actions</p>
                 <div class="space-y-1.5">
                     <!-- Review Reports with Notification Badge -->
-                    <?php $isReview = ($currentPage === 'review_reports.php' || $currentPage === 'review_report.php' || $currentPage === 'view_report.php'); ?>
+                    <?php $isReview = ($currentPage === 'review_reports.php' || $currentPage === 'view_report.php'); ?>
                     <a href="review_reports.php" class="flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm <?= $isReview ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
                         <div class="flex items-center gap-3 min-w-0">
                             <svg class="w-5 h-5 <?= $isReview ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,7 +108,7 @@ if (!isset($pendingEvalBadgeCount)) {
                     </a>
 
                     <!-- Evaluate Students Link with Solid Pending Request Notification Badge -->
-                    <?php $isEvaluate = ($currentPage === 'evaluate_interns.php' || $currentPage === 'evaluate_form.php'); ?>
+                    <?php $isEvaluate = ($currentPage === 'evaluate_interns.php' || $currentPage === 'evaluate_form.php' || $currentPage === 'evaluate_view.php'); ?>
                     <a href="evaluate_interns.php" class="flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm <?= $isEvaluate ? 'bg-blue-50/80 text-[#0F2854] font-bold border-l-4 border-[#0F2854] shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium' ?>">
                         <div class="flex items-center gap-3 min-w-0">
                             <svg class="w-5 h-5 <?= $isEvaluate ? 'text-[#0F2854]' : 'text-slate-400' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -9,7 +9,7 @@ $scorecardVariant = 'compact';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluation Summary - <?= htmlspecialchars($evaluation['student_name'] ?? 'Student'); ?></title>
+    <title>Evaluation Summary - <?= htmlspecialchars($evaluation['student_name'] ?? 'Student'); ?> - Supervisor Portal</title>
     <!-- Inter Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,8 +17,40 @@ $scorecardVariant = 'compact';
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 
+    <style>
+        /*
+         * This page is the printable copy of a signed OJT form, so printing it
+         * has to produce the document and nothing else. The sidebar, header,
+         * back link and page padding are all screen chrome and are hidden
+         * below; .print-clean drops the card's border, shadow and padding so
+         * the document sits flush on the page.
+         */
+        @media print {
+            @page { margin: 16mm; }
+
+            body { background: #fff !important; }
+
+            aside, header, .no-print { display: none !important; }
+
+            main {
+                max-width: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .print-clean {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                border-radius: 0 !important;
+            }
+
+            /* Keep each section whole rather than letting it split across pages. */
+            .print-clean > div { break-inside: avoid; }
+        }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-800 subpixel-antialiased">
+<body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
     <div class="flex min-h-screen">
 
@@ -32,7 +64,7 @@ $scorecardVariant = 'compact';
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
             <!-- Main Page Scroll Area -->
-            <main class="p-8 max-w-4xl w-full mx-auto space-y-6 flex-1 relative">
+            <main class="p-6 sm:p-8 max-w-5xl w-full mx-auto space-y-6 flex-1 relative">
 
                 <!-- Navigation Top Bar -->
                 <div class="flex items-center justify-between no-print">
@@ -67,7 +99,7 @@ $scorecardVariant = 'compact';
                     </div>
 
                     <!-- Trainee & Host Details (docx header block) -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/70 rounded-2xl p-5 border border-slate-200/70 text-xs">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/60 rounded-2xl p-5 border border-slate-200/70 text-xs">
                         <div class="space-y-0.5">
                             <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Student Intern</span>
                             <p class="font-bold text-slate-900 text-sm"><?= htmlspecialchars($evaluation['student_name']); ?></p>
@@ -102,7 +134,7 @@ $scorecardVariant = 'compact';
 
                     <!-- Evaluator Signature Block -->
                     <div class="pt-4 border-t border-slate-100">
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Evaluator's  Name</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Evaluator's Name</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-xs">
                             <div>
                                 <p class="font-extrabold text-slate-900 italic underline decoration-slate-300 underline-offset-4"><?= htmlspecialchars($evaluation['supervisor_name']); ?></p>

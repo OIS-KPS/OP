@@ -11,29 +11,17 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'supervisor') 
 
 $userId = (int)$_SESSION['user_id'];
 
-$supervisor = [
-    'name' => $_SESSION['user_name'] ?? 'Supervisor',
-    'company_name' => 'Host Company'
-];
-
 $totalInterns = 0;
 $totalPending = 0;
-$totalNeedsChanges = 0;
 $totalEvaluated = 0;
 $pendingReports = [];
 $recentActivities = [];
 
 try {
-    // 1. Fetch Supervisor Profile & Company Info
+    // 1. Resolve this supervisor's supervisors.id
     $stmtSup = $pdo->prepare("
-        SELECT 
-            s.id AS supervisor_id,
-            u.name AS supervisor_name,
-            u.avatar_url,
-            c.name AS company_name
+        SELECT s.id AS supervisor_id
         FROM supervisors s
-        JOIN users u ON s.user_id = u.id
-        LEFT JOIN companies c ON s.company_id = c.id
         WHERE s.user_id = ?
         LIMIT 1
     ");
@@ -43,10 +31,6 @@ try {
     if ($supData) {
         $supervisor_id = (int)$supData['supervisor_id'];
         $_SESSION['supervisor_id'] = $supervisor_id;
-        $supervisor['name'] = $supData['supervisor_name'];
-        if (!empty($supData['company_name'])) {
-            $supervisor['company_name'] = $supData['company_name'];
-        }
     } else {
         $supervisor_id = (int)($_SESSION['supervisor_id'] ?? 0);
     }
@@ -65,15 +49,6 @@ try {
         ");
         $pendingStmt->execute([$supervisor_id]);
         $totalPending = (int)$pendingStmt->fetchColumn();
-
-        $needsChangesStmt = $pdo->prepare("
-            SELECT COUNT(r.id) 
-            FROM reports r
-            JOIN students s ON r.student_id = s.id
-            WHERE s.supervisor_id = ? AND LOWER(r.status) = 'rejected'
-        ");
-        $needsChangesStmt->execute([$supervisor_id]);
-        $totalNeedsChanges = (int)$needsChangesStmt->fetchColumn();
 
         $evalStmt = $pdo->prepare("SELECT COUNT(*) FROM evaluations WHERE supervisor_id = ?");
         $evalStmt->execute([$supervisor_id]);
