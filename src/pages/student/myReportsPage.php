@@ -108,54 +108,81 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                     </div>
                 <?php endif; ?>
 
-                <!-- 1. Conditional Internship Completion / Final Evaluation Notification Banner -->
+                <!-- Page Header + Primary Action -->
+                <!-- The shared header component only renders the "LaunchPad" strip and
+                     the profile dropdown, so this page previously opened with no
+                     heading at all. The primary submit CTA lives here rather than in
+                     the table card header, which is where it used to hide. -->
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div class="space-y-0.5">
+                        <h1 class="text-xl sm:text-2xl font-extrabold text-slate-950 tracking-tight">My Reports</h1>
+                        <p class="text-xs font-semibold text-slate-600">Weekly accomplishment reports submitted for your OJT.</p>
+                    </div>
+
+                    <?php /* Suppressed when there are no rows: the empty state at the
+                             bottom of the table already carries its own "Submit Week 1"
+                             call to action, and on a fresh account both were rendering
+                             at once, saying the same thing. */ ?>
+                    <?php if (!$isEvaluated && $totalApproved < 10 && $isAssigned && !empty($reports)): ?>
+                        <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="shrink-0 self-start sm:self-auto px-4 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs inline-flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                            <span>Submit Week <?= $nextWeekToSubmit; ?></span>
+                        </a>
+                    <?php elseif (!$isAssigned): ?>
+                        <span class="shrink-0 self-start sm:self-auto px-4 py-2.5 bg-white text-slate-500 font-semibold rounded-xl text-xs border border-slate-300 shadow-2xs inline-flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            <span>Waiting for placement assignment</span>
+                        </span>
+                    <?php endif; ?>
+                </div>
+
+                <!-- 1. Conditional Internship Completion / Final Evaluation Notification -->
+                <!-- Slimmed to a single line: one status pill, one sentence, one action.
+                     It used to stack an uppercase heading, a pill and a paragraph in a
+                     ~110px card, which pushed the actual report history below the fold
+                     for a notice an intern only needs once. -->
                 <?php if ($totalApproved >= 10 || $isRequested || $isEvaluated): ?>
-                    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div class="space-y-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-black text-slate-900 uppercase tracking-wider">Internship Completion</span>
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <?php if ($isEvaluated): ?>
+                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-300">Evaluation Forwarded</span>
+                            <?php elseif ($isRequested): ?>
+                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">Evaluation Requested</span>
+                            <?php else: ?>
+                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-[#0F2854] border border-[#0F2854]/30">Eligible for Final Evaluation</span>
+                            <?php endif; ?>
+                            <p class="text-xs font-medium text-slate-600 truncate">
                                 <?php if ($isEvaluated): ?>
-                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100/80 text-emerald-900 border border-emerald-300">Evaluation Forwarded</span>
+                                    Your supervisor forwarded your final appraisal to the coordinator.
                                 <?php elseif ($isRequested): ?>
-                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100/80 text-amber-900 border border-amber-300">Evaluation Requested</span>
+                                    Your request is with your supervisor for review and signature.
                                 <?php else: ?>
-                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100/80 text-emerald-900 border border-emerald-300">Eligible for Final Evaluation</span>
-                                <?php endif; ?>
-                            </div>
-                            <p class="text-xs font-medium text-slate-600">
-                                <?php if ($isEvaluated): ?>
-                                    Your supervisor has completed and forwarded your final evaluation appraisal to the coordinator.
-                                <?php elseif ($isRequested): ?>
-                                    Your completion request has been submitted. Your supervisor will review and sign your appraisal.
-                                <?php else: ?>
-                                    You have completed your <?= (int)$totalApproved; ?> weekly reports. Request your final performance evaluation from your supervisor.
+                                    You have completed <?= (int)$totalApproved; ?> weekly reports.
                                 <?php endif; ?>
                             </p>
                         </div>
 
-                        <div class="shrink-0">
+                        <div class="shrink-0 flex items-center gap-2">
                             <?php if ($isEvaluated): ?>
-                                <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs">
+                                <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Completed &amp; Signed
                                 </span>
                             <?php elseif ($isRequested): ?>
-                                <div class="inline-flex flex-wrap items-center gap-2.5">
-                                    <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
-                                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> Waiting for Supervisor
-                                    </span>
-                                    <?php if ($canCancelRequest): ?>
-                                        <form method="POST" action="reports.php" class="inline" onsubmit="return confirm('Cancel your final evaluation request? You can submit a new request later.');">
-                                            <?= csrf_field(); ?>
-                                            <button type="submit" name="cancel_evaluation_request" class="px-3.5 py-1.5 rounded-full bg-white text-amber-700 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition-colors cursor-pointer">
-                                                Cancel Request
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
+                                <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span> Waiting for Supervisor
+                                </span>
+                                <?php if ($canCancelRequest): ?>
+                                    <form method="POST" action="reports.php" class="inline" onsubmit="return confirm('Cancel your final evaluation request? You can submit a new request later.');">
+                                        <?= csrf_field(); ?>
+                                        <button type="submit" name="cancel_evaluation_request" class="px-3.5 py-1.5 rounded-full bg-white text-amber-700 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition-colors cursor-pointer">
+                                            Cancel Request
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <form method="POST" action="reports.php" onsubmit="return confirm('Confirm that you have completed your internship. Your supervisor will be notified to evaluate you.');">
                                     <?= csrf_field(); ?>
-                                    <button type="submit" name="request_evaluation" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2">
+                                    <button type="submit" name="request_evaluation" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2">
                                         <span>Request Final Evaluation</span>
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
                                     </button>
@@ -189,45 +216,35 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                 <!-- 3. Submission History Table Card -->
                 <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
                     
-                    <!-- Table Top Action Bar -->
-                    <div class="p-6 border-b border-slate-200/70 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/60">
-                        <div>
-                            <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Submission History</h3>
-                            <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Chronological record of weekly accomplishment logs</p>
-                        </div>
-
-                        <div class="flex items-center gap-2.5">
-                            <?php if (!$isEvaluated && $totalApproved < 10 && $isAssigned): ?>
-                                <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                                    <span>Submit Week <?= $nextWeekToSubmit; ?></span>
-                                </a>
-                            <?php elseif (!$isAssigned): ?>
-                                <span class="px-4 py-2 bg-white text-slate-500 font-semibold rounded-xl text-xs border border-slate-300 shadow-2xs inline-flex items-center gap-1.5">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                    <span>Waiting for placement assignment</span>
-                                </span>
-                            <?php endif; ?>
-                            
-                            <span class="text-xs font-bold text-slate-800 bg-white px-3.5 py-2 rounded-xl border border-slate-300 shadow-2xs">
-                                Sorted by Week
-                            </span>
-                        </div>
+                    <!-- Table Card Header -->
+                    <!-- No buttons here: the submit CTA moved up to the page header, and
+                         "Sorted by Week" was an inert <span> styled exactly like a
+                         button sitting beside the real ones, so it read as a third
+                         control that did nothing. The column order says the same
+                         thing. -->
+                    <div class="p-5 border-b border-slate-200/70 bg-slate-50/60">
+                        <h3 class="text-xs font-black text-slate-900 tracking-wider uppercase">Submission History</h3>
+                        <p class="text-[11px] font-semibold text-slate-600 mt-0.5">Chronological record of weekly accomplishment logs</p>
                     </div>
 
                     <!-- Clean Filter Tabs with Solid Color Rules -->
-                    <div class="px-6 py-3 border-b border-slate-200/60 bg-white flex flex-wrap items-center gap-2">
+                    <!-- Counts dropped from the labels: the metric cards directly above
+                         already state submitted / approved / the outstanding one, so
+                         repeating them in parentheses next to the same words was noise.
+                         filterReports() reads each row's data-status, so the tabs
+                         filter exactly as before without them. -->
+                    <div class="px-5 py-3 border-b border-slate-200/60 bg-white flex flex-wrap items-center gap-2">
                         <button type="button" onclick="filterReports('all', this)" class="filter-tab active px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer select-none">
-                            All Logs (<?= (int)$totalReportsCount; ?>)
+                            All Logs
                         </button>
                         <button type="button" onclick="filterReports('pending', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer select-none">
-                            Waiting for Review (<?= (int)$totalPending; ?>)
+                            Waiting for Review
                         </button>
                         <button type="button" onclick="filterReports('approved', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer select-none">
-                            Approved (<?= (int)$totalApproved; ?>)
+                            Approved
                         </button>
                         <button type="button" onclick="filterReports('rejected', this)" class="filter-tab px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer select-none">
-                            Needs Changes (<?= (int)$totalRejected; ?>)
+                            Needs Changes
                         </button>
                     </div>
 
@@ -236,10 +253,10 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
-                                        <th class="py-4 px-6">Week #</th>
-                                        <th class="py-4 px-6">Submitted Date &amp; Time</th>
-                                        <th class="py-4 px-6">Review Status &amp; Remarks</th>
-                                        <th class="py-4 px-6 text-right">Actions</th>
+                                        <th class="py-3.5 px-5">Week</th>
+                                        <th class="py-3.5 px-5">Submitted</th>
+                                        <th class="py-3.5 px-5">Status</th>
+                                        <th class="py-3.5 px-5 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reportsTableBody" class="divide-y divide-slate-200/80 text-slate-800">
@@ -257,20 +274,20 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                             data-status="<?= htmlspecialchars($status); ?>">
                                             
                                             <!-- Week Badge -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] font-black text-xs flex items-center justify-center border border-slate-300 shrink-0">
-                                                        W<?= htmlspecialchars($report['week_number']); ?>
-                                                    </div>
-                                                    <div>
-                                                        <span class="font-extrabold text-slate-950 text-sm block">Week <?= htmlspecialchars($report['week_number']); ?></span>
-                                                        <span class="block text-[10px] font-semibold text-slate-500">Accomplishment Log</span>
-                                                    </div>
+                                            <!-- Column header already says "Week", and the W
+                                                 square below already says the number. The
+                                                 "Week 3 / Accomplishment Log" lines that used
+                                                 to sit beside it repeated both facts in the
+                                                 same cell; "Accomplishment Log" was also
+                                                 just the page title again. -->
+                                            <td class="py-3.5 px-5 whitespace-nowrap align-middle">
+                                                <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] font-black text-xs flex items-center justify-center border border-slate-300">
+                                                    W<?= htmlspecialchars($report['week_number']); ?>
                                                 </div>
                                             </td>
 
                                             <!-- Submitted Date -->
-                                            <td class="py-4 px-6 whitespace-nowrap align-middle">
+                                            <td class="py-3.5 px-5 whitespace-nowrap align-middle">
                                                 <span class="font-semibold text-xs text-slate-700">
                                                     <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
                                                 </span>
@@ -279,8 +296,8 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Review Status & Remarks -->
-                                            <td class="py-4 px-6 align-middle">
+                                            <!-- Status & Remarks -->
+                                            <td class="py-3.5 px-5 align-middle">
                                                 <?php if ($isApproved): ?>
                                                     <div class="flex flex-col items-start gap-1">
                                                         <div class="flex items-center gap-2">
@@ -292,7 +309,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                                 <button type="button" 
                                                                         onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>')" 
                                                                         class="text-[10px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 transition-colors cursor-pointer">
-                                                                    View Feedback Log
+                                                                    View Feedback
                                                                 </button>
                                                             <?php endif; ?>
                                                         </div>
@@ -318,7 +335,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                                     <button type="button" 
                                                                             onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $filePath), '/')); ?>')" 
                                                                             class="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer">
-                                                                        View Note &rarr;
+                                                                        View Feedback
                                                                     </button>
                                                                 </div>
                                                                 <p class="text-xs text-rose-900 font-medium leading-relaxed line-clamp-1">
@@ -343,7 +360,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                             </td>
 
                                             <!-- Actions Column -->
-                                            <td class="py-4 px-6 text-right whitespace-nowrap align-middle">
+                                            <td class="py-3.5 px-5 text-right whitespace-nowrap align-middle">
                                                 <div class="flex flex-col items-end gap-1.5">
                                                     <div class="flex items-center justify-end gap-2">
                                                         <!-- Latest File Link -->
@@ -410,7 +427,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                     <h3 id="modalWeekHeader" class="text-sm font-black text-slate-950 tracking-tight">Supervisor Feedback</h3>
                     <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Please review the instructions below before submitting a new file</p>
                 </div>
-                <button onclick="closeStudentRemarksModal()" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-xs font-bold flex items-center justify-center border border-slate-300 transition-colors cursor-pointer">✕</button>
+                <button onclick="closeStudentRemarksModal()" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-xs font-bold flex items-center justify-center border border-slate-300 transition-colors cursor-pointer">&#10005;</button>
             </div>
 
             <div class="space-y-4 text-xs">
