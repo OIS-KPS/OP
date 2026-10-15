@@ -111,6 +111,7 @@ try {
             SELECT
                 e.id AS evaluation_id,
                 e.criteria_ratings,
+                e.criteria_snapshot,
                 e.technical_score,
                 e.work_ethics_score,
                 e.communication_score,

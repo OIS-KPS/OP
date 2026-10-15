@@ -43,6 +43,10 @@ $scorecardVariant = $scorecardVariant ?? 'full';
 $isFullVariant    = ($scorecardVariant !== 'compact');
 $scorecardUniform = in_array($scorecardVariant, ['compact', 'uniform'], true);
 
+// Rendered from the wording FROZEN onto this evaluation, not the live form
+// wording, so a record the supervisor already signed keeps showing the
+// questions they answered.
+$scorecardCriteria = ojtCriteriaForEvaluation(is_array($evaluation ?? null) ? $evaluation : []);
 $scorecardRatings = ojtDecodeRatings($evaluation['criteria_ratings'] ?? null);
 $scorecardHasRows = ojtRatedCount($scorecardRatings) > 0;
 $scorecardOverall = $scorecardHasRows
@@ -86,7 +90,7 @@ $scorecardScale  = ojtRatingScale();
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        <?php foreach (ojtEvaluationCriteria() as $index => $criterion):
+                        <?php foreach ($scorecardCriteria as $index => $criterion):
                             $rowRating = (int) ($scorecardRatings[$criterion['key']] ?? 0);
                             [$cellBg, $cellText, $cellBorder] = ojtScorecardRatingClasses($rowRating, $scorecardUniform);
                             // The row counter is not a score: keep it neutral in uniform mode

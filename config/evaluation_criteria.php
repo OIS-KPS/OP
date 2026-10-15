@@ -4,6 +4,16 @@
 // Mirrors public/files/OJT_performance_evaluation_form.docx (CHED OJT form):
 // 12 competencies, each rated 5 (Very Good) down to 1 (Very Poor).
 //
+// The 12 keys, their order and their group buckets are FIXED and live in
+// ojtEvaluationCriteriaDefaults() below: evaluations.technical_score /
+// work_ethics_score / communication_score and every stored criteria_ratings
+// JSON blob are keyed on them.
+//
+// The WORDING of each competency is coordinator-editable and is read from the
+// evaluation_questions table (migration_evaluation_questions.sql). If that table
+// is missing, the defaults below are used, so an unmigrated database still
+// runs the form unchanged.
+//
 // This file is PHP-include-only. Never reference it from client JS or markup.
 // To share the criteria with the browser, encode ojtEvaluationCriteria()
 // into a <script> block as JSON.
@@ -17,10 +27,13 @@
  *   ethics        -> evaluations.work_ethics_score
  *   communication -> evaluations.communication_score
  *
+ * This is the fallback and the authority for which competencies exist. Only the
+ * `text` values are ever overridden from the database.
+ *
  * @return array<int, array{key: string, group: string, text: string}>
  */
-if (!function_exists('ojtEvaluationCriteria')) {
-    function ojtEvaluationCriteria(): array
+if (!function_exists('ojtEvaluationCriteriaDefaults')) {
+    function ojtEvaluationCriteriaDefaults(): array
     {
         return [
             [
@@ -84,6 +97,87 @@ if (!function_exists('ojtEvaluationCriteria')) {
                 'text'  => 'Knowledge and understanding of information technology and management principles as a member and leader in a team, to manage projects and in multidisciplinary environments',
             ],
         ];
+    }
+}
+
+/**
+ * The live competency list used to RENDER the form a supervisor is about to
+ * fill in, so a coordinator's edit takes effect on the next submission.
+ *
+ * Reads the wording from evaluation_questions when that table exists, and
+ * falls back to ojtEvaluationCriteriaDefaults() otherwise. The result is cached
+ * for the lifetime of the request: this function is called from controllers,
+ * views and the client-side payload builder, and re-querying per call would
+ * turn one page render into a dozen identical SELECTs.
+ *
+ * @return array<int, array{key: string, group: string, text: string}>
+ */
+if (!function_exists('ojtEvaluationCriteria')) {
+    function ojtEvaluationCriteria(): array
+    {
+        static $cached = null;
+
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $defaults = ojtEvaluationCriteriaDefaults();
+
+        global $pdo;
+
+        if ($pdo instanceof PDO) {
+            try {
+                require_once __DIR__ . '/../src/services/evaluation_questions_store.php';
+                $cached = evaluationQuestionsLoad($pdo, $defaults);
+            } catch (Throwable $exception) {
+                error_log('Evaluation criteria load failed, using defaults: ' . $exception->getMessage());
+                $cached = $defaults;
+            }
+        } else {
+            $cached = $defaults;
+        }
+
+        return $cached;
+    }
+}
+
+/**
+ * The competency list as it read WHEN AN EVALUATION WAS SUBMITTED.
+ *
+ * Used by every read-only view of a stored evaluation. An evaluation that
+ * carries criteria_snapshot keeps its own frozen wording forever, so
+ * rewriting the form never re-labels a record a supervisor already signed.
+ * Rows saved before the editable form existed have no snapshot; for those the
+ * live wording is used, which matches the previous hardcoded behaviour.
+ *
+ * @param array $evaluation A row from `evaluations` (or a slice of one).
+ * @return array<int, array{key: string, group: string, text: string}>
+ */
+if (!function_exists('ojtCriteriaForEvaluation')) {
+    function ojtCriteriaForEvaluation(array $evaluation): array
+    {
+        $criteria = ojtEvaluationCriteria();
+
+        $snapshotJson = trim((string) ($evaluation['criteria_snapshot'] ?? ''));
+
+        if ($snapshotJson === '') {
+            return $criteria;
+        }
+
+        $decoded = json_decode($snapshotJson, true);
+
+        if (!is_array($decoded) || empty($decoded)) {
+            return $criteria;
+        }
+
+        foreach ($criteria as $index => $criterion) {
+            $frozen = $decoded[$criterion['key']] ?? null;
+            if (is_string($frozen) && trim($frozen) !== '') {
+                $criteria[$index]['text'] = $frozen;
+            }
+        }
+
+        return $criteria;
     }
 }
 

@@ -308,6 +308,113 @@ if (
 
 /*
 |--------------------------------------------------------------------------
+| SAVE EVALUATION FORM QUESTIONS
+|--------------------------------------------------------------------------
+|
+| The 12 competency keys and their group buckets are fixed. Only the wording
+| is editable, and it applies to evaluations submitted from now on: every
+| record already signed keeps the questions it was answered against, because
+| the wording is frozen onto evaluations.criteria_snapshot at submission time.
+|
+*/
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['action']) &&
+    $_POST['action'] === 'save_evaluation_questions'
+) {
+
+    require_once __DIR__ . '/../src/services/evaluation_questions_store.php';
+
+    $submittedQuestions = $_POST['question'] ?? [];
+
+    if (!is_array($submittedQuestions)) {
+        $_SESSION['flash_error'] = 'No questions were submitted.';
+        redirectToEvaluations();
+    }
+
+    // Captured BEFORE the save, and cached for the request by
+    // ojtEvaluationCriteria(). Reading it after the write would compare the
+    // submitted text against itself and report every edit as "no change".
+    $liveBeforeSave = ojtEvaluationCriteria();
+
+    $saveResult = evaluationQuestionsSave(
+        $pdo,
+        ojtEvaluationCriteriaDefaults(),
+        $submittedQuestions,
+        (int) ($_SESSION['user_id'] ?? 0)
+    );
+
+    if ($saveResult['ok']) {
+
+        // Name the competencies whose wording actually changed, so the audit
+        // trail records what was edited rather than just that "something" was.
+        // Comparing against the live wording (not the typed draft) means a
+        // save that rewrote a field with identical text is not logged as a
+        // change.
+        $changedKeys = [];
+
+        foreach ($liveBeforeSave as $criterion) {
+            $key = (string) $criterion['key'];
+            $newText = trim((string) ($submittedQuestions[$key] ?? ''));
+
+            if ($newText !== '' && $newText !== trim((string) $criterion['text'])) {
+                $changedKeys[] = $key;
+            }
+        }
+
+        $changedCount = count($changedKeys);
+
+        if ($changedCount > 0) {
+            $auditDetail = sprintf(
+                '%d of %d competencies changed (%s). Evaluations already submitted keep their original questions.',
+                $changedCount,
+                count($liveBeforeSave),
+                implode(', ', $changedKeys)
+            );
+        } else {
+            $auditDetail = sprintf(
+                'Resaved all %d competencies with no wording changes. Evaluations already submitted keep their original questions.',
+                count($liveBeforeSave)
+            );
+        }
+
+        logActivity(
+            $pdo,
+            (int) ($_SESSION['user_id'] ?? 0),
+            'coordinator',
+            'EVALUATION_FORM_UPDATED',
+            "Updated the wording of {$saveResult['saved']} evaluation competencies. " . $auditDetail
+        );
+
+        $_SESSION['flash_success'] = $changedCount > 0
+            ? "Evaluation form updated. {$changedCount} competency/competencies changed and will use the new wording on the next submission; completed evaluations keep their original questions."
+            : 'Evaluation form saved. No wording had changed; completed evaluations keep their original questions.';
+
+    } else {
+
+        $formErrors = $saveResult['errors'];
+        $formMessage = $formErrors['_form'] ?? sprintf(
+            '%d competency/competencies could not be saved. Please correct the highlighted field(s).',
+            count($formErrors)
+        );
+
+        unset($formErrors['_form']);
+
+        // Per-field messages and the typed draft ride along in the session so
+        // the reloaded modal marks the failing textarea and keeps the wording
+        // the coordinator had already entered.
+        $_SESSION['evaluation_form_errors']     = $formErrors;
+        $_SESSION['evaluation_question_draft']   = $submittedQuestions;
+
+        $_SESSION['flash_error'] = $formMessage;
+    }
+
+    redirectToEvaluations();
+}
+
+
+/*
+|--------------------------------------------------------------------------
 | 2. Filter Inputs
 |--------------------------------------------------------------------------
 */
@@ -328,6 +435,15 @@ $defaultSection  = section_course_codes()[0];
 $activeSections  = [];
 $eligibleStudents = [];
 $activeEval      = null;
+
+// Data for the "Update Evaluation Form" editor. The draft wins over the live
+// wording only when a save failed validation, so the coordinator does not lose
+// what they typed.
+$evaluationFormCriteria = ojtEvaluationCriteria();
+$evaluationFormDraft    = $_SESSION['evaluation_question_draft'] ?? null;
+$evaluationFormErrors   = $_SESSION['evaluation_form_errors'] ?? [];
+
+unset($_SESSION['evaluation_question_draft'], $_SESSION['evaluation_form_errors']);
 
 $totalCount      = 0;
 $completedCount  = 0;
@@ -493,6 +609,7 @@ try {
             e.communication_score,
             e.punctuality_score,
             e.criteria_ratings,
+            e.criteria_snapshot,
             e.final_score,
             e.grade_equivalent,
             e.feedback,
