@@ -35,6 +35,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 }
 
+/*
+ * |--------------------------------------------------------------------------
+ * Redirect back to a tab, keeping the coordinator's place in the list.
+ * |--------------------------------------------------------------------------
+ *
+ * Actions used to bounce to a bare users.php?tab=students, discarding the course
+ * code, the search and the page number. Once the students list is paginated that
+ * means archiving a student on page 3 drops the coordinator back on page 1 with
+ * the filter cleared.
+ *
+ * The relevant forms already carry these as hidden inputs, so they arrive in
+ * POST. Only the whitelisted keys are forwarded, so nothing else can be pushed
+ * into the query string. $force overrides a carried value, for the actions that
+ * always belong to one tab.
+ */
+function redirectToUsers(string $defaultTab = 'students', array $force = []): void
+{
+    $carried = [];
+
+    foreach (['tab', 'section', 'search', 'page'] as $key) {
+        $value = trim((string) ($_POST[$key] ?? ''));
+
+        if ($value !== '') {
+            $carried[$key] = $value;
+        }
+    }
+
+    if (!isset($carried['tab'])) {
+        $carried['tab'] = $defaultTab;
+    }
+
+    foreach ($force as $key => $value) {
+        $carried[$key] = $value;
+    }
+
+    header('Location: users.php?' . http_build_query($carried));
+    exit();
+}
+
 
 
 $coordinatorId   = $_SESSION['user_id'];
@@ -54,6 +93,22 @@ if ($tab === 'supervisors') {
 $selectedSection = ($_GET['section'] ?? 'all') === 'all'
     ? 'all'
     : normalizeSectionCode($_GET['section']);
+
+// Students-tab search. Other tabs keep their own client-side filtering: the
+// shared #userSearchInput box filters the companies tree in JS, and that tab is
+// not paginated yet.
+$searchQuery     = trim($_GET['search'] ?? '');
+
+/*
+ * Paging. 25 per page, matching the other coordinator list screens.
+ *
+ * Only the students tab is paginated here. The companies / coordinators /
+ * archived tabs keep loading their full sets for now.
+ */
+$perPage         = 25;
+$page            = 1;
+$totalPages      = 1;
+$totalFiltered   = 0;
 
 $success         = $_SESSION['flash_success'] ?? null;
 
@@ -210,9 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         }
 
-        header("Location: users.php?tab=students");
-
-        exit();
+        redirectToUsers('students');
 
     }
 
@@ -726,9 +779,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         }
 
-        header("Location: users.php?tab=students");
-
-        exit();
+        redirectToUsers('students');
 
     }
 
@@ -1110,9 +1161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $_SESSION['flash_error'] = $contactError;
 
-                header("Location: users.php?tab=" . $redirectTab);
-
-                exit();
+                redirectToUsers($redirectTab);
 
             }
 
@@ -1153,9 +1202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             $_SESSION['flash_error'] = "You cannot demote your own coordinator account.";
 
-                            header("Location: users.php?tab=" . $redirectTab);
-
-                            exit();
+                            redirectToUsers($redirectTab);
 
                         }
 
@@ -1295,9 +1342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         }
 
-        header("Location: users.php?tab=" . $redirectTab);
-
-        exit();
+        redirectToUsers($redirectTab);
 
     }
 
@@ -1849,9 +1894,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         }
 
-        header("Location: users.php?tab=" . $redirectTab);
-
-        exit();
+        redirectToUsers($redirectTab);
 
     }
 
@@ -2094,6 +2137,73 @@ try {
 
     $whereStudentSql = "WHERE " . implode(' AND ', $whereStudent);
 
+    /*
+     * Search, moved here from the shared client-side filter so it can reach
+     * rows on other pages. Name, student number and email are all already in
+     * scope.
+     *
+     * Each column needs its own marker: native prepares (EMULATE_PREPARES is
+     * off) cannot reuse a named placeholder.
+     *
+     * :defaultSection is NOT set here even though it is needed by the list
+     * query's COALESCE -- a COUNT(*) has no SELECT list, and binding a value
+     * with no matching marker is an error. It is added further down, right
+     * before the list runs.
+     */
+    if ($searchQuery !== '') {
+        $whereStudent[] = "(LOWER(u.name) LIKE :s_name
+            OR LOWER(s.student_number) LIKE :s_num
+            OR LOWER(u.email) LIKE :s_mail)";
+
+        $like = '%' . strtolower($searchQuery) . '%';
+        $stdParams['s_name'] = $like;
+        $stdParams['s_num']  = $like;
+        $stdParams['s_mail'] = $like;
+
+        $whereStudentSql = "WHERE " . implode(' AND ', $whereStudent);
+    }
+
+
+    /*
+     * |----------------------------------------------------------------------
+     * Total rows matching the current filters, which drives the pager.
+     * |----------------------------------------------------------------------
+     */
+    $stmtStudentCount = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM users u
+        JOIN students s ON s.user_id = u.id
+        LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+        LEFT JOIN users u_sup ON sup.user_id = u_sup.id
+        LEFT JOIN companies c ON s.company_id = c.id
+        {$whereStudentSql}
+    ");
+
+    foreach ($stdParams as $key => $value) {
+        $stmtStudentCount->bindValue(':' . $key, $value);
+    }
+
+    $stmtStudentCount->execute();
+
+    $totalFiltered = (int) $stmtStudentCount->fetchColumn();
+
+
+    /*
+     * |----------------------------------------------------------------------
+     * Requested page, clamped into range
+     * |----------------------------------------------------------------------
+     */
+    $totalPages = max(1, (int) ceil($totalFiltered / $perPage));
+
+    $page = max(1, (int) ($_GET['page'] ?? 1));
+
+    if ($page > $totalPages) {
+        $page = $totalPages;
+    }
+
+    $offset = ($page - 1) * $perPage;
+
+    // Only now, because this placeholder exists solely in the list query below.
     // Bound (not interpolated) because PDO::ATTR_EMULATE_PREPARES is off, so a
     // placeholder inside the SELECT list is not rewritten for us.
     $stdParams['defaultSection'] = $defaultSection;
@@ -2144,11 +2254,29 @@ try {
 
         {$whereStudentSql}
 
-        ORDER BY s.section ASC, u.name ASC
+        ORDER BY s.section ASC, u.name ASC,
+
+            /*
+             * Tiebreaker. Section and name are not unique, so without a final
+             * deterministic key MySQL may order equal rows differently per query,
+             * which makes a row land on two pages or none as the LIMIT window
+             * slides. u.id is stable and unique.
+             */
+            u.id ASC
+
+        LIMIT :lim OFFSET :off
 
     ");
 
-    $stmtStd->execute($stdParams);
+    // EMULATE_PREPARES is off, so LIMIT/OFFSET must be bound as integers.
+    $stmtStd->bindValue(':lim', $perPage, PDO::PARAM_INT);
+    $stmtStd->bindValue(':off', $offset, PDO::PARAM_INT);
+
+    foreach ($stdParams as $key => $value) {
+        $stmtStd->bindValue(':' . $key, $value);
+    }
+
+    $stmtStd->execute();
 
     $students = $stmtStd->fetchAll(PDO::FETCH_ASSOC) ?: [];
 

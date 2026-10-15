@@ -111,7 +111,7 @@
                                 <div class="inline-flex items-center gap-0 <?= ($tab ?? 'students') === 'students' ? 'bg-[#0F2854] text-white border border-[#0F2854]' : 'bg-white text-slate-700 border border-slate-300'; ?> rounded-lg">
                                     <a href="users.php?tab=students" class="px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-2">
                                         <span>Students<?= ($tab ?? '') === 'students' && ($selectedSection ?? 'all') !== 'all' ? ' · ' . htmlspecialchars($selectedSection) : ''; ?></span>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? 'students') === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= count($students ?? []); ?></span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black <?= ($tab ?? 'students') === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200'; ?>"><?= (int)$totalFiltered; ?></span>
                                     </a>
                                     <button type="button" onclick="toggleStudentsMenu(event)" class="px-2 py-1.5 border-l border-current/20 cursor-pointer" aria-label="Toggle sections">
                                         <svg id="studentsMenuChevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
@@ -172,30 +172,62 @@
                     <!-- (Section filters now live inside the Students dropdown) -->
 
                     <!-- Full-Width Search -->
-                    <div class="p-4 border-b border-slate-200/70 bg-white">
-                        <div class="relative w-full">
-                            <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                            <input 
-                                type="text" 
-                                id="userSearchInput" 
-                                placeholder="Search..." 
-                                class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
-                            >
+                    <!-- One input serves two jobs, decided by the active tab.
+
+                         On the students tab the list is paginated, so filtering
+                         has to be server-side or it would only see the rows on
+                         this page. There it is wrapped in a GET form.
+
+                         On companies / coordinators / archived those lists are
+                         not paginated, so the existing client-side filter keeps
+                         working -- the companies tab filters the whole nested
+                         tree, which no server-side query would replace. The
+                         script below skips the client handler on the students
+                         tab so the two do not fight. -->
+                    <?php if (($tab ?? 'students') === 'students'): ?>
+                        <form id="userFilterForm" method="GET" action="users.php" class="p-4 border-b border-slate-200/70 bg-white">
+                            <input type="hidden" name="tab" value="students">
+                            <input type="hidden" name="section" value="<?= htmlspecialchars($selectedSection ?? 'all'); ?>">
+                            <div class="relative w-full">
+                                <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                                <input
+                                    type="text"
+                                    id="userSearchInput"
+                                    name="search"
+                                    value="<?= htmlspecialchars($searchQuery ?? ''); ?>"
+                                    placeholder="Search all students by name, ID or email..."
+                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
+                                >
+                            </div>
+                        </form>
+                    <?php else: ?>
+                        <div class="p-4 border-b border-slate-200/70 bg-white">
+                            <div class="relative w-full">
+                                <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                                <input
+                                    type="text"
+                                    id="userSearchInput"
+                                    placeholder="Search..."
+                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
+                                >
+                            </div>
                         </div>
-                    </div>
+                    <?php endif; ?>
 
                     <!-- 3. Dynamic Data Tables -->
 
                     <!-- TAB 1: STUDENTS TABLE -->
                     <?php if (($tab ?? 'students') === 'students'): ?>
                         <?php if (!empty($students)): ?>
-                            <div class="overflow-hidden">
-                                <table class="w-full table-fixed text-left border-collapse text-xs">
+                            <!-- overflow-x-auto, not overflow-hidden: the previous
+                                 wrapper clipped anything wider than the card. -->
+                            <div class="w-full overflow-x-auto">
+                                <table class="w-full min-w-[820px] table-fixed text-left border-collapse text-xs">
                                     <colgroup>
-                                        <col style="width: 30%;">
-                                        <col style="width: 12%;">
-                                        <col style="width: 40%;">
-                                        <col style="width: 18%;">
+                                        <col class="w-[30%]">
+                                        <col class="w-[12%]">
+                                        <col class="w-[40%]">
+                                        <col class="w-[18%]">
                                     </colgroup>
                                     <thead>
                                         <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
@@ -241,6 +273,18 @@
                                                         <input type="hidden" name="action" value="archive_user">
                                                         <input type="hidden" name="redirect_tab" value="students">
                                                         <input type="hidden" name="user_id" value="<?= $s['user_id']; ?>">
+                                                        <?php /* Carried so redirectToUsers() can return the
+                                                                 coordinator to this course code, search term and
+                                                                 page after archiving. Only these keys are
+                                                                 forwarded by the controller. */ ?>
+                                                        <input type="hidden" name="tab" value="students">
+                                                        <input type="hidden" name="section" value="<?= htmlspecialchars($selectedSection ?? 'all'); ?>">
+                                                        <?php if (($searchQuery ?? '') !== ''): ?>
+                                                            <input type="hidden" name="search" value="<?= htmlspecialchars($searchQuery); ?>">
+                                                        <?php endif; ?>
+                                                        <?php if ((int)($page ?? 1) > 1): ?>
+                                                            <input type="hidden" name="page" value="<?= (int)$page; ?>">
+                                                        <?php endif; ?>
                                                         <button type="submit" class="px-3.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-300 shadow-2xs transition-colors cursor-pointer">
                                                             Archive
                                                         </button>
@@ -251,9 +295,56 @@
                                     </tbody>
                                 </table>
                             </div>
+
+                            <!-- Pagination Footer -->
+                            <?php if ($totalPages > 1):
+                                $baseQuery = 'tab=students'
+                                    . '&section=' . urlencode($selectedSection ?? 'all')
+                                    . '&search=' . urlencode($searchQuery ?? '');
+
+                                $firstShown = $totalFiltered > 0 ? (($page - 1) * $perPage) + 1 : 0;
+                                $lastShown  = $totalFiltered > 0 ? min($page * $perPage, $totalFiltered) : 0;
+                            ?>
+                                <div class="px-4 py-3 border-t border-slate-200/70 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                    <p class="text-[11px] font-semibold text-slate-600">
+                                        Showing <span class="font-black text-slate-900"><?= $firstShown; ?></span>&ndash;<span class="font-black text-slate-900"><?= $lastShown; ?></span>
+                                        of <span class="font-black text-slate-900"><?= (int)$totalFiltered; ?></span>
+                                        &middot; Page <?= (int)$page; ?> of <?= (int)$totalPages; ?>
+                                    </p>
+
+                                    <div class="flex items-center gap-2">
+                                        <?php if ($page > 1): ?>
+                                            <a href="users.php?<?= $baseQuery; ?>&page=<?= $page - 1; ?>"
+                                               class="px-3 py-1.5 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                                <span>&lsaquo;</span> Prev
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                                <span>&lsaquo;</span> Prev
+                                            </span>
+                                        <?php endif; ?>
+
+                                        <?php if ($page < $totalPages): ?>
+                                            <a href="users.php?<?= $baseQuery; ?>&page=<?= $page + 1; ?>"
+                                               class="px-3 py-1.5 text-xs font-bold text-white bg-[#0F2854] hover:bg-blue-900 border border-[#0F2854] rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                                Next <span>&rsaquo;</span>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                                Next <span>&rsaquo;</span>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         <?php else: ?>
                             <div class="py-16 text-center text-slate-500 text-xs font-semibold">
-                                No students registered under this course code yet. Click "+ Add New" or "Import CSV" above to begin.
+                                <?php if (($searchQuery ?? '') !== '' || ($selectedSection ?? 'all') !== 'all'): ?>
+                                    No student matches the current search or course code.
+                                    <a href="users.php?tab=students&amp;section=all" class="text-[#0F2854] font-bold hover:underline">Clear filters</a>
+                                <?php else: ?>
+                                    No students registered under this course code yet. Click "+ Add New" or "Import CSV" above to begin.
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
 
@@ -1466,10 +1557,16 @@ sectionSelect.value = Array.from(sectionSelect.options).some(o => o.value === st
             setCompanyCardOpen(card, true);
         });
 
-        // Live Search Filter
-        const searchInput = document.getElementById('userSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
+        // Live Search Filter.
+//
+// Skipped on the students tab: that list is paginated, so the search there is a
+// real GET submit (see the form above). Filtering those rows in JS would only
+// ever see the current page.
+const searchInput = document.getElementById('userSearchInput');
+const isStudentsTab = <?= json_encode(($tab ?? 'students') === 'students'); ?>;
+
+if (searchInput && !isStudentsTab) {
+    searchInput.addEventListener('input', function() {
                 const query = this.value.toLowerCase().trim();
                 const rows = document.querySelectorAll('.user-row');
 
@@ -1503,7 +1600,30 @@ sectionSelect.value = Array.from(sectionSelect.options).some(o => o.value === st
                     }
                 });
             });
+}
+
+/* Students-tab search is server-side. Debounce a real GET submit; the form's
+   hidden inputs keep the tab and course code, and there is no hidden "page"
+   input so a new search lands on page 1. */
+const userFilterForm = document.getElementById('userFilterForm');
+if (userFilterForm && searchInput) {
+    let userSearchTimer = null;
+
+    searchInput.addEventListener('input', function () {
+        clearTimeout(userSearchTimer);
+        userSearchTimer = setTimeout(function () {
+            userFilterForm.submit();
+        }, 350);
+    });
+
+    searchInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            clearTimeout(userSearchTimer);
+            userFilterForm.submit();
         }
+    });
+}
     </script>
 </body>
 </html>
