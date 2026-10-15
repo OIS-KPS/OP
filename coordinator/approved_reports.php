@@ -24,6 +24,14 @@ $defaultSection   = section_course_codes()[0];
 // Every course code the portal knows about, used to populate the dropdown.
 $courseCodeOptions = section_course_codes();
 
+// Paging. 25 per page, matching coordinator/audit_logs.php and
+// coordinator/evaluations.php so all three coordinator list screens behave the
+// same way.
+$perPage       = 25;
+$page          = 1;
+$totalPages    = 1;
+$totalFiltered = 0;
+
 try {
     // Distinct Companies
     $stmtCompanies = $pdo->query("SELECT id, name FROM companies WHERE status = 'active' AND name IS NOT NULL AND name != '' ORDER BY name ASC");
@@ -58,7 +66,12 @@ try {
     // named marker and a bound value that has no marker in the SQL (HY093
     // "Invalid parameter number"), so each name is used exactly once and the
     // bound array only carries the values the final query actually uses.
-    $params = ['rowSection' => $defaultSection];
+    //
+    // This array therefore holds FILTER parameters only. :rowSection backs the
+    // COALESCE in the list query's SELECT list, which a COUNT(*) has no use for,
+    // so it is added further down, right before the list runs. Seeding it here
+    // would bind a value with no marker and break the count.
+    $params = [];
 
     if ($selectedCompany !== 'all' && is_numeric($selectedCompany) && intval($selectedCompany) > 0) {
         $whereClauses[] = "c.id = :comp_id";
@@ -79,6 +92,57 @@ try {
     }
 
     $whereSql = "WHERE " . implode(' AND ', $whereClauses);
+
+
+    /*
+     * |----------------------------------------------------------------------
+     * Total rows matching the current filters, which drives the pager.
+     * |----------------------------------------------------------------------
+     *
+     * The count repeats the same FROM/JOIN chain and the same WHERE as the list
+     * below, because the filters reach through u.name, s.student_number, c.id
+     * and s.section. Only the SELECT list is dropped.
+     */
+    $stmtCount = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN companies c ON s.company_id = c.id
+        LEFT JOIN offices o ON s.office_id = o.id
+        LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+        LEFT JOIN users u_sup ON sup.user_id = u_sup.id
+        {$whereSql}
+    ");
+
+    foreach ($params as $key => $value) {
+        $stmtCount->bindValue(':' . $key, $value);
+    }
+
+    $stmtCount->execute();
+
+    $totalFiltered = (int) $stmtCount->fetchColumn();
+
+
+    /*
+     * |----------------------------------------------------------------------
+     * Requested page, clamped into range
+     * |----------------------------------------------------------------------
+     *
+     * A ?page= beyond the end shows the last page rather than an empty table.
+     */
+    $totalPages = max(1, (int) ceil($totalFiltered / $perPage));
+
+    $page = max(1, (int) ($_GET['page'] ?? 1));
+
+    if ($page > $totalPages) {
+        $page = $totalPages;
+    }
+
+    $offset = ($page - 1) * $perPage;
+
+
+    // Only now, because this placeholder exists solely in the list query below.
+    $params['rowSection'] = $defaultSection;
 
     $sql = "
         SELECT 
@@ -103,11 +167,31 @@ try {
         LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
         LEFT JOIN users u_sup ON sup.user_id = u_sup.id
         {$whereSql}
-        ORDER BY s.section ASC, SUBSTRING_INDEX(u.name, ' ', -1) ASC, u.name ASC
+        ORDER BY s.section ASC, SUBSTRING_INDEX(u.name, ' ', -1) ASC, u.name ASC,
+
+            /*
+             * Tiebreaker. Surname and full name are not unique, so without a final
+             * deterministic key MySQL may order equal rows differently per query,
+             * which makes a row land on two pages or none as the LIMIT window
+             * slides. s.id is stable and unique.
+             */
+            s.id ASC
+
+        LIMIT :lim OFFSET :off
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+
+    // EMULATE_PREPARES is off, so LIMIT/OFFSET must be bound as integers; they
+    // cannot ride along in the string params array.
+    $stmt->bindValue(':lim', $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+
+    foreach ($params as $key => $value) {
+        $stmt->bindValue(':' . $key, $value);
+    }
+
+    $stmt->execute();
     $rawStudents = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     // Compute Percentages (entity counts already come back per student)
@@ -126,6 +210,11 @@ try {
 } catch (PDOException $e) {
     error_log("Approved Reports Error: " . $e->getMessage());
     $filteredStudents = [];
+
+    // The view renders the records pill and the pager outside the try block, so
+    // they need a fallback too -- otherwise they would report stale numbers
+    // next to an empty table.
+    $totalFiltered = 0;
 }
 
 require_once __DIR__ . '/../src/pages/coordinator/approvedReportsPage.php';
