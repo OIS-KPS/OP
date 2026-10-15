@@ -57,7 +57,7 @@ $exportParamsAll = http_build_query([
                         <!-- Header Actions -->
                         <div class="flex items-center gap-3 shrink-0">
                             <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
                                 <?= count($filteredStudents ?? []); ?> Total <?= count($filteredStudents ?? []) === 1 ? 'Student' : 'Students'; ?>
                             </span>
 
@@ -75,7 +75,7 @@ $exportParamsAll = http_build_query([
                                     
                                     <!-- All Sections Export -->
                                     <a href="export_summary.php?format=csv&<?= $exportParamsAll; ?>" class="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-800 hover:bg-slate-100 font-bold transition-colors">
-                                        <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+<svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                                         <span>Export All Course Codes (CSV)</span>
                                     </a>
 
@@ -92,13 +92,13 @@ $exportParamsAll = http_build_query([
                                         ]);
                                     ?>
                                         <a href="export_summary.php?format=csv&<?= $secParams; ?>" class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-slate-700 hover:bg-slate-100 font-semibold transition-colors">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                                             <span><?= htmlspecialchars($sec); ?> (CSV)</span>
                                         </a>
                                     <?php endforeach; ?>
 
                                     <div class="my-1 border-t border-slate-200"></div>
-                                    <a href="export_summary.php?format=pdf&<?= $exportParamsAll; ?>" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-xl text-rose-700 hover:bg-rose-50 font-bold transition-colors">
+                                    <a href="export_summary.php?format=pdf&<?= $exportParamsAll; ?>" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-xl text-[#0F2854] hover:bg-blue-50 font-bold transition-colors">
                                         <span>Print / PDF Document</span>
                                     </a>
                                 </div>
@@ -226,7 +226,7 @@ $exportParamsAll = http_build_query([
 
                                             <!-- Reports Count Badge -->
                                             <td class="py-4 px-4 align-middle">
-                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-[#0F2854] border border-blue-200 font-bold text-[10px] leading-tight max-w-full">
+                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 font-bold text-[10px] leading-tight max-w-full">
                                                     <span><?= (int)$student['approved_reports_count']; ?> Submitted / Approved</span>
                                                     <?php if (!empty($student['late_approved_count'])): ?>
                                                         <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-100 text-orange-900 border border-orange-300 shrink-0">
@@ -242,11 +242,11 @@ $exportParamsAll = http_build_query([
                                                     <div class="space-y-1">
                                                         <div class="flex items-center justify-between text-[10px] font-bold">
                                                             <span class="text-[#0F2854]">IT: <?= $student['it_percentage']; ?>%</span>
-                                                            <span class="text-rose-700">Clerical: <?= $student['clerical_percentage']; ?>%</span>
+                                                            <span class="text-slate-600">Clerical: <?= $student['clerical_percentage']; ?>%</span>
                                                         </div>
                                                         <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
                                                             <div class="bg-[#0F2854] h-full" style="width: <?= $student['it_percentage']; ?>%"></div>
-                                                            <div class="bg-rose-500 h-full" style="width: <?= $student['clerical_percentage']; ?>%"></div>
+                                                            <div class="bg-slate-400 h-full" style="width: <?= $student['clerical_percentage']; ?>%"></div>
                                                         </div>
                                                     </div>
                                                 <?php else: ?>

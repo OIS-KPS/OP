@@ -79,7 +79,6 @@ try {
             a.role,
             a.action,
             a.description,
-            a.ip_address,
             a.created_at,
             u.name AS user_name,
             u.email AS user_email

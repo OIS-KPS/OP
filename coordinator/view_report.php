@@ -241,10 +241,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'add_entity' && $targetReportId > 0) {
         $entityName = trim((string) ($_POST['entity_name'] ?? ''));
-        $category = trim((string) ($_POST['category'] ?? 'Other')) ?: 'Other';
-        $classification = trim((string) ($_POST['classification'] ?? 'Software'));
-        $activityType = in_array($classification, ['Software', 'Hardware', 'Clerical', 'Other'], true) ? $classification : 'Other';
-        $itRelated = $activityType === 'Clerical' ? 'no' : 'yes';
+
+        // The modal offers exactly two choices: IT Related or Clerical.
+        // This handler previously read $_POST['classification'], a field no
+        // form ever posts (the select is named it_related), so the fallback
+        // always applied and every manual add was saved as Software / IT --
+        // silently contradicting the coordinator's selection and inflating
+        // the IT percentage in this panel and in CQI reporting.
+        $itRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
+
+        // report_entities stores two classification fields: it_related (the source of
+        // truth, read by every reporting query) and category (used for grouping
+        // and filtering). They are kept in lockstep here so a manually added
+        // term can never end up labelled IT_TERM while it_related says
+        // Clerical, which is what put a clerical term inside an IT band on the
+        // CQI frequency chart.
+        $activityType = ($itRelated === 'no') ? 'Clerical' : 'Other';
+        $category = ($itRelated === 'no') ? 'CLERICAL_TERM' : 'IT_TERM';
+
+        // The modal has always posted an Aliases field but nothing ever read it.
+        // report_entities has no aliases column, so it is only used below for the
+        // optional dictionary write -- where aliases do matter, because they are
+        // what the Python extractor matches against.
+        //
+        // The form asks for commas because that is what people type, but the
+        // extractor splits aliases on the pipe character. Normalise here so the
+        // two can never disagree: commas, semicolons and pipes are all treated
+        // as separators, runs of whitespace collapse, empty segments are
+        // dropped, and the result is deduplicated case-insensitively.
+        $aliases = trim((string) ($_POST['aliases'] ?? ''));
+        if ($aliases !== '') {
+            $parts = preg_split('/[;,|]+/', $aliases) ?: [];
+            $seen = [];
+            $clean = [];
+            foreach ($parts as $part) {
+                $part = trim(preg_replace('/\s+/', ' ', $part) ?? '');
+                if ($part === '') {
+                    continue;
+                }
+                $key = strtolower($part);
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $clean[] = $part;
+            }
+            $aliases = implode(' | ', $clean);
+        }
+
+        // Opt-in: off by default. A term reaches the global dictionary only when
+        // the coordinator deliberately ticks the box, because a dictionary entry
+        // overrides the spaCy model and terms.csv on every future extraction.
+        $addToDictionary = isset($_POST['add_to_dictionary'])
+            && $_POST['add_to_dictionary'] === '1';
+
+        $reportEntitySaved = false;
 
         if ($entityName !== '') {
             try {
@@ -259,8 +310,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($existing) {
                     if ((int)$existing['is_archived'] === 1) {
                         // If it was previously archived, restore it instead of creating a duplicate!
-                        $stmtRestore = $pdo->prepare('UPDATE report_entities SET is_archived = 0, activity_type = ?, it_related = ? WHERE id = ?');
-                        $stmtRestore->execute([$activityType, $itRelated, $existing['id']]);
+                        // Restoring also restores the attribution: the coordinator is re-adding
+                        // this term by hand, so it must carry the manual_addition
+                        // source and survive the next extraction run.
+                        $stmtRestore = $pdo->prepare("UPDATE report_entities SET is_archived = 0, it_related = ?, source = 'manual_addition' WHERE id = ?");
+                        $stmtRestore->execute([$itRelated, $existing['id']]);
+                        $reportEntitySaved = true;
                         $_SESSION['flash_success'] = 'Entity was in archive and has been successfully restored!';
                     } else {
                         $_SESSION['flash_error'] = 'This entity already exists in this week\'s report list.';
@@ -270,14 +325,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmtInsert = $pdo->prepare(
                         'INSERT INTO report_entities
                             (report_id, entity_name, canonical_name, category,
-                             activity_type, it_related, source, confidence_score, is_archived)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
+                             it_related, source, confidence_score, is_archived)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 0)'
                     );
-                    $stmtInsert->execute([$targetReportId, $entityName, $entityName, $category, $activityType, $itRelated, 'manual_addition', 100.00]);
+                    $stmtInsert->execute([$targetReportId, $entityName, $entityName, $category, $itRelated, 'manual_addition', 100.00]);
+                    $reportEntitySaved = true;
                     $_SESSION['flash_success'] = 'Missing entity added successfully.';
                 }
             } catch (Throwable $exception) {
                 $_SESSION['flash_error'] = 'Failed to add entity: ' . userFacingError($exception, 'view_report.php:add_entity');
+            }
+
+            // Opt-in dictionary write. Kept in its own try/catch so a problem
+            // here can never undo the report-level entity that was just saved.
+            if ($addToDictionary && $reportEntitySaved) {
+                try {
+                    $stmtDict = $pdo->prepare(
+                        'INSERT INTO predefined_entities
+                            (entity_name, aliases, category, activity_type, it_related)
+                         VALUES (?, ?, ?, ?, ?)'
+                    );
+                    $stmtDict->execute([$entityName, $aliases ?: null, 'Other', $activityType, $itRelated]);
+
+                    $_SESSION['flash_success'] .=
+                        ' It was also added to the Entity Dictionary.';
+                } catch (PDOException $dictException) {
+                    if (str_contains($dictException->getMessage(), 'Duplicate')) {
+                        // entity_name is UNIQUE. The report entity is already
+                        // saved, so this is a notice rather than an error.
+                        $_SESSION['flash_success'] .=
+                            ' It is already in the Entity Dictionary, so the dictionary was left unchanged.';
+                    } else {
+                        $_SESSION['flash_success'] .=
+                            ' It could not be added to the Entity Dictionary.';
+                        error_log(
+                            'Dictionary add failed for "' . $entityName . '": '
+                            . $dictException->getMessage()
+                        );
+                    }
+                }
             }
         }
     } elseif ($action === 'delete_entity') {
@@ -339,18 +425,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'update_entity_type') {
         $entityId = (int) ($_POST['entity_id'] ?? 0);
-        $newActivityType = trim((string) ($_POST['activity_type'] ?? 'Software'));
-        if (in_array($newActivityType, ['Software', 'Hardware', 'Clerical', 'Other'], true) && $entityId > 0) {
+
+        // Two choices only: IT Related or Clerical. Software/Hardware are not
+        // selectable because no reporting query distinguishes them -- IT is
+        // computed as it_related != 'no'.
+        $newItRelated = (trim((string) ($_POST['it_related'] ?? 'yes')) === 'no') ? 'no' : 'yes';
+        if ($entityId > 0) {
             try {
-                $newItRelated = ($newActivityType === 'Clerical') ? 'no' : 'yes';
-                $stmtUpd = $pdo->prepare("UPDATE report_entities
-                                              SET activity_type = ?, it_related = ?
-                                              WHERE id = ?
-                                                AND report_id IN (SELECT id FROM reports WHERE student_id = ?)");
-                $stmtUpd->execute([$newActivityType, $newItRelated, $entityId, $studentId]);
-                if ($stmtUpd->rowCount() === 0) {
+                // Read the value actually stored, scoped to this student. Without
+                // it there is no way to tell a real change from a re-confirmation
+                // of the value already in place.
+                $stmtCur = $pdo->prepare(
+                    "SELECT re.id, re.it_related, re.original_it_related
+                     FROM report_entities re
+                     JOIN reports r ON r.id = re.report_id
+                     WHERE re.id = ? AND r.student_id = ?
+                     LIMIT 1"
+                );
+                $stmtCur->execute([$entityId, $studentId]);
+                $current = $stmtCur->fetch(PDO::FETCH_ASSOC);
+
+                if (!$current) {
                     $_SESSION['flash_error'] = 'That entity does not belong to this student report.';
+                } elseif ((string)$current['it_related'] === $newItRelated) {
+                    // Nothing actually changed. Stamping here would permanently
+                    // label an untouched entity as reclassified, which is worse
+                    // than doing nothing at all.
+                    $_SESSION['flash_error'] = 'That is already the current classification.';
                 } else {
+                    // source = 'manual_addition' is what makes an attribution badge
+                    // appear, and it also makes the row survive the next extraction
+                    // run: the extraction DELETE skips manual additions, so a
+                    // coordinator decision is never overwritten by the model.
+                    //
+                    // original_it_related is captured once via COALESCE, on the first
+                    // real change. The card compares it against it_related, so a
+                    // coordinator who puts the term back the way the extractor found
+                    // it stops being shown as reclassified.
+                    //
+                    // category is rewritten from the same value so it can never drift
+                    // away from it_related. It is bound twice rather than derived in
+                    // PHP so the CASE and the assignment cannot disagree.
+                    //
+                    // Add Entity leaves both original columns NULL, because a term
+                    // typed in from nothing has no extracted value to compare against.
+                    $stmtUpd = $pdo->prepare("UPDATE report_entities
+                                              SET original_it_related = COALESCE(original_it_related, it_related),
+                                                  it_related = ?, source = 'manual_addition',
+                                                  reclassified_at = NOW(),
+                                                  category = CASE WHEN ? = 'no' THEN 'CLERICAL_TERM' ELSE 'IT_TERM' END
+                                              WHERE id = ?");
+                    $stmtUpd->execute([$newItRelated, $newItRelated, $entityId]);
+
                     $_SESSION['flash_success'] = 'Entity classification updated successfully.';
                 }
             } catch (Throwable $e) {

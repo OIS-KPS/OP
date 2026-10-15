@@ -11,9 +11,6 @@ $overallTechPct = 0.0;
 $spacyConfidence = 0.0;
 $companyPerformance = [];
 $entitiesData = [];
-$categoryCounts = [];
-$topCategoryName = 'No data';
-$topCategoryOccurrences = 0;
 $dashboardError = '';
 
 // CQI variables consumed by dashboardPage.php.
@@ -70,7 +67,7 @@ try {
     $stmt = $pdo->query(
         "SELECT COALESCE(
             ROUND(
-                100 * SUM(CASE WHEN re.activity_type <> 'Clerical' THEN 1 ELSE 0 END)
+                100 * SUM(CASE WHEN re.it_related <> 'no' THEN 1 ELSE 0 END)
                 / NULLIF(COUNT(*), 0),
                 2
             ),
@@ -78,7 +75,8 @@ try {
          )
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
-         WHERE r.status = 'approved'"
+         WHERE r.status = 'approved'
+           AND re.is_archived = 0"
     );
     $overallTechPct = (float) ($stmt->fetchColumn() ?: 0);
 
@@ -88,7 +86,8 @@ try {
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
          WHERE re.confidence_score IS NOT NULL
-           AND r.status = 'approved'"
+           AND r.status = 'approved'
+           AND re.is_archived = 0"
     );
     $spacyConfidence = (float) ($stmt->fetchColumn() ?: 0);
 
@@ -126,6 +125,7 @@ try {
          INNER JOIN reports r ON r.student_id = s.id
          INNER JOIN report_entities re ON re.report_id = r.id
          WHERE r.status = 'approved'
+           AND re.is_archived = 0
          GROUP BY s.company_id"
     );
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -184,7 +184,7 @@ try {
             COALESCE(NULLIF(re.category, ''), 'Other') AS category,
             COUNT(*) AS frequency,
             CASE
-                WHEN re.activity_type = 'Clerical' THEN 'Clerical'
+                WHEN re.it_related = 'no' THEN 'Clerical'
                 ELSE 'Technical'
             END AS classification,
             COALESCE(c.name, 'Unassigned') AS company,
@@ -194,10 +194,11 @@ try {
          INNER JOIN students s ON s.id = r.student_id
          LEFT JOIN companies c ON c.id = s.company_id
          WHERE r.status = 'approved'
+           AND re.is_archived = 0
          GROUP BY
             re.entity_name,
             re.category,
-            re.activity_type,
+            re.it_related,
             c.id,
             c.name,
             DATE(r.submitted_at)
@@ -215,19 +216,15 @@ try {
         ];
     }
 
-    // 7. Category totals are calculated from the live entity rows above.
-    foreach ($entitiesData as $entity) {
-        $category = $entity['category'];
-        $categoryCounts[$category] =
-            ($categoryCounts[$category] ?? 0) + $entity['frequency'];
-    }
-
-    // Build one compact row per entity/category/classification for the
+    // Build one compact row per entity/classification for the
     // scrollable analysis card. Frequencies remain based on COUNT(*) from the
     // report_entities rows already grouped by company and report date.
+    //
+    // Keyed on entity and classification only: category is now a mirror of
+    // classification, so including it would split one term into duplicate rows.
     $frequencyRows = [];
     foreach ($entitiesData as $entity) {
-        $analysisKey = strtolower(trim($entity['entity'])) . '|' . strtolower(trim($entity['category'])) . '|' . strtolower(trim($entity['classification']));
+        $analysisKey = strtolower(trim($entity['entity'])) . '|' . strtolower(trim($entity['classification']));
         if (!isset($frequencyRows[$analysisKey])) {
             $frequencyRows[$analysisKey] = [
                 'entity' => $entity['entity'],
@@ -254,11 +251,14 @@ try {
             : strcasecmp($left['entity'], $right['entity']);
     });
 
-    arsort($categoryCounts);
-    if ($categoryCounts) {
-        $topCategoryName = (string) array_key_first($categoryCounts);
-        $topCategoryOccurrences = (int) ($categoryCounts[$topCategoryName] ?? 0);
-    }
+    // The leading "category" used to be reported as a CQI finding. Now that
+    // category mirrors it_related, that sentence only ever read "the leading
+    // category is IT_TERM with N occurrences" -- N being the IT count the
+    // dashboard already displays twice. The finding is built from the most
+    // frequent individual term instead, which is new information.
+    $topTermName = 'No data';
+    $topTermClassification = '';
+    $topTermOccurrences = 0;
 
     // 8. CQI evidence derived from the same live dashboard data.
     $evaluationCoveragePct = $totalStudents > 0
@@ -322,11 +322,19 @@ try {
     });
     $topEntities = array_slice($topEntities, 0, 5);
 
+    if (!empty($topEntities)) {
+        $topTerm = $topEntities[0];
+        $topTermName = (string) ($topTerm['entity'] ?? 'No data');
+        $topTermClassification = (string) ($topTerm['classification'] ?? '');
+        $topTermOccurrences = max(0, (int) ($topTerm['frequency'] ?? 0));
+    }
+
     $stmt = $pdo->query(
         "SELECT COUNT(DISTINCT re.report_id)
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
-         WHERE r.status = 'approved'"
+         WHERE r.status = 'approved'
+           AND re.is_archived = 0"
     );
     $totalReportsWithEntities = (int) ($stmt->fetchColumn() ?: 0);
 
@@ -379,8 +387,8 @@ try {
             'other_entity_occurrences' => $otherEntityOccurrences,
             'reports_with_entities' => $totalReportsWithEntities,
             'average_extraction_confidence' => $spacyConfidence,
-            'top_category' => $topCategoryName,
-            'top_category_occurrences' => $topCategoryOccurrences,
+            'top_term' => $topTermName,
+            'top_term_occurrences' => $topTermOccurrences,
             'low_performing_companies' => count($lowPerformingCompanies),
             'companies_without_evaluations' => count($companiesWithoutEvaluations),
             'highest_it_company' => $highestItCompany,
@@ -573,7 +581,14 @@ try {
     $cqiActionPlan[] = [
         'priority' => 'Continuous',
         'area' => 'Entity taxonomy maintenance',
-        'finding' => sprintf('The current leading category is %s with %d recorded occurrences.', $topCategoryName, $topCategoryOccurrences),
+        'finding' => $topTermOccurrences > 0
+            ? sprintf(
+                'The most frequent recorded term is "%s" (%s), appearing %d times across approved reports.',
+                $topTermName,
+                $topTermClassification !== '' ? $topTermClassification : 'Unclassified',
+                $topTermOccurrences
+            )
+            : 'No entity occurrences have been recorded yet, so there is no leading term to review.',
         'action' => 'Review the top entities and aliases monthly; merge duplicates, remove generic terms, and add validated clerical or technical terms from new reports.',
         'owner' => 'Coordinator',
         'timeframe' => 'Monthly',
