@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
-    // Action A: Create Student Account (with Optional Direct Placement Link)
+    // Action A: Create Student Account (placement is assigned later, via Assignments)
 
     if ($action === 'create_student') {
 
@@ -117,38 +117,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $section       = normalizeSectionCode($_POST['section'] ?? '');
 
-        $officeId      = !empty($_POST['office_id']) ? intval($_POST['office_id']) : null;
-
-
-
         if (!empty($name) && !empty($studentNumber) && !empty($email)) {
 
             try {
 
                 $pdo->beginTransaction();
 
+                /*
+                 * New interns are always created unplaced. Office, company and
+                 * supervisor are filled in from the Assignments page, which is
+                 * the single place a placement is made.
+                 */
 
-
-                // Resolve placement: the office determines company + supervisor
                 $companyId    = null;
                 $supervisorId = null;
-
-                if ($officeId) {
-                    $stmtOffice = $pdo->prepare("
-                        SELECT o.company_id, sup.id AS supervisor_id
-                        FROM offices o
-                        LEFT JOIN supervisors sup ON sup.office_id = o.id
-                        WHERE o.id = ?
-                        LIMIT 1
-                    ");
-                    $stmtOffice->execute([$officeId]);
-                    $office = $stmtOffice->fetch(PDO::FETCH_ASSOC);
-
-                    if ($office) {
-                        $companyId    = $office['company_id'];
-                        $supervisorId = $office['supervisor_id'] ?: null;
-                    }
-                }
+                $officeId     = null;
 
 
 
@@ -178,6 +161,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
+                // office_id / company_id / supervisor_id are intentionally left
+                // out of the UPDATE list: this form no longer sets a placement,
+                // so re-adding an existing intern must not wipe the one they
+                // already have from the Assignments page.
+
                 $stmtStudent = $pdo->prepare("
 
                     INSERT INTO students (user_id, student_number, program, section, office_id, company_id, supervisor_id)
@@ -190,13 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         program = 'BSIT',
 
-                        section = VALUES(section),
-
-                        office_id = VALUES(office_id),
-
-                        company_id = VALUES(company_id),
-
-                        supervisor_id = VALUES(supervisor_id)
+                        section = VALUES(section)
 
                 ");
 
