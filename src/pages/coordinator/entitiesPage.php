@@ -7,6 +7,48 @@ if (!function_exists('e')) {
 }
 $view = $view ?? 'active';
 $viewParam = $view === 'archived' ? '&view=archived' : '';
+
+// Normalised here because the closure below binds them by value. PHP closures do
+// NOT inherit the enclosing scope the way a nested block would, so anything it
+// reads has to arrive through an explicit `use` -- otherwise every one of these
+// resolves as undefined at render time.
+$entityView       = $view;
+$entitySearch     = (string) ($search ?? '');
+$entityType       = (string) ($typeFilter ?? 'All');
+$entityCategory   = (string) ($categoryFilter ?? 'All');
+$entityPage       = (int) ($page ?? 1);
+
+/*
+ * Hidden inputs replayed inside every POST form on this page (archive, restore,
+ * delete, add, edit) so the controller's redirectToEntities() can return the
+ * coordinator to the same view, with the same search and filters, on the same
+ * page number. Without them, archiving on page 3 bounced back to page 1 with
+ * the search cleared.
+ *
+ * Empty values are skipped so the redirect does not accumulate blanks.
+ */
+$entityFilterFields = static function () use (
+    $entityView,
+    $entitySearch,
+    $entityType,
+    $entityCategory,
+    $entityPage
+): void {
+    foreach ([
+        'view'       => $entityView,
+        'search'     => $entitySearch,
+        'it_related' => $entityType,
+        'category'   => $entityCategory,
+        'page'       => $entityPage,
+    ] as $name => $value) {
+        if ((string) $value === '') {
+            continue;
+        }
+
+        echo '<input type="hidden" name="' . htmlspecialchars($name) . '" value="'
+            . htmlspecialchars((string) $value) . '">';
+    }
+};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -95,9 +137,14 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                         <span class="mx-0.5 h-6 w-px bg-slate-300 shrink-0"></span>
 
                         <div class="flex items-center gap-1.5 overflow-x-auto text-xs">
-                            <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'All') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                                All <span class="ml-1 opacity-90 font-bold"><?= count($entities); ?></span>
-                            </a>
+                            <!-- "All" means "no IT/clerical filter", so its badge is the whole current
+                                 view. It used to read count($entities), which is the FILTERED
+                                 set -- so searching made this tab claim "All 3" out of 25. The
+                                 Active/Archive badges above have always used the unfiltered
+                                 $activeCount/$archivedCount; this now agrees with them. -->
+                                <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'All') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
+                                    All <span class="ml-1 opacity-90 font-bold"><?= (int) ($view === 'archived' ? ($archivedCount ?? 0) : ($activeCount ?? 0)); ?></span>
+                                </a>
                             <a href="entities.php?it_related=yes<?= $viewParam; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'yes') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
                                 IT
                             </a>
@@ -133,18 +180,24 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                         <h3 class="text-xs font-extrabold text-slate-950 tracking-wider uppercase">Entity List</h3>
                         <p class="text-[11px] font-semibold text-slate-600 mt-0.5"><?= $view === 'archived' ? 'Archived entities excluded from reviews and extraction' : 'Entities recognized during weekly document reviews'; ?></p>
                     </div>
-                    <span class="text-xs font-black text-slate-900 bg-white px-3.5 py-1 rounded-lg border border-slate-300 shadow-2xs">
-                        <?= count($entities); ?> <?= $view === 'archived' ? 'Archived' : 'Total'; ?>
+                    <span
+                        class="text-xs font-black text-slate-900 bg-white px-3.5 py-1 rounded-lg border border-slate-300 shadow-2xs"
+                        title="Matching the current search and filters, across every page"
+                    >
+                        <?= (int) $totalFiltered; ?> <?= $view === 'archived' ? 'Archived' : 'Total'; ?>
                     </span>
                 </div>
 
                 <?php if (!empty($entities)): ?>
-                    <div class="w-full overflow-y-auto max-h-[620px] thin-scrollbar">
-                        <table class="w-full table-fixed text-left border-collapse text-xs">
+                    <!-- No inner max-height scroll box: pagination is what bounds this
+                         table now. Horizontal scroll only, so narrow screens scroll
+                         rather than squash the columns. -->
+                    <div class="w-full overflow-x-auto">
+                        <table class="w-full min-w-[720px] table-fixed text-left border-collapse text-xs">
                             <colgroup>
-                                <col style="width: 58%;">
-                                <col style="width: 20%;">
-                                <col style="width: 22%;">
+                                <col class="w-[58%]">
+                                <col class="w-[20%]">
+                                <col class="w-[22%]">
                             </colgroup>
                             <thead>
                                 <tr class="bg-slate-100 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
@@ -179,6 +232,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                         <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="restore">
                                                         <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
+                                                        <?php $entityFilterFields(); ?>
                                                         <button type="submit" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg text-[10px] transition-colors border border-emerald-300 shadow-2xs cursor-pointer">
                                                             Restore
                                                         </button>
@@ -187,6 +241,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                         <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="permanent_delete">
                                                         <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
+                                                        <?php $entityFilterFields(); ?>
                                                         <button type="submit" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-900 font-bold rounded-lg text-[10px] transition-colors border border-rose-300 shadow-2xs cursor-pointer">
                                                             Delete
                                                         </button>
@@ -199,6 +254,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                         <?= csrf_field(); ?>
                                                         <input type="hidden" name="action" value="archive">
                                                         <input type="hidden" name="id" value="<?= (int)$ent['id']; ?>">
+                                                        <?php $entityFilterFields(); ?>
                                                         <button type="submit" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-lg text-[10px] transition-colors border border-amber-300 shadow-2xs cursor-pointer">
                                                             Archive
                                                         </button>
@@ -211,6 +267,51 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Pagination Footer -->
+                    <?php if ($totalPages > 1):
+                        // Every filter rides along, or the pager would drop the
+                        // coordinator back onto an unfiltered list mid-search.
+                        $baseQuery = 'view=' . urlencode($view)
+                            . '&search=' . urlencode($search ?? '')
+                            . '&it_related=' . urlencode($typeFilter ?? 'All')
+                            . '&category=' . urlencode($categoryFilter ?? 'All');
+
+                        $firstShown = $totalFiltered > 0 ? (($page - 1) * $perPage) + 1 : 0;
+                        $lastShown  = $totalFiltered > 0 ? min($page * $perPage, $totalFiltered) : 0;
+                    ?>
+                        <div class="px-4 py-3 border-t border-slate-200/70 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <p class="text-[11px] font-semibold text-slate-600">
+                                Showing <span class="font-black text-slate-900"><?= $firstShown; ?></span>&ndash;<span class="font-black text-slate-900"><?= $lastShown; ?></span>
+                                of <span class="font-black text-slate-900"><?= (int)$totalFiltered; ?></span>
+                                &middot; Page <?= (int)$page; ?> of <?= (int)$totalPages; ?>
+                            </p>
+
+                            <div class="flex items-center gap-2">
+                                <?php if ($page > 1): ?>
+                                    <a href="entities.php?<?= $baseQuery; ?>&page=<?= $page - 1; ?>"
+                                       class="px-3 py-1.5 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                        <span>&lsaquo;</span> Prev
+                                    </a>
+                                <?php else: ?>
+                                    <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                        <span>&lsaquo;</span> Prev
+                                    </span>
+                                <?php endif; ?>
+
+                                <?php if ($page < $totalPages): ?>
+                                    <a href="entities.php?<?= $baseQuery; ?>&page=<?= $page + 1; ?>"
+                                       class="px-3 py-1.5 text-xs font-bold text-white bg-[#0F2854] hover:bg-blue-900 border border-[#0F2854] rounded-xl transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                        Next <span>&rsaquo;</span>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="px-3 py-1.5 text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1 opacity-60">
+                                        Next <span>&rsaquo;</span>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 <?php else: ?>
                     <div class="py-16 text-center text-slate-500 text-xs font-semibold">
                         <?= $view === 'archived' ? 'No archived entities yet.' : 'No entities found matching your search.'; ?>
@@ -235,6 +336,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
         <form method="POST" action="entities.php" class="space-y-3.5 text-xs">
                         <?= csrf_field(); ?>
             <input type="hidden" name="action" value="create">
+            <?php $entityFilterFields(); ?>
 
             <div>
                 <label class="block font-bold text-slate-700 mb-1">Entity Name *</label>
@@ -276,6 +378,7 @@ $viewParam = $view === 'archived' ? '&view=archived' : '';
                         <?= csrf_field(); ?>
             <input type="hidden" name="action" value="update">
             <input type="hidden" name="id" id="edit_id">
+            <?php $entityFilterFields(); ?>
 
             <div>
                 <label class="block font-bold text-slate-700 mb-1">Entity Name *</label>

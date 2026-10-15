@@ -21,6 +21,45 @@ $message = $_SESSION['entity_message'] ?? '';
 $error   = $_SESSION['entity_error'] ?? '';
 unset($_SESSION['entity_message'], $_SESSION['entity_error']);
 
+/*
+ * |--------------------------------------------------------------------------
+ * Redirect back to the list, keeping the coordinator's place in it.
+ * |--------------------------------------------------------------------------
+ *
+ * Archive, restore, rename and delete used to bounce to a bare entities.php,
+ * which threw away the active search, the IT/clerical filter and the page
+ * number. Once the list is paginated that means archiving an entity on page 3
+ * drops the coordinator back on page 1 with the search cleared.
+ *
+ * The list form already carries these as hidden inputs, so they arrive in POST.
+ * Only the whitelisted keys below are forwarded, so nothing else can be pushed
+ * into the query string.
+ *
+ * $force overrides a carried value. Restore and delete come only from the
+ * archive view, so they pin it there rather than trusting the hidden input.
+ */
+function redirectToEntities(array $force = []): void
+{
+    $carried = [];
+
+    foreach (['view', 'search', 'it_related', 'category', 'page'] as $key) {
+        $value = trim((string) ($_POST[$key] ?? ''));
+
+        if ($value !== '') {
+            $carried[$key] = $value;
+        }
+    }
+
+    foreach ($force as $key => $value) {
+        $carried[$key] = $value;
+    }
+
+    header(
+        'Location: entities.php' . ($carried ? '?' . http_build_query($carried) : '')
+    );
+    exit();
+}
+
 // ==========================================
 // 1. HANDLE DATABASE CRUD OPERATIONS (POST)
 // ==========================================
@@ -54,8 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             : 'Database Error: ' . userFacingError($e, 'entities.php:create');
             }
         }
-        header("Location: entities.php");
-        exit();
+        redirectToEntities();
     }
 
     // UPDATE IN DB
@@ -139,8 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:update');
             }
         }
-        header("Location: entities.php");
-        exit();
+        redirectToEntities();
     }
 
     // ARCHIVE (soft delete)
@@ -155,8 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:archive');
             }
         }
-        header("Location: entities.php");
-        exit();
+        redirectToEntities();
     }
 
     // RESTORE FROM ARCHIVE
@@ -171,8 +207,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:restore');
             }
         }
-        header("Location: entities.php?view=archived");
-        exit();
+        // Restore always returns to the archive view: that is the only place the
+        // button exists, and the row it acted on is gone from this list now.
+        redirectToEntities(['view' => 'archived']);
     }
 
     // PERMANENT DELETE (from archive only)
@@ -187,8 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['entity_error'] = "Database Error: " . userFacingError($e, 'entities.php:permanent_delete');
             }
         }
-        header("Location: entities.php?view=archived");
-        exit();
+        redirectToEntities(['view' => 'archived']);
     }
 }
 
@@ -201,34 +237,101 @@ $search         = trim($_GET['search'] ?? '');
 $categoryFilter = trim($_GET['category'] ?? 'All');
 $typeFilter     = trim($_GET['it_related'] ?? 'All');
 
-$sql = "SELECT id, entity_name, aliases, category, activity_type, it_related, description, created_at, updated_at 
-        FROM predefined_entities 
-        WHERE is_archived = :archived";
+// Paging. 25 per page, matching the other coordinator list screens.
+$perPage       = 25;
+$page          = 1;
+$totalPages    = 1;
+$totalFiltered = 0;
+
+// The WHERE is assembled once and shared by the count and the list, so the two
+// can never drift. Every placeholder below lives in it, which means $params is
+// complete for both statements -- nothing here backs a SELECT-list expression
+// the way :rowSection does on the reports tab.
+$whereClauses = ["is_archived = :archived"];
 $params = ['archived' => $archivedFlag];
 
 if ($search !== '') {
     // Native prepares (EMULATE_PREPARES is off) cannot reuse a named
     // placeholder, so each column needs its own parameter name.
-    $sql .= " AND (entity_name LIKE :s_name OR aliases LIKE :s_alias OR description LIKE :s_desc)";
+    $whereClauses[] = "(entity_name LIKE :s_name OR aliases LIKE :s_alias OR description LIKE :s_desc)";
     $params['s_name']  = "%{$search}%";
     $params['s_alias'] = "%{$search}%";
     $params['s_desc']  = "%{$search}%";
 }
 
 if ($categoryFilter !== 'All' && $categoryFilter !== '') {
-    $sql .= " AND category = :cat";
+    $whereClauses[] = "category = :cat";
     $params['cat'] = $categoryFilter;
 }
 
 if ($typeFilter === 'yes' || $typeFilter === 'no') {
-    $sql .= " AND it_related = :type";
+    $whereClauses[] = "it_related = :type";
     $params['type'] = $typeFilter;
 }
 
-$sql .= " ORDER BY entity_name ASC";
+$whereSql = "WHERE " . implode(' AND ', $whereClauses);
+
+/*
+ * |----------------------------------------------------------------------
+ * Total rows matching the current view + filters, which drives the pager.
+ * |----------------------------------------------------------------------
+ */
+$stmtCount = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM predefined_entities
+    {$whereSql}
+");
+
+foreach ($params as $key => $value) {
+    $stmtCount->bindValue(':' . $key, $value);
+}
+
+$stmtCount->execute();
+
+$totalFiltered = (int) $stmtCount->fetchColumn();
+
+
+/*
+ * |----------------------------------------------------------------------
+ * Requested page, clamped into range
+ * |----------------------------------------------------------------------
+ *
+ * A ?page= beyond the end shows the last page rather than an empty table.
+ */
+$totalPages = max(1, (int) ceil($totalFiltered / $perPage));
+
+$page = max(1, (int) ($_GET['page'] ?? 1));
+
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+
+$offset = ($page - 1) * $perPage;
+
+
+$sql = "
+    SELECT id, entity_name, aliases, category, activity_type, it_related, description, created_at, updated_at
+    FROM predefined_entities
+    {$whereSql}
+
+    -- entity_name carries a UNIQUE index (uq_predefined_entity), so this ordering
+    -- is already deterministic and the paging window cannot drift between pages.
+    ORDER BY entity_name ASC
+
+    LIMIT :lim OFFSET :off
+";
 
 $stmt = $pdo->prepare($sql);
-$stmt->execute($params);
+
+// EMULATE_PREPARES is off, so LIMIT/OFFSET must be bound as integers.
+$stmt->bindValue(':lim', $perPage, PDO::PARAM_INT);
+$stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+
+foreach ($params as $key => $value) {
+    $stmt->bindValue(':' . $key, $value);
+}
+
+$stmt->execute();
 $entities = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // Active/archived counters for the view switch.
