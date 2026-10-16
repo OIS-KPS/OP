@@ -24,12 +24,34 @@ switch ($userRole) {
 $displayName = $_SESSION['user_name'] ?? (!empty($student['name']) ? $student['name'] : 'User');
 $displayEmail = $_SESSION['email'] ?? '';
 ?>
-<header class="bg-white/95 backdrop-blur-md h-20 px-8 flex justify-between items-center sticky top-0 z-10 border-b border-slate-200/80 transition-all select-none">
+<header class="bg-white/95 backdrop-blur-md h-20 px-4 sm:px-8 flex justify-between items-center sticky top-0 z-10 border-b border-slate-200/80 transition-all select-none">
     
+    <!-- Student navigation toggle.
+         Role-gated on purpose: this header is shared by all four roles, and
+         only the student sidebar is an off-canvas drawer below lg. The
+         coordinator and supervisor sidebars are static columns at every width,
+         so rendering this button for them would give a control that opens
+         nothing. $userRole is resolved at the top of this file. -->
+    <?php if ($userRole === 'student'): ?>
+    <button
+        type="button"
+        id="student-menu-btn"
+        onclick="toggleStudentSidebar()"
+        class="lg:hidden -ml-2 p-2 mr-1 shrink-0 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+        aria-label="Open navigation"
+        aria-controls="student-sidebar"
+        aria-expanded="false"
+    >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+    </button>
+    <?php endif; ?>
+
     <!-- Department Scope & Identity -->
-    <div class="flex items-center gap-2.5">
+    <div class="flex items-center gap-2.5 min-w-0">
         
-        <p class="text-sm font-bold text-blue-900 tracking-tight ">LaunchPad - Institue for Computer Studies</p>
+        <p class="text-sm font-bold text-blue-900 tracking-tight truncate min-w-0 ">LaunchPad - Institue for Computer Studies</p>
     </div>
 
     <!-- Right Header Controls -->

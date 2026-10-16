@@ -201,7 +201,7 @@ $isAssigned  = !empty($student['company_id']);
 
                     <?php if (!$isEvaluated && !$isRequested): ?>
 
-                        <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2.5">
 
 
                             <!-- =================================================
@@ -211,7 +211,7 @@ $isAssigned  = !empty($student['company_id']);
                             <a
                                 href="/ICS-PORTAL/public/files/ICS-WAR-TEMPLATE.docx"
                                 download="ICS-WAR-TEMPLATE.docx"
-                                class="shrink-0 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs transition-all border border-white/15 inline-flex items-center gap-2"
+                                class="shrink-0 w-full sm:w-auto justify-center px-4 py-2.5 bg-transparent hover:bg-white/10 text-white font-bold rounded-xl text-xs transition-colors border border-white/25 inline-flex items-center gap-2"
                             >
 
                                 <!-- Download Icon -->
@@ -246,7 +246,7 @@ $isAssigned  = !empty($student['company_id']);
                             <?php if ($isAssigned): ?>
                             <a
                                 href="submit_report.php?week=<?= htmlspecialchars($nextWeek ?? '1'); ?>"
-                                class="shrink-0 px-5 py-3 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2"
+                                class="shrink-0 w-full sm:w-auto justify-center px-4 py-2.5 bg-white hover:bg-slate-100 text-[#0F2854] font-bold rounded-xl text-xs transition-colors shadow-sm inline-flex items-center gap-2"
                             >
 
                                 <span>
@@ -256,7 +256,7 @@ $isAssigned  = !empty($student['company_id']);
                                 <!-- Arrow Icon -->
 
                                 <svg
-                                    class="w-3.5 h-3.5"
+                                    class="w-4 h-4"
                                     fill="none"
                                     stroke="currentColor"
                                     stroke-width="2.5"
@@ -273,7 +273,7 @@ $isAssigned  = !empty($student['company_id']);
 
                             </a>
                             <?php else: ?>
-                            <span class="shrink-0 px-5 py-3 bg-white text-slate-700 font-bold rounded-xl text-xs transition-all shadow-xs inline-flex items-center gap-2 border border-slate-300">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-200 border border-amber-400/30">
                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                 <span>Waiting for placement assignment</span>
                             </span>

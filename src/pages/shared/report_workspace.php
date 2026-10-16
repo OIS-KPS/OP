@@ -422,7 +422,7 @@ $renderWeekSelector = function (bool $asCard) use (
                 <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
                     <!-- Left Column: Chronological WAR Timeline & Full-Size PDF Preview (7 of 12, or 12 when there is no right column) -->
-                    <div class="xl:col-span-<?= $hasRightColumn ? '7' : '12' ?> bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col h-[calc(100vh-210px)] min-h-[780px]">
+                    <div class="xl:col-span-<?= $hasRightColumn ? '7' : '12' ?> bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col h-[60vh] min-h-[420px] xl:h-[calc(100vh-210px)] xl:min-h-[780px]">
                         <div class="p-4 sm:p-5 border-b border-slate-200/70 flex items-center justify-between bg-slate-50/60 shrink-0">
                             <div>
                                 <h2 class="text-xs font-extrabold text-slate-950 uppercase tracking-wider">WAR Timeline &amp; Document Viewer</h2>
@@ -456,7 +456,7 @@ $renderWeekSelector = function (bool $asCard) use (
 
                     <!-- Right Column: Aggregated Analytics & Active Week Entities (5 of 12 columns; omitted entirely when it would be empty) -->
                     <?php if ($hasRightColumn): ?>
-                    <div class="xl:col-span-5 flex flex-col h-[calc(100vh-210px)] min-h-[780px] space-y-5">
+                    <div class="xl:col-span-5 flex flex-col h-[60vh] min-h-[420px] xl:h-[calc(100vh-210px)] xl:min-h-[780px] space-y-5">
 
                         <!-- Week Dropdown / Submitted Stamp / Fullscreen / Late (roles that set $selectorInRightPanel) -->
                         <?php if ($selectorInRightPanel): ?>

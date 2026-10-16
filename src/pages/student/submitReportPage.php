@@ -5,11 +5,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ICS OJT Portal</title>
+    <title>Submit Week <?= htmlspecialchars($weekNumber); ?> Report - Student Portal</title>
+    <!-- Inter Font.
+         This was the only student page that did not load it, so it rendered in
+         the system sans-serif while every other screen used Inter. That mismatch
+         is most of why the page looked like it belonged to a different app. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Global Custom Stylesheet -->
-    <link rel="stylesheet" href="public/css/style.css">
+    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 
@@ -25,22 +32,31 @@
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
             <!-- Main Scrollable Body -->
-            <main class="p-8 max-w-xl w-full mx-auto space-y-5 flex-1">
+            <main class="p-4 sm:p-8 max-w-xl w-full mx-auto space-y-5 flex-1">
 
                 <!-- Cancel Link -->
                 <div>
-                    <a href="reports.php" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#0F2854] transition-all">
+                    <a href="reports.php" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#0F2854] transition-colors">
                         ← Cancel
                     </a>
                 </div>
 
                 <!-- Page Title Area -->
                 <div>
-                    <h2 class="text-xl font-bold text-slate-900 leading-snug">
-                        Upload Your Week <?= htmlspecialchars($weekNumber); ?> Weekly Accomplishment Report
-                    </h2>
+                    <h1 class="text-xl font-bold text-slate-900 leading-snug">
+                        Submit Week <?= htmlspecialchars($weekNumber); ?> Report
+                    </h1>
                     <p class="text-slate-500 text-xs mt-1">
-                        Please upload your official signed WAR document in PDF format.
+                        <?php /* No "signed" and no "official" here. Nothing in the
+                                 weekly flow involves a signature -- the WAR template the
+                                 intern downloads has no signature field -- and every
+                                 signature in this app is a digital OTP on the *final
+                                 evaluation*, where export_evaluation.php states plainly
+                                 that no physical signature is required. "Completed"
+                                 states what the intern actually did, and the second
+                                 sentence reuses the dashboard's own wording at
+                                 dashboardPage.php:190. */ ?>
+                        Upload your completed WAR (Weekly Accomplishment Report) as a PDF. Your supervisor will review and verify it.
                     </p>
                     <?php if (!empty($weekDue)): ?>
                         <p class="text-xs font-semibold mt-2 <?= !empty($isLatePreview) ? 'text-orange-700' : 'text-slate-600'; ?>">
@@ -57,7 +73,7 @@
                     <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs space-y-1">
                         <p class="font-bold">Submission error:</p>
                         <ul class="list-disc list-inside space-y-0.5">
-                            <?php foreach ($errors as$error): ?>
+                            <?php foreach ($errors as $error): ?>
                                 <li><?= htmlspecialchars($error); ?></li>
                             <?php endforeach; ?>
                         </ul>
@@ -70,7 +86,7 @@
                     <?= csrf_field(); ?>
 
                     <!-- Drag & Drop PDF Box -->
-                    <div id="drop-zone" class="relative border border-dashed border-slate-300 hover:border-[#0F2854] rounded-2xl p-8 bg-white hover:bg-blue-50/20 transition-all text-center cursor-pointer flex flex-col items-center justify-center min-h-[180px]">
+                    <div id="drop-zone" class="relative border border-dashed border-slate-300 hover:border-[#0F2854] rounded-2xl p-6 sm:p-8 bg-white hover:bg-blue-50/20 transition-colors text-center cursor-pointer flex flex-col items-center justify-center min-h-[180px]">
                         
                         <input type="file" id="report_file" name="report_file" accept=".pdf" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handleFileSelect(this)">
 
@@ -83,20 +99,23 @@
 
                         <!-- Drop Text -->
                         <p class="text-xs font-bold text-slate-800 mb-0.5" id="file-label">Click to upload or drag and drop</p>
-                        <p class="text-[11px] text-slate-400 font-medium" id="file-subtext">PDF files only (Max size 10MB)</p>
+                        <p class="text-[11px] text-slate-400 font-medium" id="file-subtext">PDF files only</p>
                     </div>
 
                     <!-- Clean Action Button -->
-                    <button type="submit" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-semibold rounded-xl text-xs transition-all shadow-xs">
-                        Submit Week <?= htmlspecialchars($weekNumber); ?> WAR
+                    <button type="submit" id="submit-war-btn" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs">
+                        Submit Week <?= htmlspecialchars($weekNumber); ?> Report
                     </button>
 
                 </form>
                 <?php else: ?>
                     <!-- Not Assigned Blocking Notice -->
                     <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-8 text-center space-y-4">
-                        <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto text-xl font-black">
-                            🔒
+                        <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 11V7a5 5 0 0110 0v4"></path>
+                            </svg>
                         </div>
                         <div class="space-y-1">
                             <h3 class="font-extrabold text-sm text-slate-950">No Placement Assigned Yet</h3>
@@ -105,7 +124,7 @@
                             </p>
                         </div>
                         <div class="pt-2">
-                            <a href="reports.php" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all inline-block shadow-xs">
+                            <a href="reports.php" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors inline-block shadow-xs">
                                 Return to Reports Dashboard
                             </a>
                         </div>
@@ -120,8 +139,11 @@
     <?php if (!empty($isLocked)): ?>
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 text-center">
-                <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto text-xl font-black">
-                    🔒
+                <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 11V7a5 5 0 0110 0v4"></path>
+                            </svg>
                 </div>
                 <div class="space-y-1">
                     <h3 class="font-extrabold text-sm text-slate-950">Final Evaluation Requested</h3>
@@ -130,7 +152,7 @@
                     </p>
                 </div>
                 <div class="pt-2">
-                    <a href="reports.php" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-all inline-block shadow-xs">
+                    <a href="reports.php" class="w-full py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors inline-block shadow-xs">
                         Return to Reports Dashboard
                     </a>
                 </div>
@@ -155,6 +177,69 @@
                 icon.innerHTML = `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
             }
         }
+
+        // Drag and drop. The zone was always called a drop-zone and the copy always
+        // promised "drag and drop", but only a change event was ever wired up, so
+        // in practice only clicking worked. handleFileSelect is reused for the
+        // selected state, so a dropped file looks identical to a picked one.
+        (function () {
+            const zone = document.getElementById('drop-zone');
+            const input = document.getElementById('report_file');
+            if (!zone || !input) {
+                return;
+            }
+
+            const ACTIVE = ['border-[#0F2854]', 'bg-blue-50/30'];
+
+            ['dragenter', 'dragover'].forEach(function (name) {
+                zone.addEventListener(name, function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    zone.classList.add.apply(zone.classList, ACTIVE);
+                });
+            });
+
+            ['dragleave', 'dragend'].forEach(function (name) {
+                zone.addEventListener(name, function (event) {
+                    event.preventDefault();
+                    zone.classList.remove.apply(zone.classList, ACTIVE);
+                });
+            });
+
+            zone.addEventListener('drop', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                zone.classList.remove.apply(zone.classList, ACTIVE);
+
+                if (!event.dataTransfer || !event.dataTransfer.files.length) {
+                    return;
+                }
+
+                input.files = event.dataTransfer.files;
+                handleFileSelect(input);
+            });
+        })();
+
+        // A large upload otherwise gives no feedback at all -- the page just sits
+        // there. loadingOverlay.js is deliberately not loaded here: it only fires
+        // for a[data-ics-loading] links, and its card hardcodes the title
+        // "Loading report", which would be wrong on an upload.
+        (function () {
+            const form = document.querySelector('form[enctype="multipart/form-data"]');
+            if (!form) {
+                return;
+            }
+
+            form.addEventListener('submit', function () {
+                const button = document.getElementById('submit-war-btn');
+                if (!button || button.disabled) {
+                    return;
+                }
+                button.disabled = true;
+                button.classList.add('opacity-70', 'cursor-not-allowed');
+                button.textContent = 'Uploading…';
+            });
+        })();
     </script>
 
 </body>
