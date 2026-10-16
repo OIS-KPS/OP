@@ -14,10 +14,16 @@ $showItPercentages = false;
 // for them at all. With this off the workspace drops its right-hand column and
 // gives the PDF viewer the full width.
 $showEntities = false;
-// This column is 12 of 12 here instead of 7, so the PDF embed is roughly twice
-// as wide as it is for the other roles. Fit-to-width would scale the page up to
-// match and the text would read much larger than the rest of the portal, so
-// ask for fit-the-whole-page instead.
+// The week dropdown, the submitted stamp and the fullscreen link sit in a card
+// at the top of the right column rather than in a bar above the PDF. With no
+// entity panel and no verdict to show, those three controls are the only thing
+// this page has to say about a submission, so they read as the summary of the
+// open week and the document stays the thing you look at beside them.
+$controlsInRightPanel = true;
+// This column is 7 of 12 rather than 12, so the PDF embed is narrower than it
+// used to be. Fit-the-whole-page is still the right zoom: at fit-width a
+// narrower embed would leave the page far short of the panel height, and fit
+// scales the page down instead of leaving dead space under it.
 $pdfView = 'fit';
 $sidebarPath = 'sidebar.php';
 $pageTitle = 'My Reports & Portfolio';
