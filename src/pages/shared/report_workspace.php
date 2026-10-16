@@ -40,6 +40,14 @@ $selfPath = $selfPath ?? 'view_report.php';
 $backUrl = $backUrl ?? 'reports.php';
 $canManageEntities = $canManageEntities ?? false;
 $canExportCsv = $canExportCsv ?? false;
+/* Coordinator only. Extraction normally runs once per report and is cached;
+   this is the explicit override that forces a fresh run. Deliberately NOT
+   granted to supervisors or students -- they get the cached result and the
+   coordinator decides when the model is re-run. */
+$canForceReextract = $canForceReextract ?? false;
+$forceReextractUrl = ($selfPath ?? 'view_report.php') . '?' . http_build_query(
+    array_merge($_GET, ['extract' => '1'])
+);
 $canReview = $canReview ?? false;
 $showItPercentages = $showItPercentages ?? false;
 $showEntities = $showEntities ?? true;
@@ -560,6 +568,20 @@ $renderWeekSelector = function (bool $asCard) use (
                                             <button type="button" onclick="document.getElementById('archiveModal').classList.remove('hidden')" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer">
                                                 Archive (<?= count($archivedEntities); ?>)
                                             </button>
+                                            <?php if ($canForceReextract): ?>
+                                                <?php /* Forces the extractor to run for this report
+                                                     again, ignoring the cached result. Needed when
+                                                     the Entity Dictionary gains a term that should
+                                                     match this submission: the stamp check picks up
+                                                     the dictionary change too, but only once all
+                                                     reports have been visited. This makes it
+                                                     immediate and per-report. */ ?>
+                                                <a href="<?= htmlspecialchars($forceReextractUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                                                   class="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-xl text-xs transition-colors border border-amber-300 cursor-pointer"
+                                                   onclick="return confirm('Re-run entity extraction for this report? This can take several seconds. Coordinator-added and archived entities are preserved.');">
+                                                    &#8635; Re-extract
+                                                </a>
+                                            <?php endif; ?>
                                             <button type="button" onclick="document.getElementById('addEntityModal').classList.remove('hidden')" class="px-3 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-2xs cursor-pointer">
                                                 + Add Entity
                                             </button>
