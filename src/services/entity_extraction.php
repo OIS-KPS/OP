@@ -492,6 +492,59 @@ function normalizeExtractedEntity(array $entity): ?array
 
 /**
  * ------------------------------------------------------------
+ * Clear replaceable entities for a report
+ * ------------------------------------------------------------
+ *
+ * The single definition of what a re-extraction is allowed to destroy.
+ *
+ * Only ACTIVE, AUTO-EXTRACTED rows are cleared. Two kinds of row are
+ * coordinator decisions, not extraction output, and must survive:
+ *
+ *   source = 'manual_addition'  a term the coordinator typed in
+ *   is_archived = 1             a term the coordinator hid/ignored
+ *
+ * Before this function existed the DELETE had no filter, so re-running
+ * extraction (which happens whenever a report is viewed) wiped manual
+ * additions and resurrect-then-delete archived ones, making both features
+ * unusable.
+ *
+ * Narrowing the WHERE clause alone is not enough: the surviving manual rows
+ * would then collide with freshly extracted terms of the same name and
+ * produce duplicates. So this also returns the lowercased names already held
+ * as manual additions, and the caller skips inserting those.
+ *
+ * MUST be called inside a transaction; the caller commits.
+ *
+ * Returns the list of lowercased manual entity names for this report.
+ */
+function clearReplaceableReportEntities(PDO $pdo, int $reportId): array
+{
+    $deleteStmt = $pdo->prepare("
+        DELETE FROM report_entities
+        WHERE report_id = ?
+          AND (source IS NULL OR source <> 'manual_addition')
+          AND is_archived = 0
+    ");
+
+    $deleteStmt->execute([$reportId]);
+
+    $manualStmt = $pdo->prepare("
+        SELECT LOWER(TRIM(entity_name)) AS n
+        FROM report_entities
+        WHERE report_id = ?
+          AND source = 'manual_addition'
+    ");
+    $manualStmt->execute([$reportId]);
+
+    return array_column(
+        $manualStmt->fetchAll(PDO::FETCH_ASSOC),
+        'n'
+    );
+}
+
+
+/**
+ * ------------------------------------------------------------
  * Save extracted entities
  * ------------------------------------------------------------
  */
@@ -505,44 +558,7 @@ function saveExtractedEntities(
 
         $pdo->beginTransaction();
 
-        /**
-         * Remove old automatically extracted results.
-         *
-         * Current report flow treats the extraction result
-         * as the current result for the report.
-         *
-         * Only ACTIVE, AUTO-EXTRACTED rows are cleared. Two kinds of row are
-         * coordinator decisions, not extraction output, and must survive:
-         *
-         *   source = 'manual_addition'  a term the coordinator typed in
-         *   is_archived = 1             a term the coordinator hid/ignored
-         *
-         * Previously the DELETE had no filter, so re-running extraction (which
-         * happens on every view of a report) wiped manual additions and
-         * resurrect-then-delete archived ones, making both features unusable.
-         */
-        $deleteStmt = $pdo->prepare("
-            DELETE FROM report_entities
-            WHERE report_id = ?
-              AND (source IS NULL OR source <> 'manual_addition')
-              AND is_archived = 0
-        ");
-
-        $deleteStmt->execute([
-            $reportId
-        ]);
-
-        // Names already present as coordinator manual additions for this report.
-        // Re-inserting them would show the same term twice in the UI, so the
-        // extraction result for those names is skipped.
-        $manualStmt = $pdo->prepare("
-            SELECT LOWER(TRIM(entity_name)) AS n
-            FROM report_entities
-            WHERE report_id = ?
-              AND source = 'manual_addition'
-        ");
-        $manualStmt->execute([$reportId]);
-        $manualNames = array_column($manualStmt->fetchAll(PDO::FETCH_ASSOC), 'n');
+        $manualNames = clearReplaceableReportEntities($pdo, $reportId);
 
         $skipped = 0;
 
@@ -733,4 +749,192 @@ function extractEntitiesFromReport(
         'summary' => $result['summary'] ?? [],
         'entity_count' => count($normalizedEntities)
     ];
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Current Entity Dictionary version
+ * ------------------------------------------------------------
+ *
+ * MAX(predefined_entities.updated_at) is the watermark stored alongside each
+ * report's extraction timestamp. Any dictionary edit -- a new term, an alias,
+ * a reclassification, an archive -- bumps updated_at, so a stored watermark
+ * that is older than the current one means the extraction predates the edit.
+ *
+ * Dictionary edits do NOT by themselves invalidate. Deciding when to re-run
+ * extraction is left to the caller; see reportNeedsEntityExtraction().
+ */
+function entityDictionaryVersion(PDO $pdo): ?string
+{
+    try {
+        $stmt = $pdo->query(
+            'SELECT MAX(updated_at) FROM predefined_entities'
+        );
+
+        $value = $stmt !== false ? $stmt->fetchColumn() : false;
+
+        return ($value === false || $value === null)
+            ? null
+            : (string) $value;
+
+    } catch (Throwable $e) {
+        error_log(
+            'Entity dictionary version lookup failed: ' . $e->getMessage()
+        );
+
+        // Unknown watermark. Treated as "changed" by the caller so the report
+        // is never silently left stale because of a query error.
+        return null;
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Does this report need extracting again?
+ * ------------------------------------------------------------
+ *
+ * Extraction is expensive (a blocking FastAPI call), so it must not run on
+ * every page view. It runs only when:
+ *
+ *   - the report has never been extracted (entities_extracted_at IS NULL), or
+ *   - the caller explicitly forces it (the coordinator's Re-extract action), or
+ *   - the Entity Dictionary has changed since that extraction ran
+ *
+ * The dictionary clause is what preserves the original intent of the old
+ * "always extract on every view to pick up new predefined entities" comment,
+ * without paying for it on every click.
+ *
+ * reports.updated_at is deliberately NOT consulted: it is
+ * ON UPDATE current_timestamp() and is bumped by every approve / reject /
+ * remark write, so it says nothing about extraction.
+ */
+function reportNeedsEntityExtraction(
+    PDO $pdo,
+    int $reportId,
+    bool $force = false
+): bool {
+
+    if ($force) {
+        return true;
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT entities_extracted_at, entities_dictionary_version
+             FROM reports
+             WHERE id = ?
+             LIMIT 1'
+        );
+        $stmt->execute([$reportId]);
+        $report = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$report) {
+            return false;
+        }
+
+        if (empty($report['entities_extracted_at'])) {
+            return true;
+        }
+
+        $currentVersion = entityDictionaryVersion($pdo);
+
+        // A NULL watermark means "never recorded". If it also cannot be read
+        // now, there is nothing to compare, so extract rather than guess.
+        if ($currentVersion === null || $report['entities_dictionary_version'] === null) {
+            return true;
+        }
+
+        return (string) $report['entities_dictionary_version'] !== $currentVersion;
+
+    } catch (Throwable $e) {
+        error_log(
+            'Entity extraction check failed for report ' . $reportId . ': ' .
+            $e->getMessage()
+        );
+
+        // Fail open: extract rather than show a possibly stale list.
+        return true;
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Record that extraction completed for a report
+ * ------------------------------------------------------------
+ *
+ * Only called after a successful extraction, so a failed run leaves the report
+ * unstamped and is retried on the next view.
+ */
+function markReportEntitiesExtracted(PDO $pdo, int $reportId): void
+{
+    try {
+        $stmt = $pdo->prepare(
+            'UPDATE reports
+             SET entities_extracted_at = NOW(),
+                 entities_dictionary_version = ?
+             WHERE id = ?'
+        );
+
+        $stmt->execute([
+            entityDictionaryVersion($pdo),
+            $reportId
+        ]);
+
+    } catch (Throwable $e) {
+        // A missing stamp only costs one redundant extraction next time, so
+        // this must never break the page that just finished extracting.
+        error_log(
+            'Could not stamp extraction for report ' . $reportId . ': ' .
+            $e->getMessage()
+        );
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Extract for a report only if it is actually needed
+ * ------------------------------------------------------------
+ *
+ * Drop-in replacement for calling extractEntitiesFromReport() directly from a
+ * page. Returns the same shape as extractEntitiesFromReport(), plus:
+ *
+ *   'skipped' => true  when the stored result was reused unchanged
+ *
+ * The caller should rebuild its workspace whenever 'ran' is true, since only
+ * then can the stored rows have changed.
+ */
+function ensureReportEntitiesExtracted(
+    string $pdfPath,
+    int $reportId,
+    PDO $pdo,
+    bool $force = false
+): array {
+
+    if (!reportNeedsEntityExtraction($pdo, $reportId, $force)) {
+        return [
+            'success'   => true,
+            'skipped'   => true,
+            'ran'       => false,
+            'error'     => '',
+            'entities'  => [],
+            'content'   => '',
+            'summary'   => [],
+            'entity_count' => 0
+        ];
+    }
+
+    $result = extractEntitiesFromReport($pdfPath, $reportId, $pdo, true);
+
+    $result['skipped'] = false;
+    $result['ran'] = !empty($result['success']);
+
+    if (!empty($result['success'])) {
+        markReportEntitiesExtracted($pdo, $reportId);
+    }
+
+    return $result;
 }

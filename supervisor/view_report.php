@@ -271,7 +271,13 @@ try {
 }
 
 /*
- * Auto-extract entities on every view to pick up new predefined entities.
+ * Extract only when this report has never been extracted, or when the Entity
+ * Dictionary has changed since the last run. Previously this ran on EVERY view
+ * of a report, costing several seconds per click for a result that almost
+ * never changed.
+ *
+ * Supervisors have no manual re-extract control; that is coordinator-only.
+ *
  * Kept out of the workspace try/catch on purpose: a FastAPI outage should
  * never cost the supervisor the page, only the refreshed entity list.
  */
@@ -281,9 +287,12 @@ if (!empty($activeReport) && (int) $activeReport['id'] > 0 && $pageError === '')
     $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
 
     if ($pdfPath === false) {
-        $_SESSION['flash_error'] =
-            'The uploaded PDF for this report could not be found on the server. ' .
-            'Entity extraction was skipped.';
+        // Only worth warning about if extraction would otherwise have run.
+        if (reportNeedsEntityExtraction($pdo, $reportIdActive)) {
+            $_SESSION['flash_error'] =
+                'The uploaded PDF for this report could not be found on the server. ' .
+                'Entity extraction was skipped.';
+        }
 
         error_log(
             'Missing report PDF for report ' . $reportIdActive .
@@ -291,26 +300,33 @@ if (!empty($activeReport) && (int) $activeReport['id'] > 0 && $pageError === '')
         );
     } else {
         try {
-            extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
+            $extraction = ensureReportEntitiesExtracted(
+                $pdfPath,
+                $reportIdActive,
+                $pdo
+            );
 
-            // Re-read so the freshly stored entities appear immediately.
-            $workspace = reportWorkspaceBuild($pdo, $studentId, [
-                'reportId' => $requestedReportId,
-                'status' => null,
-            ]);
+            // Re-read only when extraction actually ran. On a skipped run the
+            // stored rows are unchanged, so the workspace is already correct.
+            if (!empty($extraction['ran'])) {
+                $workspace = reportWorkspaceBuild($pdo, $studentId, [
+                    'reportId' => $requestedReportId,
+                    'status' => null,
+                ]);
 
-            $student = $workspace['student'];
-            $reportsList = $workspace['reportsList'];
-            $activeReport = $workspace['activeReport'];
-            $allEntities = $workspace['allEntities'];
-            $weekEntities = $workspace['weekEntities'];
-            $archivedEntities = $workspace['archivedEntities'];
-            $itPct = $workspace['itPct'];
-            $clericalPct = $workspace['clericalPct'];
-            $weekItPct = $workspace['weekItPct'];
-            $weekClericalPct = $workspace['weekClericalPct'];
-            $weekTotalCount = $workspace['weekTotalCount'];
-            $pdfUrl = $workspace['pdfUrl'];
+                $student = $workspace['student'];
+                $reportsList = $workspace['reportsList'];
+                $activeReport = $workspace['activeReport'];
+                $allEntities = $workspace['allEntities'];
+                $weekEntities = $workspace['weekEntities'];
+                $archivedEntities = $workspace['archivedEntities'];
+                $itPct = $workspace['itPct'];
+                $clericalPct = $workspace['clericalPct'];
+                $weekItPct = $workspace['weekItPct'];
+                $weekClericalPct = $workspace['weekClericalPct'];
+                $weekTotalCount = $workspace['weekTotalCount'];
+                $pdfUrl = $workspace['pdfUrl'];
+            }
         } catch (Throwable $exception) {
             error_log(
                 'Error extracting entities for report ' . $reportIdActive . ': ' .

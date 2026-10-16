@@ -451,32 +451,90 @@ try {
     $weekTotalCount = $workspace['weekTotalCount'];
     $pdfUrl = $workspace['pdfUrl'];
 
-    // Auto-extract entities on every view to pick up new predefined entities
+    // Extract only when this report has never been extracted, when the
+    // coordinator explicitly asks for it, or when the Entity Dictionary has
+    // changed since the last run. Previously this ran on EVERY view.
     if (!empty($activeReport) && (int)$activeReport['id'] > 0) {
         $reportIdActive = (int)$activeReport['id'];
         $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
-        if ($pdfPath !== false) {
-            extractEntitiesFromReport($pdfPath, $reportIdActive, $pdo, true);
 
-            // Rebuild workspace to get updated entities
-            $workspace = reportWorkspaceBuild($pdo, $studentId, [
-                'reportId' => $selectedReportId > 0 ? $selectedReportId : $reportId,
-                'status' => 'approved',
-            ]);
-            $student = $workspace['student'];
-            $reportsList = $workspace['reportsList'];
-            $activeReport = $workspace['activeReport'];
-            $allEntities = $workspace['allEntities'];
-            $weekEntities = $workspace['weekEntities'];
-            $archivedEntities = $workspace['archivedEntities'];
-            $itPct = $workspace['itPct'];
-            $clericalPct = $workspace['clericalPct'];
-            $technicalCount = $workspace['technicalCount'];
-            $clericalCount = $workspace['clericalCount'];
-            $weekItPct = $workspace['weekItPct'];
-            $weekClericalPct = $workspace['weekClericalPct'];
-            $weekTotalCount = $workspace['weekTotalCount'];
-            $pdfUrl = $workspace['pdfUrl'];
+        if ($pdfPath !== false) {
+            $extraction = ensureReportEntitiesExtracted(
+                $pdfPath,
+                $reportIdActive,
+                $pdo,
+                $forceExtraction
+            );
+
+            // Report the outcome of an explicit re-extract, then drop
+            // ?extract=1 from the address bar so a refresh does not silently
+            // pay for another run. The flash survives via the session.
+            //
+            // 'ran' is only true when the run succeeded, so the failure case
+            // has to be checked outside that branch.
+            if ($forceExtraction) {
+                if (!empty($extraction['ran'])) {
+                    $_SESSION['flash_success'] =
+                        'Entities re-extracted from the PDF.';
+
+                    if ((int) ($extraction['entity_count'] ?? 0) === 0) {
+                        $_SESSION['flash_success'] .= ' No terms were found.';
+                    }
+                } else {
+                    $_SESSION['flash_error'] =
+                        'Re-extraction failed: ' .
+                        ($extraction['error'] ?? 'unknown error') . '. ' .
+                        'The previously stored entities are unchanged.';
+
+                    error_log(
+                        'Coordinator forced re-extraction failed for report ' .
+                        $reportIdActive . ': ' .
+                        ($extraction['error'] ?? 'unknown error')
+                    );
+                }
+
+                if (!isset($_GET['export'])) {
+                    unset($_GET['extract']);
+                    header(
+                        'Location: view_report.php?' .
+                        http_build_query($_GET)
+                    );
+                    exit();
+                }
+            }
+
+            // Rebuild only when extraction actually ran. On a skipped run the
+            // stored rows are unchanged, so the workspace is still correct and
+            // the second query round trip is wasted work.
+            if (!empty($extraction['ran'])) {
+
+                $workspace = reportWorkspaceBuild($pdo, $studentId, [
+                    'reportId' => $selectedReportId > 0 ? $selectedReportId : $reportId,
+                    'status' => 'approved',
+                ]);
+                $student = $workspace['student'];
+                $reportsList = $workspace['reportsList'];
+                $activeReport = $workspace['activeReport'];
+                $allEntities = $workspace['allEntities'];
+                $weekEntities = $workspace['weekEntities'];
+                $archivedEntities = $workspace['archivedEntities'];
+                $itPct = $workspace['itPct'];
+                $clericalPct = $workspace['clericalPct'];
+                $technicalCount = $workspace['technicalCount'];
+                $clericalCount = $workspace['clericalCount'];
+                $weekItPct = $workspace['weekItPct'];
+                $weekClericalPct = $workspace['weekClericalPct'];
+                $weekTotalCount = $workspace['weekTotalCount'];
+                $pdfUrl = $workspace['pdfUrl'];
+            }
+
+        } elseif ($forceExtraction) {
+            // The coordinator asked for a re-extract but the PDF is gone, so
+            // nothing can run. Say so rather than appearing to do nothing.
+            $_SESSION['flash_error'] =
+                'Re-extraction failed: the uploaded PDF for this report could ' .
+                'not be found on the server. The previously stored entities ' .
+                'are unchanged.';
         }
     }
 

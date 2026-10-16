@@ -27,6 +27,11 @@ if (!$dbLoaded) {
    student report pages. Every definition in that file is guarded by
    function_exists(), so this cannot redeclare anything. */
 require_once __DIR__ . '/src/services/report_workspace.php';
+/* Extraction cache guard + the shared "what a re-extraction may destroy"
+   rule. Without this file's private extractor being replaced, the page still
+   shells out to Python, but it now only does so when the stored result is
+   actually stale, and its DELETE follows the same rule as every other page. */
+require_once __DIR__ . '/src/services/entity_extraction.php';
 require_once __DIR__ . '/config/csrf.php';
 /* Support projects whose db.php exposes the PDO connection as $conn. */
 if (!isset($pdo) && isset($conn) && $conn instanceof PDO) {
@@ -618,8 +623,16 @@ try {
     $entityStmt->execute([':report_id' => $reportId]);
     $entities = $entityStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Always extract on every view to pick up new predefined entities
-    if (true) {
+    // Extract only when this report has never been extracted, or when the
+    // Entity Dictionary has changed since the last run. This page used to run
+    // the extractor on every single view ("Always extract on every view to
+    // pick up new predefined entities"), which is what made Review slow on
+    // reports with many entities.
+    //
+    // Review is coordinator/staff-facing and has no manual re-extract control
+    // of its own; the coordinator triggers that from view_report.php?extract=1,
+    // which shares the same reports.entities_extracted_at stamp.
+    if (reportNeedsEntityExtraction($pdo, $reportId)) {
         $predefinedRows = rr_load_predefined_entities($pdo);
         $catalog = rr_build_entity_catalog($predefinedRows);
 
@@ -641,26 +654,24 @@ try {
         $pdo->beginTransaction();
 
         /**
-         * Clears the whole report, then re-inserts the fresh extraction.
+         * Clear replaceable entities, then re-insert the fresh extraction.
          *
-         * KNOWN LIMITATION: this removes coordinator decisions along with
-         * extraction output. Two kinds of row do not survive:
+         * Previously this was an unqualified
+         *     DELETE FROM report_entities WHERE report_id = :report_id
+         * which destroyed coordinator decisions along with extraction output.
+         * Two kinds of row did not survive:
          *
          *   source = 'manual_addition'  a term the coordinator typed in
          *   is_archived = 1             a term the coordinator hid/ignored
          *
-         * src/services/entity_extraction.php::saveExtractedEntities() scopes
-         * its delete to avoid this; this statement does not. Narrowing it the
-         * same way was tried and deliberately reverted, because surviving
-         * manual rows would then collide with freshly extracted terms of the
-         * same name and produce duplicate rows. Fixing that properly needs a
-         * name check against the existing manual rows, not just a wider WHERE
-         * clause -- do not widen this without doing that first.
+         * Narrowing the WHERE clause on its own was tried and reverted, because
+         * surviving manual rows then collided with freshly extracted terms of
+         * the same name and produced duplicates. clearReplaceableReportEntities()
+         * does both halves together: it scopes the DELETE and returns the
+         * manual names, which the insert loop below skips. Every other page
+         * goes through the same function, so the rule now lives in one place.
          */
-        $deleteStmt = $pdo->prepare(
-            'DELETE FROM report_entities WHERE report_id = :report_id'
-        );
-        $deleteStmt->execute([':report_id' => $reportId]);
+        $manualNames = clearReplaceableReportEntities($pdo, $reportId);
 
         $insertStmt = $pdo->prepare("
             INSERT INTO report_entities
@@ -686,6 +697,14 @@ try {
         ");
 
         foreach ($preparedEntities as $entity) {
+            // Skip anything the coordinator already added by hand for this
+            // report, so the same term never appears twice now that the manual
+            // rows survive the delete above.
+            $candidate = strtolower(trim((string) $entity['entity_name']));
+            if ($candidate !== '' && in_array($candidate, $manualNames, true)) {
+                continue;
+            }
+
             $insertStmt->execute([
                 ':report_id'       => $reportId,
                 ':entity_name'     => $entity['entity_name'],
@@ -701,6 +720,10 @@ try {
         }
 
         $pdo->commit();
+
+        // Record that extraction completed, so the next view of this report
+        // reads report_entities instead of paying for the extractor again.
+        markReportEntitiesExtracted($pdo, $reportId);
 
         $entityStmt->execute([':report_id' => $reportId]);
         $entities = $entityStmt->fetchAll(PDO::FETCH_ASSOC);

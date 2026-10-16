@@ -7,6 +7,9 @@ $selfPath = 'view_report.php';
 $backUrl = 'approved_reports.php';
 $canManageEntities = true;
 $canExportCsv = true;
+/* Coordinator-only. Grants the "Re-extract" button, which forces a fresh
+   extraction run for the open report instead of reusing the cached result. */
+$canForceReextract = true;
 $canReview = false;
 $showItPercentages = true;
 $sidebarPath = 'coordinator_sidebar.php';
