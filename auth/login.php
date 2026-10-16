@@ -2,6 +2,26 @@
 // auth/login.php
 session_start();
 
+// Already signed in? Skip the login form and route by role. This page serves all
+// three roles, so there is nothing role-specific to render before authentication
+// -- but a logged-in user who bookmarks or revisits /auth/login.php should land
+// on their own dashboard, not on a second copy of the sign-in card.
+if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
+    switch (strtolower($_SESSION['role'])) {
+        case 'coordinator':
+            header('Location: /ICS-PORTAL/coordinator/dashboard.php');
+            break;
+        case 'supervisor':
+            header('Location: /ICS-PORTAL/supervisor/dashboard.php');
+            break;
+        case 'student':
+        default:
+            header('Location: /ICS-PORTAL/dashboard.php');
+            break;
+    }
+    exit();
+}
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 if (class_exists('Dotenv\Dotenv') && file_exists(__DIR__ . '/../.env')) {
@@ -30,7 +50,7 @@ unset($_SESSION['login_error']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ICS OJT Internship Portal - Login</title>
+    <title>LaunchPad &mdash; Sign In</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -75,7 +95,6 @@ unset($_SESSION['login_error']);
                         type="email" 
                         name="email" 
                         required 
-                        placeholder="e.g. user@nbsc.edu.ph" 
                         class="w-full text-xs px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-all"
                     >
                 </div>
@@ -151,7 +170,7 @@ unset($_SESSION['login_error']);
 
         <!-- Footer -->
         <p class="text-center text-[11px] text-slate-400">
-            NBSC Institute for Computer Studies &bull; Intern Portal
+        NBSC Institute for Computer Studies
         </p>
 
     </div>

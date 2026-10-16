@@ -51,7 +51,7 @@ $displayEmail = $_SESSION['email'] ?? '';
     <!-- Department Scope & Identity -->
     <div class="flex items-center gap-2.5 min-w-0">
         
-        <p class="text-sm font-bold text-blue-900 tracking-tight truncate min-w-0 ">LaunchPad - Institue for Computer Studies</p>
+        <p class="text-sm font-bold text-blue-900 tracking-tight truncate min-w-0 ">LaunchPad - Institute for Computer Studies</p>
     </div>
 
     <!-- Right Header Controls -->
