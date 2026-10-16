@@ -28,6 +28,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_consent'])) {
     
     redirectUserByRole($_SESSION['role'] ?? 'student');
 }
+/*
+ * Role-aware "Information collected" copy.
+ *
+ * This gate runs for all three roles, but the paragraph was written only for an
+ * intern. It promised staff a "Student ID" that exists solely on the students
+ * table, credited the Weekly Accomplishment Reports to "the intern" when a
+ * coordinator administers all of them and a supervisor reviews only their
+ * assigned interns', and framed it all as "your" information -- the wrong half
+ * of the deal for staff, whose access extends to other people's records. The
+ * coordinator administers this portal, so their line says so plainly.
+ *
+ * Echoed without escaping: hardcoded literals carrying <strong> markup only.
+ */
+$consentRole = strtolower((string) ($_SESSION['role'] ?? 'student'));
+
+$informationCollected = [
+    'student' => 'your <strong>full name, institutional email address, student number, '
+        . 'program and section, profile picture, OJT start date, and the '
+        . '<strong>Weekly Accomplishment Reports</strong> you submit',
+
+    'supervisor' => 'your <strong>full name, institutional email address, and company '
+        . 'affiliation</strong>, together with the <strong>final performance appraisals</strong> '
+        . 'you sign. As a reviewer you also have access to the names and '
+        . '<strong>Weekly Accomplishment Reports</strong> of the interns assigned to you',
+
+    'coordinator' => 'your <strong>full name and institutional email address</strong>. As '
+        . 'portal administrator you also manage all user accounts and partner '
+        . 'companies, including permanently deleting them, import student records in '
+        . 'bulk, review the portal audit log, and access the academic record, '
+        . '<strong>Weekly Accomplishment Report</strong> and internship evaluation of '
+        . 'every intern',
+];
+
+$informationCollected = $informationCollected[$consentRole] ?? $informationCollected['student'];
+
 
 function redirectUserByRole($role) {
     switch (strtolower($role)) {
@@ -50,7 +85,7 @@ function redirectUserByRole($role) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Privacy & Confidentiality Consent - NBSC ICS OJT Portal</title>
+    <title>Data Privacy &amp; Confidentiality Consent &mdash; LaunchPad</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-white text-slate-800 antialiased min-h-screen flex items-center justify-center p-6 select-none">
@@ -60,7 +95,7 @@ function redirectUserByRole($role) {
         <!-- Header Banner -->
         <div class="bg-[#0F2854] px-8 py-6 text-center text-white space-y-1">
             <p class="text-[11px] font-bold tracking-widest uppercase text-blue-300">NBSC - Institute for Computer Studies</p>
-            <h1 class="text-lg font-extrabold tracking-tight">OJT System — Data Privacy Notice</h1>
+            <h1 class="text-lg font-extrabold tracking-tight">LaunchPad — Data Privacy Notice</h1>
         </div>
 
         <!-- Content Body -->
@@ -69,7 +104,7 @@ function redirectUserByRole($role) {
             <div class="space-y-2">
                 <h2 class="text-sm font-extrabold text-slate-900 tracking-tight">Data & Confidentiality Consent</h2>
                 <p class="text-justify">
-                    <strong>Information collected.</strong> By accomplishing this form and using this portal, the collected information is strictly limited to your <strong>Academic Information, Full Name, Institutional Email Address, Student ID, and the Weekly Accomplishment Reports</strong> submitted by the intern, which will be viewed and managed by the <strong>Institute for Computer Studies (ICS)</strong>.
+                    <strong>Information collected.</strong> Through this portal the system collects <?= $informationCollected; ?>, which is viewed and managed by the <strong>Institute for Computer Studies (ICS)</strong>.
                 </p>
             </div>
 
@@ -87,7 +122,7 @@ function redirectUserByRole($role) {
             </div>
 
             <p class="text-[11px] text-slate-400 text-center">
-                Questions or concerns about your data privacy? Contact the Data Privacy Officer at <span class="font-semibold text-slate-600">xxxx@nbsc.edu.ph</span>
+                Questions or concerns about your data privacy? Contact the Data Privacy Officer at <span class="font-semibold text-slate-600">ics.internportal@gmail.com</span>
             </p>
 
             <!-- Action Form -->
