@@ -14,16 +14,16 @@ $showItPercentages = false;
 // for them at all. With this off the workspace drops its right-hand column and
 // gives the PDF viewer the full width.
 $showEntities = false;
-// The week dropdown, the submitted stamp and the fullscreen link sit in a card
-// at the top of the right column rather than in a bar above the PDF. With no
-// entity panel and no verdict to show, those three controls are the only thing
-// this page has to say about a submission, so they read as the summary of the
-// open week and the document stays the thing you look at beside them.
-$controlsInRightPanel = true;
-// This column is 7 of 12 rather than 12, so the PDF embed is narrower than it
-// used to be. Fit-the-whole-page is still the right zoom: at fit-width a
-// narrower embed would leave the page far short of the panel height, and fit
-// scales the page down instead of leaving dead space under it.
+// The week dropdown, the submitted stamp, the fullscreen link and the late flag
+// move to a card at the top of the right column rather than staying in a bar
+// above the PDF. With no entity panel, no verdict and no IT ratio to show, those
+// four are the only thing this page says about the open submission, so they read
+// as its summary and the document is what you read them against.
+$selectorInRightPanel = true;
+// This column is 7 of 12 instead of 12, so the PDF embed is narrower than it
+// would otherwise be. Fit-the-whole-page is still the right zoom: fit-width at
+// this width leaves the page far short of the panel height, and fit scales it
+// down instead of leaving dead space underneath.
 $pdfView = 'fit';
 $sidebarPath = 'sidebar.php';
 $pageTitle = 'My Reports & Portfolio';
