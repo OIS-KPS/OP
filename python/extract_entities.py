@@ -117,13 +117,9 @@ def load_predefined_entities(connection):
                 id,
                 entity_name,
                 aliases,
-                category,
-                activity_type,
-                it_related,
-                description
+                it_related
             FROM predefined_entities
-            WHERE LOWER(TRIM(entity_name)) <> 'my'
-              AND is_archived = 0
+            WHERE is_archived = 0
             ORDER BY
                 CHAR_LENGTH(entity_name) DESC,
                 entity_name ASC
@@ -1461,35 +1457,10 @@ def find_predefined_matches(
 
         canonical_name = entity_name
 
-        category = str(
-            entity.get("category")
-            or "Other"
-        ).strip()
-
-        activity_type = str(
-            entity.get("activity_type")
-            or "Other"
-        ).strip()
-
         it_related = str(
             entity.get("it_related")
             or "unknown"
         ).strip().lower()
-
-        # ----------------------------------------------------
-        # Validate activity type
-        # ----------------------------------------------------
-
-        allowed_activity_types = [
-            "Software",
-            "Hardware",
-            "Clerical",
-            "Other"
-        ]
-
-        if activity_type not in allowed_activity_types:
-
-            activity_type = "Other"
 
         # ----------------------------------------------------
         # Validate IT related
@@ -1502,6 +1473,18 @@ def find_predefined_matches(
         ]:
 
             it_related = "unknown"
+
+        # ----------------------------------------------------
+        # category is derived, never read
+        # ----------------------------------------------------
+        #
+        # predefined_entities no longer carries a category of its own. It is
+        # the IT_TERM/CLERICAL_TERM mirror of it_related, and that is the pair
+        # the portal stores on report_entities. Deriving it here keeps the
+        # match dict shaped the same for every caller. See
+        # migration_simplify_predefined_entities.sql.
+
+        category = "CLERICAL_TERM" if it_related == "no" else "IT_TERM"
 
         # ----------------------------------------------------
         # Add matched entity
@@ -1524,14 +1507,8 @@ def find_predefined_matches(
             "category":
                 category,
 
-            "activity_type":
-                activity_type,
-
             "it_related":
                 it_related,
-
-            "description":
-                entity.get("description"),
 
             "matched_term":
                 best_term,
@@ -1684,33 +1661,6 @@ def calculate_summary(entities):
         total_frequency += frequency
 
         # ----------------------------------------------------
-        # Activity type
-        # ----------------------------------------------------
-
-        activity_type = str(
-            entity.get(
-                "activity_type",
-                ""
-            )
-        ).strip().lower()
-
-        if activity_type == "software":
-
-            software_count += frequency
-
-        elif activity_type == "hardware":
-
-            hardware_count += frequency
-
-        elif activity_type == "clerical":
-
-            clerical_count += frequency
-
-        else:
-
-            other_count += frequency
-
-        # ----------------------------------------------------
         # IT related
         # ----------------------------------------------------
 
@@ -1728,6 +1678,52 @@ def calculate_summary(entities):
         elif it_related == "no":
 
             non_it_count += frequency
+
+        # ----------------------------------------------------
+        # Activity type
+        # ----------------------------------------------------
+        #
+        # Dictionary matches no longer carry activity_type: the column was
+        # dropped from predefined_entities by
+        # migration_simplify_predefined_entities.sql because the portal
+        # reports on IT/Clerical only. Without the fallback below every
+        # dictionary term would silently fall into the Other bucket and
+        # understate the Software and Clerical counts. An unknown
+        # classification is left empty on purpose, so it still counts as
+        # Other rather than being guessed into one.
+
+        activity_type = str(
+            entity.get(
+                "activity_type",
+                ""
+            )
+        ).strip().lower()
+
+        if not activity_type:
+
+            if it_related == "no":
+
+                activity_type = "clerical"
+
+            elif it_related == "yes":
+
+                activity_type = "software"
+
+        if activity_type == "software":
+
+            software_count += frequency
+
+        elif activity_type == "hardware":
+
+            hardware_count += frequency
+
+        elif activity_type == "clerical":
+
+            clerical_count += frequency
+
+        else:
+
+            other_count += frequency
 
     # --------------------------------------------------------
     # IT / Clerical percentage

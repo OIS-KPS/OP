@@ -72,20 +72,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $aliases    = trim($_POST['aliases'] ?? '');
         $it_related = ($_POST['it_related'] ?? 'yes') === 'no' ? 'no' : 'yes';
 
-        // The form now offers only IT or Clerical. activity_type still drives
-        // the IT-vs-clerical reporting on report_entities, so derive it:
-        // Clerical keeps its own value, IT is recorded as 'Other'.
-        $activity = ($it_related === 'no') ? 'Clerical' : 'Other';
+        // The form offers only IT or Clerical, and predefined_entities.category
+        // is an ENUM of exactly those two values -- see
+        // migration_simplify_predefined_entities.sql. The dictionary row and the
+        // report_entities row are written from this one variable so a term can
+        // never be filed as Clerical in one table and IT in the other.
+        $category = ($it_related === 'no') ? 'CLERICAL_TERM' : 'IT_TERM';
 
         if ($name === '') {
             $_SESSION['entity_error'] = "Entity name is required.";
         } else {
             try {
                 $stmt = $pdo->prepare("
-                    INSERT INTO predefined_entities (entity_name, aliases, category, activity_type, it_related)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO predefined_entities (entity_name, aliases, category, it_related)
+                    VALUES (?, ?, ?, ?)
                 ");
-                $stmt->execute([$name, $aliases ?: null, 'Other', $activity, $it_related]);
+                $stmt->execute([$name, $aliases ?: null, $category, $it_related]);
                 $_SESSION['entity_message'] = "Entity '{$name}' created in database.";
             } catch (PDOException $e) {
                 $_SESSION['entity_error'] = str_contains($e->getMessage(), 'Duplicate')
@@ -114,30 +116,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $oldStmt->execute([$id]);
                 $old = $oldStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-                // category, activity_type and description are no longer posted by
-                // the form, so they are left untouched. Only a switch to Clerical
-                // is reflected in activity_type, so the IT-vs-clerical reporting
-                // on report_entities stays correct; existing Software/Hardware
-                // classifications survive an unrelated edit.
+                // category and description are no longer posted by the form, so
+                // category is written here rather than left alone: it is an ENUM
+                // mirroring it_related, and leaving it untouched is exactly how
+                // the two drifted apart before migration_simplify_predefined_entities.sql.
+                // description was dropped from the table entirely.
                 $stmt = $pdo->prepare("
                     UPDATE predefined_entities
-                    SET entity_name = ?, aliases = ?, it_related = ?,
-                        activity_type = CASE WHEN ? = 'no' THEN 'Clerical' ELSE activity_type END
+                    SET entity_name = ?, aliases = ?, it_related = ?, category = ?
                     WHERE id = ?
                 ");
-                $stmt->execute([$name, $aliases ?: null, $it_related, $it_related, $id]);
+                $stmt->execute([$name, $aliases ?: null, $it_related, $category, $id]);
 
                 // Auto-sync the IT/Clerical flag onto previously extracted
                 // records matching this dictionary entry (canonical name, old
                 // name, or any alias), so a rename or alias fix still
                 // propagates.
                 //
-                // Classification (category, activity_type) is deliberately NOT
-                // written here: report_entities is historical record and the
-                // coordinator corrects it per report. This block previously
-                // bound an undefined variable, so activity_type was overwritten
-                // with the empty string and category with the literal 'Other'
-                // on every matching extracted row across all students.
+                // Classification is deliberately NOT synced onto report_entities:
+                // those rows are historical record and the coordinator corrects
+                // them per report. This block previously bound an undefined
+                // variable, so activity_type was overwritten with the empty
+                // string and category with the literal 'Other' on every matching
+                // extracted row across all students. Only it_related -- the one
+                // field the portal reports on -- propagates from here.
                 $terms = [];
                 foreach ([$name, $old['entity_name'] ?? '', $aliases, $old['aliases'] ?? ''] as $source) {
                     foreach (preg_split('/[|;,\n]+/', (string) $source) as $term) {
@@ -253,13 +255,16 @@ $params = ['archived' => $archivedFlag];
 if ($search !== '') {
     // Native prepares (EMULATE_PREPARES is off) cannot reuse a named
     // placeholder, so each column needs its own parameter name.
-    $whereClauses[] = "(entity_name LIKE :s_name OR aliases LIKE :s_alias OR description LIKE :s_desc)";
+    $whereClauses[] = "(entity_name LIKE :s_name OR aliases LIKE :s_alias)";
     $params['s_name']  = "%{$search}%";
     $params['s_alias'] = "%{$search}%";
-    $params['s_desc']  = "%{$search}%";
 }
 
 if ($categoryFilter !== 'All' && $categoryFilter !== '') {
+    // No control posts this any more -- the page shows only the IT/Clerical
+    // type filter -- but the branch is kept so an old ?category= bookmark still
+    // narrows the list instead of erroring. The only values now are the two
+    // members of the category ENUM: IT_TERM and CLERICAL_TERM.
     $whereClauses[] = "category = :cat";
     $params['cat'] = $categoryFilter;
 }
@@ -310,7 +315,7 @@ $offset = ($page - 1) * $perPage;
 
 
 $sql = "
-    SELECT id, entity_name, aliases, category, activity_type, it_related, description, created_at, updated_at
+    SELECT id, entity_name, aliases, category, it_related, created_at, updated_at
     FROM predefined_entities
     {$whereSql}
 

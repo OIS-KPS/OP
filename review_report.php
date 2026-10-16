@@ -352,13 +352,15 @@ $entities = [];
 
 function rr_load_predefined_entities(PDO $pdo): array
 {
+    // category is deliberately not selected: predefined_entities holds it as an
+    // ENUM mirroring it_related (migration_simplify_predefined_entities.sql) and
+    // this page reports on it_related alone. activity_type and description no
+    // longer exist on the table.
     $stmt = $pdo->query("
         SELECT
             id,
             entity_name,
             aliases,
-            category,
-            activity_type,
             it_related
         FROM predefined_entities
         WHERE is_archived = 0
@@ -415,22 +417,22 @@ function rr_build_entity_catalog(array $rows): array
                 !isset($catalog[$normalized]) ||
                 strlen($term) > strlen((string)($catalog[$normalized]['matched_term'] ?? ''))
             ) {
-                $catalog[$normalized] = [
-                    'id'            => (int)$row['id'],
-                    'entity_name'   => $canonical,
-                    'matched_term'  => $term,
-                    'category'      => (string)($row['category'] ?? 'Other'),
-                    'activity_type' => in_array(
-                        $row['activity_type'] ?? 'Other',
-                        ['Software', 'Hardware', 'Clerical', 'Other'],
-                        true
-                    ) ? $row['activity_type'] : 'Other',
-                    'it_related'    => in_array(
-                        $row['it_related'] ?? 'unknown',
-                        ['yes', 'no'],
-                        true
-                    ) ? $row['it_related'] : 'unknown',
-                ];
+                $itRelated = in_array(
+                $row['it_related'] ?? '',
+                ['yes', 'no'],
+                true
+            ) ? $row['it_related'] : 'unknown';
+
+            $catalog[$normalized] = [
+                'id'           => (int)$row['id'],
+                'entity_name'  => $canonical,
+                'matched_term' => $term,
+                'it_related'   => $itRelated,
+                // Derived rather than read. The dictionary no longer carries a
+                // category of its own; this is the IT_TERM/CLERICAL_TERM mirror
+                // that report_entities stores.
+                'category'     => ($itRelated === 'no') ? 'CLERICAL_TERM' : 'IT_TERM',
+            ];
             }
         }
     }
@@ -531,13 +533,18 @@ function rr_prepare_report_entities(
                 ?? $entityName
             ));
 
-            $category = trim((string)($entity['category'] ?? 'Other'));
-
             $itRelated = in_array(
                 $entity['it_related'] ?? 'unknown',
                 ['yes', 'no', 'unknown'],
                 true
             ) ? $entity['it_related'] : 'unknown';
+
+            // Derived from it_related instead of taken from the extractor, so a
+            // model-only term can never be stored with a category contradicting
+            // its own classification. Same mirror the dictionary is held to by
+            // migration_simplify_predefined_entities.sql and that
+            // migration_normalize_entity_category.sql applies to report_entities.
+            $category = ($itRelated === 'no') ? 'CLERICAL_TERM' : 'IT_TERM';
 
             $source = 'spacy';
         }
