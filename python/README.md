@@ -18,7 +18,7 @@ python/
 │   ├── annotation.py        # Terms dictionary loader, weak-labeling, JSONL/DocBin I/O
 │   └── labels.py            # Label taxonomy constants & normalization functions
 ├── data/
-│   └── terms.csv            # Exact-match entity dictionary (term,label CSV — ~344 rows)
+│   └── terms.csv            # Exact-match entity dictionary (term,label CSV — 489 rows)
 ├── models/
 │   └── ner_trf/
 │       └── model-best/      # Fine-tuned spaCy transformer model checkpoint (weights, vocab, config)
@@ -103,7 +103,7 @@ Label taxonomy constants and normalization.
 
 ### `data/terms.csv`
 
-Flat CSV with columns `term,label`. Contains ~344 curated terms (technologies, tools, clerical activities) used by the dictionary matcher. Example rows:
+Flat CSV with columns `term,label`. Contains 489 curated terms (285 `IT_TERM`, 204 `CLERICAL_TERM`) used by the dictionary matcher. Example rows:
 
 ```csv
 term,label
@@ -114,6 +114,19 @@ FastAPI,IT_TERM
 ```
 
 To add new dictionary terms, append rows to this file and restart the service.
+
+**This file is the source of truth for `predefined_entities` as well.** The MySQL
+table the API matches against is materialised from this CSV by
+`database/seed_predefined_entities_from_terms.sql`, so the table and the model
+describe the same dictionary instead of drifting apart. Re-run that script after
+editing this file to push the changes into the database — it is transactional and
+safe to re-run. `predefined_entities.category` is an ENUM mirroring `it_related`
+(`IT_TERM` / `CLERICAL_TERM`); `activity_type` and `description` no longer exist
+on that table. See `database/migration_simplify_predefined_entities.sql`.
+
+Aliases are the one thing this CSV cannot express: `predefined_entities.aliases`
+is NULL for every seeded row. Add aliases in the coordinator's Entity Dictionary
+page when a report phrases a known term differently.
 
 ### `models/ner_trf/model-best/`
 

@@ -1,0 +1,93 @@
+﻿-- database/migration_simplify_predefined_entities.sql
+--
+-- Drop the two unused columns from predefined_entities and pin category to
+-- the two values the portal actually reports on.
+--
+-- RUN ORDER -- READ THIS FIRST
+--
+--   1. seed_predefined_entities_from_terms.sql   (any time, re-runnable)
+--   2. the application code edits listed below    (must land first)
+--   3. this file
+--
+-- Step 2 is not optional. Running this file before the code is updated
+-- breaks three write paths, and the third fails silently:
+--
+--   coordinator/entities.php:256
+--       the dictionary search does `entity_name LIKE ... OR description
+--       LIKE :s_desc`; with description gone every search is an unknown
+--       column error.
+--
+--   coordinator/entities.php:88 and coordinator/view_report.php:348
+--       both INSERT activity_type; both fail on an unknown column.
+--
+--   coordinator/entities.php:88 and coordinator/view_report.php:348
+--       both write the literal 'Other' into category. Once category is an
+--       ENUM that is no longer a member, so the create form and the
+--       add-to-dictionary checkbox break. Under a non-strict SQL mode the
+--       value is coerced to '' rather than rejected, which is worse than an
+--       error because it looks like it worked and leaves the term
+--       uncategorised.
+--
+-- WHY EACH COLUMN GOES
+--
+--   description  text
+--       No UI field has ever posted it and nothing reads it. The only
+--       consumer was the dictionary search filter.
+--
+--   activity_type enum('Software','Hardware','Clerical','Other')
+--       The vestige of a Software/Hardware split that
+--       migration_drop_report_entity_activity_type.sql already removed from
+--       report_entities, where the same reasoning was applied. The entity
+--       form has only offered IT or Clerical since, so every row written
+--       through the UI was already 'Other' or 'Clerical' and the enum had
+--       one reachable value per branch.
+--
+-- WHY category BECOMES AN ENUM
+-- It was varchar(100) holding 'Programming', 'Database', 'Office Software',
+-- 'Administrative Task', 'Other' -- a second classification competing with
+-- it_related, and the reason the two drifted apart: 3 report_entities rows
+-- still read category 'Office Software' with it_related = 'yes', because the
+-- extraction path copied the dictionary's category straight in.
+--
+-- The classification the portal reports on is one axis, IT-related or
+-- Clerical. category stays, but as the two-value mirror of it_related, and
+-- the type makes the old values uninsertable. This is the mirror
+-- relationship migration_normalize_entity_category.sql applied to
+-- report_entities, now enforced by the type instead of a one-off UPDATE.
+-- Writers must derive category from it_related in the same statement.
+--
+-- THIS FILE IS NOT IDEMPOTENT -- the ALTERs fail on a second run. That
+-- matches the existing migration_*.sql convention: run once, in order.
+--
+-- NOTHING ELSE IS AFFECTED
+-- src/services/report_workspace.php and src/services/cqi_dashboard_data.php
+-- read report_entities.category, which is a different column on a different
+-- table and is untouched here. It now simply receives 'IT_TERM' or
+-- 'CLERICAL_TERM' instead of a category name, and the readers already map
+-- those to Software and Clerical.
+--
+-- SEE ALSO
+--   seed_predefined_entities_from_terms.sql
+--   migration_drop_report_entity_activity_type.sql
+--   migration_normalize_entity_category.sql
+ALTER TABLE `predefined_entities` DROP COLUMN `description`;
+ALTER TABLE `predefined_entities` DROP COLUMN `activity_type`;
+
+-- MODIFY runs after the seed on purpose: it rejects any legacy category
+-- value still present in the table.
+ALTER TABLE `predefined_entities`
+  MODIFY COLUMN `category` ENUM('IT_TERM','CLERICAL_TERM') NOT NULL;
+
+
+-- ---------------------------------------------------------------
+-- Verification:
+--
+--   SHOW CREATE TABLE `predefined_entities`\G
+--     -> id, entity_name, aliases, category, it_related, is_archived,
+--        created_at, updated_at   (8 columns)
+
+--   SELECT `category`, `it_related`, COUNT(*) AS `n`
+--     FROM `predefined_entities`
+--    GROUP BY `category`, `it_related`;
+--     -> (IT_TERM, yes, 285) and (CLERICAL_TERM, no, 204) only
+-- ---------------------------------------------------------------

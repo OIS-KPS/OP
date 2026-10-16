@@ -149,91 +149,6 @@ function runEntityExtractor(string $pdfPath): array
     return $payload;
 }
 
-/**
- * Persist only entities verified by the Python extractor against predefined_entities.
- */
-function persistExtractedEntities(PDO $pdo, int $reportId, array $entities): int
-{
-    $allowedActivityTypes = ['Software', 'Hardware', 'Clerical', 'Other'];
-    $allowedItValues = ['yes', 'no', 'unknown'];
-    $allowedSources = ['spacy', 'predefined', 'spacy_predefined'];
-    $seen = [];
-    $rows = [];
-
-    foreach ($entities as $entity) {
-        if (!is_array($entity)) {
-            continue;
-        }
-
-        $entityName = trim((string) ($entity['entity_name'] ?? $entity['entity'] ?? ''));
-        if ($entityName === '') {
-            continue;
-        }
-
-        $canonicalName = trim((string) ($entity['canonical_name'] ?? $entityName));
-        $category = trim((string) ($entity['category'] ?? 'Other')) ?: 'Other';
-        $activityType = trim((string) ($entity['activity_type'] ?? 'Other'));
-        $activityType = in_array($activityType, $allowedActivityTypes, true) ? $activityType : 'Other';
-
-        $itRelated = strtolower(trim((string) ($entity['it_related'] ?? 'unknown')));
-        $itRelated = in_array($itRelated, $allowedItValues, true) ? $itRelated : 'unknown';
-
-        $source = trim((string) ($entity['source'] ?? 'predefined'));
-        $source = in_array($source, $allowedSources, true) ? $source : 'predefined';
-
-        $confidence = null;
-        if (isset($entity['confidence_score']) && is_numeric($entity['confidence_score'])) {
-            $confidence = max(0.00, min(100.00, (float) $entity['confidence_score']));
-        }
-
-        $key = strtolower($canonicalName . '|' . $activityType);
-        if (isset($seen[$key])) {
-            continue;
-        }
-        $seen[$key] = true;
-
-        $rows[] = [$entityName, $canonicalName, $category, $activityType, $itRelated, $source, $confidence];
-    }
-
-    $pdo->beginTransaction();
-    try {
-        $delete = $pdo->prepare(
-            "DELETE FROM report_entities
-             WHERE report_id = ?
-               AND source IN ('predefined', 'spacy_predefined')"
-        );
-        $delete->execute([$reportId]);
-
-        $insert = $pdo->prepare(
-            'INSERT INTO report_entities
-                (report_id, entity_name, canonical_name, category,
-                 activity_type, it_related, source, confidence_score, is_archived)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
-        );
-
-        foreach ($rows as $row) {
-            $insert->execute([
-                $reportId,
-                $row[0],
-                $row[1],
-                $row[2],
-                $row[3],
-                $row[4],
-                $row[5],
-                $row[6]
-            ]);
-        }
-
-        $pdo->commit();
-        return count($rows);
-    } catch (Throwable $exception) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        throw $exception;
-    }
-}
-
 // Handle POST Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -256,7 +171,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // term can never end up labelled IT_TERM while it_related says
         // Clerical, which is what put a clerical term inside an IT band on the
         // CQI frequency chart.
-        $activityType = ($itRelated === 'no') ? 'Clerical' : 'Other';
+        //
+        // predefined_entities is held to the same rule. Its category is an
+        // ENUM of these two values (migration_simplify_predefined_entities.sql),
+        // so the opt-in dictionary write further down reuses this value rather
+        // than deriving a second one that could disagree with it.
         $category = ($itRelated === 'no') ? 'CLERICAL_TERM' : 'IT_TERM';
 
         // The modal has always posted an Aliases field but nothing ever read it.
@@ -342,10 +261,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $stmtDict = $pdo->prepare(
                         'INSERT INTO predefined_entities
-                            (entity_name, aliases, category, activity_type, it_related)
-                         VALUES (?, ?, ?, ?, ?)'
+                            (entity_name, aliases, category, it_related)
+                         VALUES (?, ?, ?, ?)'
                     );
-                    $stmtDict->execute([$entityName, $aliases ?: null, 'Other', $activityType, $itRelated]);
+                    $stmtDict->execute([$entityName, $aliases ?: null, $category, $itRelated]);
 
                     $_SESSION['flash_success'] .=
                         ' It was also added to the Entity Dictionary.';

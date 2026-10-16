@@ -168,11 +168,9 @@ def _database_matches(text: str) -> list[Dict[str, Any]]:
         cursor = connection.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT id, entity_name, aliases, category, activity_type,
-                   it_related, description
+            SELECT id, entity_name, aliases, it_related
             FROM predefined_entities
-            WHERE LOWER(TRIM(entity_name)) <> 'my'
-              AND is_archived = 0
+            WHERE is_archived = 0
             ORDER BY CHAR_LENGTH(entity_name) DESC, entity_name ASC
             """
         )
@@ -198,20 +196,20 @@ def _database_matches(text: str) -> list[Dict[str, Any]]:
             start = found.start() if found else 0
             end = found.end() if found else len(term)
 
-            activity_type = _normalise_activity_type(
-                match.get("activity_type"),
-                fallback=_infer_activity_type(match),
-            )
+            it_related = _normalise_it_related(match.get("it_related"), "")
             normalized.append({
                 "term": term,
                 "entity": match.get("entity") or match.get("entity_name") or term,
                 "entity_name": match.get("entity_name") or match.get("entity") or term,
                 "canonical_name": match.get("canonical_name") or match.get("entity_name") or term,
-                "category": str(match.get("category") or "Other"),
-                "activity_type": activity_type,
-                "it_related": _normalise_it_related(match.get("it_related"), activity_type),
+                # Derived from it_related, not read. predefined_entities no longer
+                # carries a category of its own; it is the IT_TERM/CLERICAL_TERM
+                # mirror of it_related, and that is what the portal stores on
+                # report_entities. activity_type and description are gone from the
+                # dictionary entirely -- see migration_simplify_predefined_entities.sql.
+                "category": "CLERICAL_TERM" if it_related == "no" else "IT_TERM",
+                "it_related": it_related,
                 "predefined_id": match.get("predefined_id"),
-                "description": match.get("description"),
                 "matched_term": term,
                 "start": int(start),
                 "end": int(end),
@@ -320,13 +318,28 @@ def _build_summary(entities: list[Dict[str, Any]]) -> Dict[str, Any]:
     clerical_count = 0
 
     for entity in entities:
-        activity = str(entity.get("activity_type") or "Other").strip().title()
-        if activity not in {"Software", "Hardware", "Clerical", "Other"}:
-            activity = "Other"
-        activity_counts[activity] += 1
         related = str(entity.get("it_related") or "").lower()
         if related == "yes":
             it_related_count += 1
+
+        # Dictionary matches no longer carry activity_type: the column was
+        # dropped from predefined_entities by
+        # migration_simplify_predefined_entities.sql. Deriving it from
+        # it_related keeps the CLERICAL_TERM tally honest -- without the
+        # fallback every dictionary match would count as "Other" and the
+        # clerical percentage would collapse towards zero. An unclassified
+        # term stays "Other" rather than being guessed into an IT bucket.
+        activity = str(entity.get("activity_type") or "").strip().title()
+        if not activity:
+            if related == "no":
+                activity = "Clerical"
+            elif related == "yes":
+                activity = "Software"
+            else:
+                activity = "Other"
+        if activity not in {"Software", "Hardware", "Clerical", "Other"}:
+            activity = "Other"
+        activity_counts[activity] += 1
         if activity == "Clerical":
             clerical_count += 1
 

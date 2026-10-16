@@ -161,10 +161,11 @@ $entityFilterFields = static function () use (
                             <svg class="w-4 h-4 text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
 
-                        <?php /* No category filter: category is no longer set anywhere
-                               in the app, so filtering on it would silently hide
-                               every entry added from now on. The controller still
-                               honours ?category= so old bookmarked URLs keep working. */ ?>
+                        <?php /* No category filter. category on predefined_entities is now just the
+                               IT_TERM/CLERICAL_TERM mirror of it_related, so a second
+                               filter would offer the same choice the Type filter
+                               already gives. The controller still honours ?category=
+                               so old bookmarked URLs keep working. */ ?>
                         <?php if ($search !== '' || $categoryFilter !== 'All' || $typeFilter !== 'All'): ?>
                             <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="px-3 py-2 text-slate-600 hover:text-slate-900 text-xs font-bold whitespace-nowrap">Reset</a>
                         <?php endif; ?>
