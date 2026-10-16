@@ -799,8 +799,13 @@ function entityDictionaryVersion(PDO $pdo): ?string
  * every page view. It runs only when:
  *
  *   - the report has never been extracted (entities_extracted_at IS NULL), or
- *   - the caller explicitly forces it (the coordinator's Re-extract action), or
  *   - the Entity Dictionary has changed since that extraction ran
+ *
+ * $force still bypasses both checks. There is no UI for it: the coordinator
+ * "Re-extract" button was removed, so the only way to trigger it is calling
+ * coordinator/view_report.php?extract=1 directly. That is left in place as a
+ * deliberate escape hatch for the case where a single report must be re-run
+ * without waiting for a dictionary edit. Pass false to drop it.
  *
  * The dictionary clause is what preserves the original intent of the old
  * "always extract on every view to pick up new predefined entities" comment,
