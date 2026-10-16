@@ -104,6 +104,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
         } else {
             $errors[] = "Invalid file format. Please upload a PDF file.";
         }
+    } elseif (isset($_FILES['report_file']) && in_array(
+        $_FILES['report_file']['error'],
+        [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE],
+        true
+    )) {
+        // The drop zone used to promise "Max size 10MB" and nothing enforced it --
+        // not the browser, not here. That claim is gone from the copy, but PHP's own
+        // upload_max_filesize still caps every upload, and an oversize file reports
+        // as a size failure here. Without this branch it fell through to the
+        // generic message below, which tells the intern to pick a different file
+        // format -- blaming the wrong thing entirely for a size problem.
+        $maxUpload = ini_get('upload_max_filesize');
+        $errors[] = "That file is larger than this server accepts ({$maxUpload}). Please compress it or upload a smaller PDF.";
     } else {
         $errors[] = "Please select a PDF file to upload.";
     }

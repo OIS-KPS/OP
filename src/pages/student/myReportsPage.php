@@ -66,7 +66,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
             <!-- Top Header Component -->
             <?php include __DIR__ . '/../../components/header.php'; ?>
 
-            <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
+            <main class="p-4 sm:p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
                 <!-- Alert Messages -->
                 <?php if (!empty($errorMessage)): ?>
@@ -137,78 +137,102 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                 </div>
 
                 <!-- 1. Conditional Internship Completion / Final Evaluation Notification -->
-                <!-- Slimmed to a single line: one status pill, one sentence, one action.
-                     It used to stack an uppercase heading, a pill and a paragraph in a
-                     ~110px card, which pushed the actual report history below the fold
-                     for a notice an intern only needs once. -->
+                <!-- One status, one sentence, one action.
+                     This used to render two status pills saying the same thing:
+                     "Evaluation Requested" beside "Waiting for Supervisor", and
+                     "Evaluation Forwarded" beside "Completed & Signed". That
+                     redundancy is what made it read as clutter, and it is also
+                     what broke the layout on a phone: the sentence was sandwiched
+                     between two shrink-0 pills and wrapped into a narrow ribbon,
+                     which is why it needed truncate, which is why the sentence
+                     looked cut off.
+                     The status pill now absorbs the coloured dot from the pill it
+                     replaces, so the state still reads at a glance with half the
+                     competing chips. The sentence sits below on its own full-width
+                     row, so nothing can squeeze it, and the buttons get a
+                     full-width tap target on mobile. -->
                 <?php if ($totalApproved >= 10 || $isRequested || $isEvaluated): ?>
-                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex items-center gap-3 min-w-0">
+                    <?php /* Computed inside the guard because two of the three
+                             states have no action at all, and an empty flex box
+                             would still carry its gap. */
+                    $showAction = (!$isEvaluated) && (!$isRequested || $canCancelRequest); ?>
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-4 sm:px-5 py-4 space-y-3">
+
+                        <!-- Row 1: status on the left, action on the right -->
+                        <div class="flex flex-wrap items-center justify-between gap-2">
                             <?php if ($isEvaluated): ?>
-                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-300">Evaluation Forwarded</span>
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-600"></span> Evaluation Forwarded
+                                </span>
                             <?php elseif ($isRequested): ?>
-                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">Evaluation Requested</span>
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span> Evaluation Requested
+                                </span>
                             <?php else: ?>
-                                <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-[#0F2854] border border-[#0F2854]/30">Final Evaluation</span>
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 text-xs font-bold">
+                                    <span class="w-2 h-2 rounded-full bg-[#0F2854]"></span> Final Evaluation
+                                </span>
                             <?php endif; ?>
-                            <p class="text-xs font-medium text-slate-600 truncate">
-                                <?php if ($isEvaluated): ?>
-                                    Your supervisor forwarded your final appraisal to the coordinator.
-                                <?php elseif ($isRequested): ?>
-                                    Your request is with your supervisor for review and signature.
-                                <?php else: ?>
-                                    Finished your OJT? Request your final evaluation from your supervisor.
-                                <?php endif; ?>
-                            </p>
+
+                            <?php if ($showAction): ?>
+                                <div class="w-full sm:w-auto flex items-center sm:justify-end gap-2">
+                                    <?php if ($isRequested): ?>
+                                        <form method="POST" action="reports.php" class="w-full sm:w-auto" onsubmit="return confirm('Cancel your final evaluation request? You can submit a new request later.');">
+                                            <?= csrf_field(); ?>
+                                            <button type="submit" name="cancel_evaluation_request" class="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-white text-amber-700 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition-colors cursor-pointer inline-flex items-center justify-center">
+                                                Cancel Request
+                                            </button>
+                                        </form>
+                                    <?php else: ?>
+                                        <form method="POST" action="reports.php" class="w-full sm:w-auto" onsubmit="return confirm('Confirm that you have completed your internship. Your supervisor will be notified to evaluate you.');">
+                                            <?= csrf_field(); ?>
+                                            <button type="submit" name="request_evaluation" class="w-full sm:w-auto px-4 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2">
+                                                <span>Request Final Evaluation</span>
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
-                        <div class="shrink-0 flex items-center gap-2">
+                        <!-- Row 2: the sentence, full width, free to wrap -->
+                        <p class="text-xs font-medium text-slate-600 leading-relaxed">
                             <?php if ($isEvaluated): ?>
-                                <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Completed &amp; Signed
-                                </span>
+                                <?php /* Word for word the same sentence as
+                                         dashboardPage.php. The two student pages
+                                         used to describe this one state differently
+                                         -- "appraisal" here, "evaluation" there,
+                                         "the coordinator" vs "OJT Coordinator" -- and
+                                         every other student-facing string here says
+                                         "evaluation". Keep them in step deliberately. */ ?>
+                                Your supervisor has signed and forwarded your final evaluation to the OJT Coordinator.
                             <?php elseif ($isRequested): ?>
-                                <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold">
-                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span> Waiting for Supervisor
-                                </span>
-                                <?php if ($canCancelRequest): ?>
-                                    <form method="POST" action="reports.php" class="inline" onsubmit="return confirm('Cancel your final evaluation request? You can submit a new request later.');">
-                                        <?= csrf_field(); ?>
-                                        <button type="submit" name="cancel_evaluation_request" class="px-3.5 py-1.5 rounded-full bg-white text-amber-700 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition-colors cursor-pointer">
-                                            Cancel Request
-                                        </button>
-                                    </form>
-                                <?php endif; ?>
+                                Your request is with your supervisor for review and signature.
                             <?php else: ?>
-                                <form method="POST" action="reports.php" onsubmit="return confirm('Confirm that you have completed your internship. Your supervisor will be notified to evaluate you.');">
-                                    <?= csrf_field(); ?>
-                                    <button type="submit" name="request_evaluation" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2">
-                                        <span>Request Final Evaluation</span>
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                                    </button>
-                                </form>
+                                Finished your OJT? Request your final evaluation from your supervisor.
                             <?php endif; ?>
-                        </div>
+                        </p>
                     </div>
                 <?php endif; ?>
 
                 <!-- 2. Status Summary Metric Cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs space-y-1">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+                    <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-1">
                         <span class="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Reports Submitted</span>
-                        <p class="text-3xl font-black text-slate-950"><?= (int)$totalReportsCount; ?></p>
+                        <p class="text-2xl sm:text-3xl font-black text-slate-950"><?= (int)$totalReportsCount; ?></p>
                         <p class="text-xs font-semibold text-slate-600 pt-0.5">Total accomplishment logs</p>
                     </div>
 
-                    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs space-y-1">
+                    <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-1">
                         <span class="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Reports Approved</span>
-                        <p class="text-3xl font-black text-emerald-600"><?= (int)$totalApproved; ?></p>
+                        <p class="text-2xl sm:text-3xl font-black text-emerald-600"><?= (int)$totalApproved; ?></p>
                         <p class="text-xs font-semibold text-slate-600 pt-0.5">Verified by supervisor</p>
                     </div>
 
-                    <div class="bg-white rounded-2xl p-6 border <?= $totalRejected > 0 ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/90'; ?> shadow-xs space-y-1">
+                    <div class="bg-white rounded-2xl p-4 sm:p-6 border <?= $totalRejected > 0 ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/90'; ?> shadow-xs space-y-1">
                         <span class="block text-[10px] font-black text-slate-700 uppercase tracking-wider"><?= $totalRejected > 0 ? 'Needs Action' : 'Waiting for Review'; ?></span>
-                        <p class="text-3xl font-black <?= $totalRejected > 0 ? 'text-rose-600' : 'text-amber-600'; ?>"><?= (int)($totalRejected > 0 ? $totalRejected : $totalPending); ?></p>
+                        <p class="text-2xl sm:text-3xl font-black <?= $totalRejected > 0 ? 'text-rose-600' : 'text-amber-600'; ?>"><?= (int)($totalRejected > 0 ? $totalRejected : $totalPending); ?></p>
                         <p class="text-xs font-semibold text-slate-600 pt-0.5"><?= $totalRejected > 0 ? $totalRejected . ' report(s) flagged for revision' : 'Pending supervisor sign-off'; ?></p>
                     </div>
                 </div>
@@ -249,7 +273,135 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                     </div>
 
                     <?php if (!empty($reports)): ?>
-                        <div class="overflow-x-auto">
+                        <!-- ============================================================
+                             MOBILE CARD LIST -- below md only.
+                             The table below cannot fit a phone. It needs roughly 650px:
+                             the submitted date is held on one line and the two action
+                             buttons sit side by side, so the four columns together
+                             overflow and the intern has to scroll sideways to see
+                             Actions. Below md each report becomes a stacked card with
+                             full-width buttons instead.
+                             Every card carries the same report-row class and
+                             data-status attribute as its table row, so
+                             filterReports() filters both blocks with no JavaScript
+                             change -- it only ever touches .report-row.
+                             ============================================================ -->
+                        <div class="md:hidden divide-y divide-slate-200/80">
+                            <?php foreach ($reports as $report):
+                                $status = strtolower($report['status'] ?? 'pending');
+                                $filePath = $report['file_path'] ?? '';
+                                $prevFilePath = $report['previous_file_path'] ?? '';
+                                $remarks = $report['supervisor_remarks'] ?? '';
+                                $dateSubmitted = $report['submitted_at'] ?? null;
+                                $approvedAt = $report['approved_at'] ?? null;
+                                $isApproved = ($status === 'approved');
+                                $isRejected = ($status === 'rejected');
+                            ?>
+                                <div class="report-row px-4 py-4 space-y-3 <?= $isRejected ? 'bg-rose-50/20' : 'bg-white'; ?>"
+                                     data-status="<?= htmlspecialchars($status); ?>">
+
+                                    <!-- Week + status -->
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2.5 min-w-0">
+                                            <div class="w-9 h-9 rounded-xl bg-slate-100 text-[#0F2854] font-black text-xs flex items-center justify-center border border-slate-300 shrink-0">
+                                                W<?= htmlspecialchars($report['week_number']); ?>
+                                            </div>
+                                            <span class="text-sm font-extrabold text-slate-950">Week <?= htmlspecialchars($report['week_number']); ?></span>
+                                        </div>
+                                        <?php if ($isApproved): ?>
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100/80 text-emerald-900 border border-emerald-300 text-[10px] font-bold shadow-2xs shrink-0">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Approved
+                                            </span>
+                                        <?php elseif ($isRejected): ?>
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100/80 text-rose-900 border border-rose-300 text-[10px] font-bold shadow-2xs shrink-0">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Needs Changes
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-300 text-[10px] font-bold shadow-2xs shrink-0">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Waiting for Review
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <!-- Dates and flags -->
+                                    <div class="text-xs text-slate-600 space-y-1">
+                                        <p>
+                                            <span class="font-semibold text-slate-700">Submitted:</span>
+                                            <?= !empty($dateSubmitted) ? htmlspecialchars(date("M d, Y \a\\t g:i A", strtotime($dateSubmitted))) : '&mdash;'; ?>
+                                        </p>
+                                        <?php if (!empty($report['is_late'])): ?>
+                                            <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-900 border border-orange-300">Late Submission</span>
+                                        <?php endif; ?>
+                                        <?php if ($isApproved && !empty($approvedAt)): ?>
+                                            <p class="text-[11px] text-slate-500">
+                                                <span class="font-semibold">Approved:</span>
+                                                <?= htmlspecialchars(date("M d, Y \a\\t g:i A", strtotime($approvedAt))); ?>
+                                            </p>
+                                        <?php endif; ?>
+                                        <?php if (!$isApproved && !$isRejected && !empty($prevFilePath)): ?>
+                                            <p class="text-[10px] font-bold text-amber-800">Revised version submitted</p>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <!-- Supervisor note -->
+                                    <?php if ($isRejected && !empty($remarks)): ?>
+                                        <div class="p-2.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1.5">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="text-[10px] font-black uppercase tracking-wider text-rose-950">Supervisor Note</span>
+                                                <button type="button"
+                                                        onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $filePath), '/')); ?>')"
+                                                        class="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer shrink-0">
+                                                    View Feedback
+                                                </button>
+                                            </div>
+                                            <p class="text-xs text-rose-900 font-medium leading-relaxed line-clamp-2">
+                                                <?= htmlspecialchars($remarks); ?>
+                                            </p>
+                                        </div>
+                                    <?php elseif ($isApproved && !empty($prevFilePath)): ?>
+                                        <button type="button"
+                                                onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>')"
+                                                class="w-full text-[10px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-2.5 py-2 rounded-lg border border-slate-200 transition-colors cursor-pointer">
+                                            View Feedback
+                                        </button>
+                                    <?php endif; ?>
+
+                                    <!-- Actions: stacked, full width for comfortable taps -->
+                                    <div class="space-y-2">
+                                        <?php if (!empty($filePath)): ?>
+                                            <a href="view_report.php?report_id=<?= (int)$report['id']; ?>" data-ics-loading="Opening this report&hellip; This may take a moment." class="w-full px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer">
+                                                <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                                <span>View File</span>
+                                            </a>
+                                        <?php endif; ?>
+
+                                        <?php if (!$isApproved && !$isEvaluated && $isAssigned): ?>
+                                            <a href="submit_report.php?week=<?= (int)$report['week_number']; ?>" class="w-full px-3.5 py-2.5 <?= $isRejected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0F2854] hover:bg-blue-900'; ?> text-white text-xs font-bold rounded-xl transition-colors shadow-xs inline-flex items-center justify-center gap-1.5 cursor-pointer">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+                                                <span><?= $isRejected ? 'Upload Revision' : (!empty($filePath) ? 'Re-upload' : 'Submit'); ?></span>
+                                            </a>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($prevFilePath)): ?>
+                                            <p class="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                                                <span>Previous Flagged:</span>
+                                                <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>" target="_blank" class="text-rose-700 font-bold hover:underline inline-flex items-center gap-1">
+                                                    <span>PDF</span>
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                                </a>
+                                            </p>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <!-- ============================================================
+                             TABLE -- md and up, where four columns fit.
+                             hidden md:block pairs with the card list above; only one
+                             of the two is ever in the layout.
+                             ============================================================ -->
+                        <div class="hidden md:block overflow-x-auto">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-slate-100/70 text-slate-700 text-[11px] uppercase tracking-wider border-b border-slate-200 font-black">
@@ -287,7 +439,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                             </td>
 
                                             <!-- Submitted Date -->
-                                            <td class="py-3.5 px-5 whitespace-nowrap align-middle">
+                                            <td class="py-3.5 px-5 align-middle">
                                                 <span class="font-semibold text-xs text-slate-700">
                                                     <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
                                                 </span>
@@ -327,7 +479,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                         </span>
 
                                                         <?php if (!empty($remarks)): ?>
-                                                            <div class="p-2.5 bg-rose-50 border border-rose-200 rounded-xl max-w-sm space-y-1">
+                                                            <div class="p-2.5 bg-rose-50 border border-rose-200 rounded-xl max-w-xs space-y-1">
                                                                 <div class="flex items-center justify-between gap-2">
                                                                     <span class="text-[10px] font-black uppercase tracking-wider text-rose-950 flex items-center gap-1">
                                                                         Supervisor Note
