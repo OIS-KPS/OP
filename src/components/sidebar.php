@@ -29,7 +29,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </div>
             <div class="min-w-0">
                 <h2 class="font-bold text-sm text-white leading-tight truncate">Student Portal</h2>
-                <p class="text-[11px] text-blue-200/70 font-medium truncate mt-0.5">NBSC &middot; ICS Department</p>
+                <p class="text-[11px] text-blue-200/70 font-medium truncate mt-0.5">NBSC</p>
             </div>
             <!-- Explicit close control. Below lg the backdrop is the only other
                  way out, and on a 375px screen it is a thin strip to hit. -->
