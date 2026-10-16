@@ -14,9 +14,9 @@
  *   $canReview          show Approve / Request Changes controls
  *   $showItPercentages  show the overall + per-week IT/clerical ratio bars
  *   $showEntities       show the per-week extracted-entity panel at all
- *   $controlsInRightPanel  render the week dropdown / submitted stamp / fullscreen
- *                          link as a card at the top of the right column instead
- *                          of as a bar above the PDF on the left
+ *   $selectorInRightPanel  render the week dropdown / submitted stamp /
+ *                          fullscreen link / late flag as a card at the top of
+ *                          the right column instead of a bar above the PDF
  *   $pdfView            'width' (default) or 'fit' embedded PDF zoom
  *   $sidebarPath        sidebar component to include
  *   $pageTitle          <title> suffix
@@ -43,7 +43,7 @@ $canExportCsv = $canExportCsv ?? false;
 $canReview = $canReview ?? false;
 $showItPercentages = $showItPercentages ?? false;
 $showEntities = $showEntities ?? true;
-$controlsInRightPanel = $controlsInRightPanel ?? false;
+$selectorInRightPanel = $selectorInRightPanel ?? false;
 $sidebarPath = $sidebarPath ?? ($viewContext . '_sidebar.php');
 $pageTitle = $pageTitle ?? 'Report Workspace';
 
@@ -87,15 +87,15 @@ $archiveFormAction = $selfPath . ($viewContext === 'coordinator' ? '?student_id=
  * PDF viewer takes the full width. Only the supervisor feedback banner can
  * still keep it alive for such a role.
  *
- * $controlsInRightPanel is a fourth reason to keep it: a role that has moved
- * the week dropdown, submitted stamp and fullscreen link over there needs the
- * column to exist even when it has nothing else to put in it.
+ * $selectorInRightPanel is a fourth reason to keep it: a role that has moved
+ * the week controls over there needs the column to exist even when it has
+ * nothing else to put in it.
  */
 $hasRightColumn = $showEntities
     || $showItPercentages
     || ($canReview && $activeReport)
     || ($activeReport && $activeRemarks !== '')
-    || $controlsInRightPanel;
+    || $selectorInRightPanel;
 
 /**
  * Zoom fragment for the embedded PDF viewer.
@@ -120,18 +120,15 @@ $pdfViewerFragment = $pdfView === 'fit'
     : '#navpanes=0&view=FitH';
 
 /**
- * Renders the week picker, the submitted stamp and the fullscreen link.
+ * Renders the week picker, the submitted stamp, the fullscreen link and the late
+ * flag.
  *
- * These three controls are one unit: the dropdown says which week is loaded, the
- * stamp says when it was submitted and the link opens that same document on its
- * own. They used to live in a bar above the PDF on the left, which pushed the
- * document down and left the right column starting with something unrelated to
- * the week on screen. $controlsInRightPanel moves them into a card at the top
- * of the right column instead, and $asCard picks the wrapper.
- *
- * One renderer for both placements so the two can never drift apart in what
- * they show -- a dropdown that listed different weeks in each position would be
- * worse than either layout.
+ * These four are one unit: they all describe the single week the PDF viewer is
+ * showing. $asCard picks the wrapper -- a card at the top of the right-hand
+ * column, or the flat bar above the PDF -- and both wrappers render the same
+ * controls from one closure, so a role that switches can never end up with a
+ * dropdown listing different weeks than it did before, or an item that exists in
+ * one layout and not the other.
  */
 $renderWeekSelector = function (bool $asCard) use (
     $selfPath,
@@ -151,24 +148,58 @@ $renderWeekSelector = function (bool $asCard) use (
      * the submitted stamp.
      */
     ?>
-    <?php if ($asCard): ?>
+    <?php /* Card wrapper, styled like the other cards in the right-hand column
+         (rounded, bordered, full width) rather than inset into the PDF panel,
+         because here it is a column card and not part of the viewer. It keeps its
+         own heading: a role using this layout has no entity panel or verdict card
+         above it, so nothing else in the column says what is being selected.
+         The card branch below is the student's layout and is left exactly as it
+         is; the bar branch is the one the staff pages use. */
+     if ($asCard): ?>
     <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs shrink-0">
         <div class="p-4 border-b border-slate-200/70 bg-slate-50/60">
             <h2 class="font-extrabold text-xs text-slate-950 uppercase tracking-wider">Report Document</h2>
             <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Select a week to inspect its PDF</p>
         </div>
         <div class="p-4 space-y-3">
+        <?php /* Card layout, two rows:
+
+                 [ week dropdown ][ submitted stamp ]
+                 [ open fullscreen ][ late warning   ]
+
+             The stamp sits beside the dropdown because the two answer the same
+             question -- which week, and when it landed -- and reading them
+             together avoids making the eye jump down a row for the second half of
+             one fact. The dropdown is flex-1 with a basis so it absorbs the
+             leftover width; the stamp is shrink-0 so a long date never pushes it
+             out of the row.
+
+             The fullscreen link drops to the second row because it is an action
+             rather than a fact about the submission, and it needs its own space to
+             sit on. The late warning follows it on that row: the link opens the
+             very document the warning is about, so the two belong side by side
+             with the flag last, where it reads as an aside to what is above. */ ?>
     <?php else: ?>
-    <div class="p-4 bg-slate-100/80 border-b border-slate-200/70 flex flex-wrap items-center gap-3 shrink-0">
+    <div class="p-4 bg-slate-100/80 border-b border-slate-200/70 space-y-3 shrink-0">
     <?php endif; ?>
 
-        <form method="GET" action="<?= htmlspecialchars($selfPath); ?>" class="text-xs <?= $asCard ? '' : 'flex-1'; ?>">
+        <?php /* First row: the dropdown, plus the fullscreen link for the staff bar.
+             Both wrappers keep the exact gap they used to render with, so the card
+             layout is untouched and the bar only gains its second row. */ ?>
+        <div class="flex flex-wrap items-center <?= $asCard ? 'gap-2' : 'gap-3'; ?>">
+
+        <?php /* The form and select below are shared by both wrappers, but the bar
+         wrapper keeps the exact attributes the staff pages have always rendered
+         with -- the same form class, the same wrapping div, no extra attributes on
+         the select. Only the card branch asks for anything different, so switching
+         $selectorInRightPanel on for a role cannot restyle the others. */ ?>
+        <form method="GET" action="<?= htmlspecialchars($selfPath); ?>" class="<?= $asCard ? 'text-xs flex-1 basis-64' : 'flex items-center gap-3 flex-1 text-xs'; ?>">
             <?php if ($viewContext === 'coordinator'): ?>
                 <input type="hidden" name="student_id" value="<?= (int)$studentId; ?>">
             <?php endif; ?>
             <div class="<?= $asCard ? '' : 'flex-1'; ?>">
             <select name="report_id"
-                    aria-label="Select submitted week report"
+                    <?= $asCard ? 'aria-label="Select submitted week report"' : '' ?>
                     onchange="showWeekLoading(this); this.form.submit()"
                     class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
                 <option value="" disabled <?= $activeReport ? '' : 'selected'; ?>>-- Select Submitted Week Report --</option>
@@ -184,66 +215,76 @@ $renderWeekSelector = function (bool $asCard) use (
         </form>
 
         <?php if ($asCard): ?>
-            <?php /* Card layout: the submitted stamp and the fullscreen link share one
-                     row, the late warning sits beneath it on its own full-width line.
-
-                     The pair on top are two views of the same document -- when it
-                     landed and how to read it on its own -- so they belong together
-                     and the stamp takes whatever width is left, which keeps the
-                     button a fixed size no matter how long the date is. The warning
-                     drops below because it is the one item here that needs acting on,
-                     and a row of its own is what makes it read that way.
-
-                     The bar layout below keeps its own warning-first order: there the
-                     three sit side by side in a wrapping row, and the flag leads rather
-                     than trailing the quiet facts. */ ?>
-            <?php if ($activeReport): ?>
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex flex-1 items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-300 text-[11px] font-bold"
-                          title="When this report was submitted.">
-                        <span aria-hidden="true">&#128229;</span>
-                        Submitted <?= htmlspecialchars($activeSubmittedAt); ?>
-                    </span>
-
-                    <?php if ($pdfUrl !== ''): ?>
-                        <a href="<?= htmlspecialchars($pdfUrl); ?>" target="_blank" rel="noopener" class="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] font-bold shadow-xs inline-flex items-center gap-1">
-                            <span>Open Fullscreen &nearr;</span>
-                        </a>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($activeReport && !empty($activeReport['is_late'])): ?>
-                <span class="inline-flex items-center justify-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold"
-                      title="This report was submitted after its deadline.">
-                    <span aria-hidden="true">&#9888;</span>
-                    Late submission
-                </span>
-            <?php endif; ?>
-        <?php else: ?>
-            <?php if ($activeReport && !empty($activeReport['is_late'])): ?>
-                <span class="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold"
-                      title="This report was submitted after its deadline.">
-                    <span aria-hidden="true">&#9888;</span>
-                    Late submission
-                </span>
-            <?php endif; ?>
-
-            <?php if ($activeReport): ?>
-                <span class="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-300 text-[11px] font-bold"
+                <span class="inline-flex shrink-0 items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-white text-slate-600 border border-slate-300 text-[11px] font-bold"
                       title="When this report was submitted.">
                     <span aria-hidden="true">&#128229;</span>
                     Submitted <?= htmlspecialchars($activeSubmittedAt); ?>
                 </span>
-            <?php endif; ?>
+            </div>
 
-            <?php if ($activeReport && $pdfUrl !== ''): ?>
-                <a href="<?= htmlspecialchars($pdfUrl); ?>" target="_blank" rel="noopener" class="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] font-bold shadow-xs inline-flex items-center gap-1">
-                    <span>Open Fullscreen &nearr;</span>
-                </a>
+            <?php /* The second row is skipped outright when it would hold nothing,
+                     rather than left behind as an empty flex row carrying its gap. */ ?>
+            <?php if ($pdfUrl !== '' || !empty($activeReport['is_late'])): ?>
+            <div class="flex flex-wrap items-center gap-2">
+                <?php if ($pdfUrl !== ''): ?>
+                    <a href="<?= htmlspecialchars($pdfUrl); ?>" target="_blank" rel="noopener" class="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] font-bold shadow-xs inline-flex items-center gap-1">
+                        <span>Open Fullscreen &nearr;</span>
+                    </a>
+                <?php endif; ?>
+
+                <?php if (!empty($activeReport['is_late'])): ?>
+                    <span class="inline-flex shrink-0 items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold"
+                          title="This report was submitted after its deadline.">
+                        <span aria-hidden="true">&#9888;</span>
+                        Late submission
+                    </span>
+                <?php endif; ?>
+            </div>
             <?php endif; ?>
+        <?php else: ?>
+            <?php /* Bar layout, two rows:
+
+                     [ week dropdown ][ open fullscreen ]
+                     [ submitted date ][ late warning   ]
+
+                 The fullscreen link moves up beside the dropdown because both name
+                 and open the week report, so they belong on one line with the
+                 dropdown taking the leftover width. The two facts about the
+                 submission -- when it landed, and whether it was late -- drop to the
+                 row below in the same left-to-right order, where the flag reads as a
+                 qualifier on the date rather than competing with the picker for
+                 attention. Both rows wrap, so nothing is squeezed out on a narrow
+                 screen. Every element keeps the classes it has always had; only the
+                 arrangement changed. */ ?>
+                <?php if ($activeReport && $pdfUrl !== ''): ?>
+                    <a href="<?= htmlspecialchars($pdfUrl); ?>" target="_blank" rel="noopener" class="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[11px] font-bold shadow-xs inline-flex items-center gap-1">
+                        <span>Open Fullscreen &nearr;</span>
+                    </a>
+                <?php endif; ?>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <?php if ($activeReport): ?>
+                    <span class="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-300 text-[11px] font-bold"
+                          title="When this report was submitted.">
+                        <span aria-hidden="true">&#128229;</span>
+                        Submitted <?= htmlspecialchars($activeSubmittedAt); ?>
+                    </span>
+                <?php endif; ?>
+
+                <?php if ($activeReport && !empty($activeReport['is_late'])): ?>
+                    <span class="inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold"
+                          title="This report was submitted after its deadline.">
+                        <span aria-hidden="true">&#9888;</span>
+                        Late submission
+                    </span>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
 
+    <?php /* The card opens two elements (outer card, padded body) and the bar
+             opens one, so each needs its own closing tags. Emitting the card's
+             pair unconditionally would leave a stray </div> in the staff pages. */ ?>
     <?php if ($asCard): ?>
         </div>
     </div>
@@ -393,12 +434,8 @@ $renderWeekSelector = function (bool $asCard) use (
                         </div>
 
                         <!-- Week Selector Category Dropdown Bar (Clean & Separated) -->
-                        <?php if (!$controlsInRightPanel): ?>
+                        <?php if (!$selectorInRightPanel): ?>
                             <?php $renderWeekSelector(false); ?>
-                        <?php else: ?>
-                            <?php /* Moved to the right column for this role. The left column
-                                     keeps only its own heading, so the viewer starts directly
-                                     under it and the document gets the full height of the panel. */ ?>
                         <?php endif; ?>
 
                         <!-- Full-Size Embedded PDF Viewer Stage for Active Report -->
@@ -421,8 +458,8 @@ $renderWeekSelector = function (bool $asCard) use (
                     <?php if ($hasRightColumn): ?>
                     <div class="xl:col-span-5 flex flex-col h-[calc(100vh-210px)] min-h-[780px] space-y-5">
 
-                        <!-- Week Dropdown / Submitted Stamp / Fullscreen (roles that set $controlsInRightPanel) -->
-                        <?php if ($controlsInRightPanel): ?>
+                        <!-- Week Dropdown / Submitted Stamp / Fullscreen / Late (roles that set $selectorInRightPanel) -->
+                        <?php if ($selectorInRightPanel): ?>
                             <?php $renderWeekSelector(true); ?>
                         <?php endif; ?>
 
