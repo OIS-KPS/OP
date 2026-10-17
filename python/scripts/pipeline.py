@@ -220,36 +220,80 @@ class HybridJournalPipeline:
         ruler.add_patterns(patterns)
         logger.info(f"Configured standalone Dictionary matcher with {len(patterns)} patterns.")
 
-    def _calculate_ml_confidence(self, doc: spacy.tokens.Doc, ent: spacy.tokens.Span) -> float:
-        """Computes genuine marginal posterior probability for an extracted entity.
+    def _calculate_ml_confidences(
+        self, doc: spacy.tokens.Doc
+    ) -> Dict[Tuple[int, int, str], float]:
+        """Computes marginal posterior probability for every ML span in one pass.
 
         Extracts marginal posterior beam probabilities by summing the normalized
-        scores of all unconstrained beam hypotheses that contain the entity span.
+        scores of all unconstrained beam hypotheses that contain each span.
+
+        The beam parse is a property of the whole document, not of an individual
+        span, so it is computed once here and every entity in
+        `_extract_ml_entities` reads its own value out of the returned map.
+
+        This method used to be `_calculate_ml_confidence(doc, ent)` and was called
+        once per entity from the loop over `doc.ents`. Each call redid `make_doc`,
+        a full transformer forward pass and `beam_parse` over the very same text,
+        so a report with N entities paid for N transformer passes. That is why
+        extraction cost tracked entity count rather than document size: a short
+        report with many terms was measurably slower than a long one with few.
+
+        Returns a map keyed by (token_start, token_end, label). A span the beam
+        search has no support for is present with a probability of 0.0 rather than
+        being handed an invented score.
         """
+        spans: List[Tuple[int, int, str]] = [
+            (ent.start, ent.end, ent.label_)
+            for ent in doc.ents
+            if ent.text.strip()
+        ]
+        if not spans:
+            return {}
+
+        probabilities: Dict[Tuple[int, int, str], float] = {key: 0.0 for key in spans}
+
         try:
             ner = self.nlp.get_pipe("ner")
             raw_doc = self.nlp.make_doc(doc.text)
             self.nlp.get_pipe("transformer")(raw_doc)
             beams = ner.beam_parse([raw_doc], beam_width=8)
-            if beams and hasattr(ner.moves, "get_beam_parses"):
-                beam = beams[0]
-                ent_token_start = ent.start
-                ent_token_end = ent.end
-                ent_label = ent.label_
+        except Exception as exc:
+            logger.warning(
+                "Beam parse failed for this document; every ML span reports 0.0 "
+                "confidence. Cause: %s",
+                exc,
+            )
+            return probabilities
 
-                span_prob = 0.0
-                for score, parses in ner.moves.get_beam_parses(beam):
-                    for p_s, p_e, p_l in parses:
-                        if max(ent_token_start, p_s) < min(ent_token_end, p_e) and p_l == ent_label:
-                            span_prob += score
-                            break
+        if not beams or not hasattr(ner.moves, "get_beam_parses"):
+            logger.warning(
+                "Beam search returned nothing for this document; every ML span "
+                "reports 0.0 confidence."
+            )
+            return probabilities
 
-                if span_prob > 0.0:
-                    return round(min(0.9999, span_prob), 4)
-        except Exception as e:
-            logger.debug(f"Could not compute beam probability for span '{ent.text}': {e}")
+        # A single hypothesis must contribute its score at most once per entity.
+        # The original per-entity loop did this by `break`ing out of the parse
+        # list on the first match, so `credited` is reset for every hypothesis
+        # here. Without the reset, a hypothesis that proposes the same span more
+        # than once is counted more than once, which inflates confidence and can
+        # push a term from NEEDS_REVIEW across the threshold into ACCEPTED.
+        for score, parses in ner.moves.get_beam_parses(beams[0]):
+            credited: set = set()
+            for p_s, p_e, p_l in parses:
+                for key in spans:
+                    if key in credited:
+                        continue
+                    ent_start, ent_end, ent_label = key
+                    if p_l == ent_label and max(ent_start, p_s) < min(ent_end, p_e):
+                        probabilities[key] += score
+                        credited.add(key)
 
-        return 0.85
+        return {
+            key: round(min(0.9999, value), 4)
+            for key, value in probabilities.items()
+        }
 
     def _merge_adjacent_entities(
         self,
@@ -288,11 +332,17 @@ class HybridJournalPipeline:
     def _extract_ml_entities(self, doc: Doc) -> List[Dict[str, Any]]:
         """Extracts ML-predicted entities from a processed transformer Doc."""
         entities = []
+        if not doc.ents:
+            return entities
+
+        # Computed once for the whole document, not once per entity.
+        confidences = self._calculate_ml_confidences(doc)
+
         for ent in doc.ents:
             term = ent.text.strip()
             if not term:
                 continue
-            conf = self._calculate_ml_confidence(doc, ent)
+            conf = confidences.get((ent.start, ent.end, ent.label_), 0.0)
             status = "ACCEPTED" if conf >= self.confidence_threshold else "NEEDS_REVIEW"
             entities.append({
                 "term": term,
