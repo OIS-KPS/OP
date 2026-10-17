@@ -1,1 +1,2 @@
+python/models/ner_trf_trstr_llm/model-best/ filter=lfs diff=lfs merge=lfs -text
 python/models/ner_trf_trstr_llm/model-best/transformer/model filter=lfs diff=lfs merge=lfs -text
