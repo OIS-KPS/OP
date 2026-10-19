@@ -18,7 +18,6 @@ import random
 import logging
 from typing import List, Dict, Any, Tuple, Optional, Set
 import csv
-import pandas as pd  # used by training functions; annotation-only can use stdlib csv
 import spacy
 from spacy.tokens import DocBin, Doc
 

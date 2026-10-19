@@ -84,23 +84,20 @@ def _normalise_it_related(value: Any, activity_type: str) -> str:
 async def lifespan(app: FastAPI):
     global _pipeline
     import gc
-    import torch
-
     # Suppress CUDA bootstrap BEFORE scripts/__init__.py runs its ctypes preloader.
-    # Without this, every nvidia .so in the venv gets mmap'd into the process even
-    # on CPU-only hosts, adding hundreds of MB of mapped (RSS) memory for nothing.
     os.environ.setdefault("SPACY_CPU_ONLY", "1")
 
-    # Cap CPU thread count: PyTorch defaults to os.cpu_count() threads,
-    # which inflates RSS meaningfully on multi-core hosts. 2 threads is
-    # sufficient for single-request transformer inference on CPU and keeps
-    # working-set memory well inside the 400 MB target.
-    _cpu_threads = int(os.environ.get("TORCH_NUM_THREADS", "2"))
-    torch.set_num_threads(_cpu_threads)
-    torch.set_num_interop_threads(1)
-    logger.info("PyTorch CPU threads capped to %d (interop=1).", _cpu_threads)
+    try:
+        import torch
+        # Cap CPU thread count if PyTorch is installed:
+        _cpu_threads = int(os.environ.get("TORCH_NUM_THREADS", "2"))
+        torch.set_num_threads(_cpu_threads)
+        torch.set_num_interop_threads(1)
+        logger.info("PyTorch CPU threads capped to %d (interop=1).", _cpu_threads)
+    except ImportError:
+        logger.info("PyTorch not installed; running in native spaCy/Thinc mode.")
 
-    model_path = os.environ.get("MODEL_PATH", "models/trstr_llm_mini/model-best")
+    model_path = os.environ.get("MODEL_PATH", "models/ner_trf_trstr_llm/model-best")
     logger.info("Loading HybridJournalPipeline from %r (CPU mode)", model_path)
     _pipeline = HybridJournalPipeline(model_path=model_path, use_gpu=False)
     logger.info("Trained extraction pipeline ready.")
