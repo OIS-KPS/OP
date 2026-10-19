@@ -16,7 +16,21 @@ logger = logging.getLogger("ojt_pipeline")
 
 
 def _bootstrap_cuda_environment() -> None:
-    """Preload NVIDIA CUDA runtime libraries to ensure seamless CuPy/spaCy GPU execution."""
+    """Preload NVIDIA CUDA runtime libraries to ensure seamless CuPy/spaCy GPU execution.
+
+    Skipped entirely when SPACY_CPU_ONLY=1 is set.  On a CPU-only deployment the
+    nvidia/cuda .so files are huge (3+ GB on disk) and ctypes.CDLL maps them into
+    the process address space even though they are never called, inflating RSS by
+    hundreds of MB and slowing startup.  Set SPACY_CPU_ONLY=1 in production to
+    avoid this entirely.
+    """
+    if os.environ.get("SPACY_CPU_ONLY", "0") == "1":
+        logger.info(
+            "SPACY_CPU_ONLY=1 detected; skipping CUDA library bootstrap. "
+            "GPU acceleration will not be available in this process."
+        )
+        return
+
     import site
     search_dirs = list(sys.path) + site.getsitepackages() + [
         os.path.join(sys.prefix, "lib", f"python{sys.version_info.major}.{sys.version_info.minor}", "site-packages")

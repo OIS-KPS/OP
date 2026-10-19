@@ -17,7 +17,7 @@
     "mode":"default"
   },
   "labels":{
-    "transformer":[
+    "tok2vec":[
 
     ],
     "ner":[
@@ -26,33 +26,33 @@
     ]
   },
   "pipeline":[
-    "transformer",
+    "tok2vec",
     "ner"
   ],
   "components":[
-    "transformer",
+    "tok2vec",
     "ner"
   ],
   "disabled":[
 
   ],
   "performance":{
-    "ents_f":0.6607538803,
-    "ents_p":0.6131687243,
-    "ents_r":0.7163461538,
+    "ents_f":0.6397984887,
+    "ents_p":0.671957672,
+    "ents_r":0.6105769231,
     "ents_per_type":{
       "CLERICAL_TERM":{
-        "p":0.6111111111,
-        "r":0.7638888889,
-        "f":0.6790123457
+        "p":0.6265060241,
+        "r":0.7222222222,
+        "f":0.6709677419
       },
       "IT_TERM":{
-        "p":0.614379085,
-        "r":0.6911764706,
-        "f":0.6505190311
+        "p":0.7075471698,
+        "r":0.5514705882,
+        "f":0.6198347107
       }
     },
-    "transformer_loss":597.0925186186,
-    "ner_loss":1161.8717982162
+    "tok2vec_loss":273.1896418045,
+    "ner_loss":207.7914135054
   }
 }

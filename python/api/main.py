@@ -83,12 +83,48 @@ def _normalise_it_related(value: Any, activity_type: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _pipeline
-    model_path = os.environ.get("MODEL_PATH", "models/ner_trf_trstr_llm/model-best")
+    import gc
+    import torch
+
+    # Suppress CUDA bootstrap BEFORE scripts/__init__.py runs its ctypes preloader.
+    # Without this, every nvidia .so in the venv gets mmap'd into the process even
+    # on CPU-only hosts, adding hundreds of MB of mapped (RSS) memory for nothing.
+    os.environ.setdefault("SPACY_CPU_ONLY", "1")
+
+    # Cap CPU thread count: PyTorch defaults to os.cpu_count() threads,
+    # which inflates RSS meaningfully on multi-core hosts. 2 threads is
+    # sufficient for single-request transformer inference on CPU and keeps
+    # working-set memory well inside the 400 MB target.
+    _cpu_threads = int(os.environ.get("TORCH_NUM_THREADS", "2"))
+    torch.set_num_threads(_cpu_threads)
+    torch.set_num_interop_threads(1)
+    logger.info("PyTorch CPU threads capped to %d (interop=1).", _cpu_threads)
+
+    model_path = os.environ.get("MODEL_PATH", "models/trstr_llm_mini/model-best")
     logger.info("Loading HybridJournalPipeline from %r (CPU mode)", model_path)
     _pipeline = HybridJournalPipeline(model_path=model_path, use_gpu=False)
     logger.info("Trained extraction pipeline ready.")
+
+    # Cap spaCy's internal per-doc length limit (guards against runaway inputs
+    # before they hit the transformer; MAX_TEXT_LENGTH in endpoint handlers is
+    # the HTTP-level guard, this one is the NLP-level guard).
+    _pipeline.nlp.max_length = MAX_TEXT_LENGTH + 1_000
+
+    gc.collect()
+
+    # Log RSS so we know headroom at startup — handy for CI / systemd logs.
+    try:
+        import psutil as _psutil
+        _rss_mb = _psutil.Process(os.getpid()).memory_info().rss / 1_048_576
+        logger.info("Startup RSS after model load: %.1f MB", _rss_mb)
+    except ImportError:
+        logger.info(
+            "Install psutil (pip install psutil) to enable startup RSS logging."
+        )
+
     yield
     _pipeline = None
+    gc.collect()
     logger.info("Extraction API stopped.")
 
 
@@ -154,79 +190,79 @@ def _connect_database():
     )
 
 
-def _database_matches(text: str) -> list[Dict[str, Any]]:
-    """
-    Invoke the existing database matching functions in extract_entities.py.
-    The predefined_entities table is queried on each request so coordinator
-    changes are reflected without restarting FastAPI.
-    """
-    module = _load_pdf_module()
-    connection = None
-    cursor = None
-    try:
-        connection = _connect_database()
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute(
-            """
-            SELECT id, entity_name, aliases, it_related
-            FROM predefined_entities
-            WHERE is_archived = 0
-            ORDER BY CHAR_LENGTH(entity_name) DESC, entity_name ASC
-            """
-        )
-        rows = cursor.fetchall()
-
-        # Use the same matching/alias/overlap rules as the existing Python script.
-        matches = module.find_predefined_matches(text, rows)
-        matches = module.resolve_entity_overlaps(text, matches)
-
-        normalized = []
-        for match in matches:
-            term = str(
-                match.get("matched_term")
-                or match.get("entity_name")
-                or match.get("entity")
-                or ""
-            ).strip()
-            if not term:
-                continue
-
-            # Locate the first literal occurrence for the PHP highlight/offset fields.
-            found = re.search(re.escape(term), text, flags=re.IGNORECASE)
-            start = found.start() if found else 0
-            end = found.end() if found else len(term)
-
-            it_related = _normalise_it_related(match.get("it_related"), "")
-            normalized.append({
-                "term": term,
-                "entity": match.get("entity") or match.get("entity_name") or term,
-                "entity_name": match.get("entity_name") or match.get("entity") or term,
-                "canonical_name": match.get("canonical_name") or match.get("entity_name") or term,
-                # Derived from it_related, not read. predefined_entities no longer
-                # carries a category of its own; it is the IT_TERM/CLERICAL_TERM
-                # mirror of it_related, and that is what the portal stores on
-                # report_entities. activity_type and description are gone from the
-                # dictionary entirely -- see migration_simplify_predefined_entities.sql.
-                "category": "CLERICAL_TERM" if it_related == "no" else "IT_TERM",
-                "it_related": it_related,
-                "predefined_id": match.get("predefined_id"),
-                "matched_term": term,
-                "start": int(start),
-                "end": int(end),
-                "frequency": int(match.get("frequency") or 1),
-                "confidence": 1.0,
-                "confidence_score": 1.0,
-                "source": "predefined",
-            })
-        return normalized
-    except Exception:
-        logger.exception("MySQL predefined-entity matching failed.")
-        raise
-    finally:
-        if cursor is not None:
-            cursor.close()
-        if connection is not None and connection.is_connected():
-            connection.close()
+# def _database_matches(text: str) -> list[Dict[str, Any]]:
+#     """
+#     Invoke the existing database matching functions in extract_entities.py.
+#     The predefined_entities table is queried on each request so coordinator
+#     changes are reflected without restarting FastAPI.
+#     """
+#     module = _load_pdf_module()
+#     connection = None
+#     cursor = None
+#     try:
+#         connection = _connect_database()
+#         cursor = connection.cursor(dictionary=True)
+#         cursor.execute(
+#             """
+#             SELECT id, entity_name, aliases, it_related
+#             FROM predefined_entities
+#             WHERE is_archived = 0
+#             ORDER BY CHAR_LENGTH(entity_name) DESC, entity_name ASC
+#             """
+#         )
+#         rows = cursor.fetchall()
+#
+#         # Use the same matching/alias/overlap rules as the existing Python script.
+#         matches = module.find_predefined_matches(text, rows)
+#         matches = module.resolve_entity_overlaps(text, matches)
+#
+#         normalized = []
+#         for match in matches:
+#             term = str(
+#                 match.get("matched_term")
+#                 or match.get("entity_name")
+#                 or match.get("entity")
+#                 or ""
+#             ).strip()
+#             if not term:
+#                 continue
+#
+#             # Locate the first literal occurrence for the PHP highlight/offset fields.
+#             found = re.search(re.escape(term), text, flags=re.IGNORECASE)
+#             start = found.start() if found else 0
+#             end = found.end() if found else len(term)
+#
+#             it_related = _normalise_it_related(match.get("it_related"), "")
+#             normalized.append({
+#                 "term": term,
+#                 "entity": match.get("entity") or match.get("entity_name") or term,
+#                 "entity_name": match.get("entity_name") or match.get("entity") or term,
+#                 "canonical_name": match.get("canonical_name") or match.get("entity_name") or term,
+#                 # Derived from it_related, not read. predefined_entities no longer
+#                 # carries a category of its own; it is the IT_TERM/CLERICAL_TERM
+#                 # mirror of it_related, and that is what the portal stores on
+#                 # report_entities. activity_type and description are gone from the
+#                 # dictionary entirely -- see migration_simplify_predefined_entities.sql.
+#                 "category": "CLERICAL_TERM" if it_related == "no" else "IT_TERM",
+#                 "it_related": it_related,
+#                 "predefined_id": match.get("predefined_id"),
+#                 "matched_term": term,
+#                 "start": int(start),
+#                 "end": int(end),
+#                 "frequency": int(match.get("frequency") or 1),
+#                 "confidence": 1.0,
+#                 "confidence_score": 1.0,
+#                 "source": "predefined",
+#             })
+#         return normalized
+#     except Exception:
+#         logger.exception("MySQL predefined-entity matching failed.")
+#         raise
+#     finally:
+#         if cursor is not None:
+#             cursor.close()
+#         if connection is not None and connection.is_connected():
+#             connection.close()
 
 
 def _normalise_model_entities(raw_entities: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
@@ -356,13 +392,17 @@ def _build_summary(entities: list[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _run_both_pipelines(text: str) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
-    """Run model and live database matching, then merge their results."""
+    """Run model pipeline and merge with database entities (currently disabled).
+
+    Database matching is commented out while the MySQL predefined-entity table is
+    being migrated. Model-only entities flow through unchanged.
+    """
     if _pipeline is None:
         raise RuntimeError("Trained extraction pipeline is not loaded.")
 
     model_result = _pipeline.predict(text, mode="hybrid")
     model_entities = _normalise_model_entities(model_result.get("entities", []))
-    database_entities = _database_matches(text)
+    database_entities: list[Dict[str, Any]] = []  # DB matching temporarily disabled
     merged = _merge_entities(database_entities, model_entities)
     return _deduplicate_entities(merged), database_entities, model_entities
 
@@ -374,10 +414,35 @@ async def health():
             status_code=503,
             content={"status": "unavailable", "detail": "Pipeline not loaded yet."},
         )
+    # Surface model backbone name from the saved config so the portal can
+    # confirm the mini model is active without reading filesystem paths.
+    backbone = "unknown"
+    try:
+        import json as _json
+        _meta_path = os.path.join(_pipeline.model_path, "config.cfg")
+        if os.path.isfile(_meta_path):
+            with open(_meta_path) as _f:
+                for _line in _f:
+                    if _line.strip().startswith("name ="):
+                        backbone = _line.split("=", 1)[1].strip().strip('"')
+                        break
+    except Exception:
+        pass
+
+    rss_mb = None
+    try:
+        import psutil as _psutil
+        rss_mb = round(_psutil.Process(os.getpid()).memory_info().rss / 1_048_576, 1)
+    except ImportError:
+        pass
+
     return {
         "status": "ok",
         "model_path": _pipeline.model_path,
-        "database_matching": "enabled",
+        "model_backbone": backbone,
+        "rss_mb": rss_mb,
+        "database_matching": "disabled",
+        "memory_target": "≤400 MB RSS",
     }
 
 
