@@ -773,10 +773,34 @@ function extractEntitiesFromReport(
  * Current Entity Dictionary version
  * ------------------------------------------------------------
  *
- * MAX(predefined_entities.updated_at) is the watermark stored alongside each
- * report's extraction timestamp. Any dictionary edit -- a new term, an alias,
- * a reclassification, an archive -- bumps updated_at, so a stored watermark
- * that is older than the current one means the extraction predates the edit.
+ * This is the watermark stored alongside each report's extraction timestamp, and
+ * it is built from two things:
+ *
+ *   COUNT(*)             catches INSERT and DELETE. MAX(updated_at) alone cannot
+ *                        see a delete of a row that was not the most recently
+ *                        updated -- removing an older archived term left the
+ *                        watermark identical and the term kept appearing in
+ *                        reports that had already matched it.
+ *
+ *   MAX(updated_at)      catches edits. Any change to a term, its aliases, its
+ *                        classification or its archived flag bumps updated_at, so
+ *                        a stored watermark older than this means the extraction
+ *                        predates that edit.
+ *
+ * AN EMPTY DICTIONARY IS A VALID VERSION, NOT AN UNKNOWN ONE
+ * This is the subtle part. MAX(updated_at) over no rows returns NULL, and NULL
+ * used to mean "cannot tell", which reportNeedsEntityExtraction() treats as
+ * "extract rather than guess". So a portal whose coordinator had not yet added
+ * any terms re-ran the transformer on every single view, for ever -- the exact
+ * problem the cache exists to prevent.
+ *
+ * An empty table is perfectly readable and perfectly normal: a fresh install.
+ * It gets a stable '0' watermark instead, so reports stamp '0', compare equal,
+ * and skip. Once the first term is added the watermark changes and the affected
+ * reports re-extract once, which is the correct outcome.
+ *
+ * null is now reserved for what it was always meant to mean: the lookup itself
+ * failed, so we genuinely cannot tell and should extract rather than guess.
  *
  * Dictionary edits do NOT by themselves invalidate. Deciding when to re-run
  * extraction is left to the caller; see reportNeedsEntityExtraction().
@@ -785,14 +809,30 @@ function entityDictionaryVersion(PDO $pdo): ?string
 {
     try {
         $stmt = $pdo->query(
-            'SELECT MAX(updated_at) FROM predefined_entities'
+            'SELECT COUNT(*) AS term_count, MAX(updated_at) AS last_change
+             FROM predefined_entities'
         );
 
-        $value = $stmt !== false ? $stmt->fetchColumn() : false;
+        if ($stmt === false) {
+            return null;
+        }
 
-        return ($value === false || $value === null)
-            ? null
-            : (string) $value;
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $termCount = (int) ($row['term_count'] ?? 0);
+
+        // A readable but empty dictionary. Stable, and distinct from null.
+        if ($termCount === 0) {
+            return '0';
+        }
+
+        $lastChange = $row['last_change'] ?? null;
+
+        return $termCount . '@' . ($lastChange === null ? '0' : (string) $lastChange);
 
     } catch (Throwable $e) {
         error_log(
