@@ -37,54 +37,16 @@ if ($studentId <= 0 && $requestedReportId > 0) {
 }
 
 /**
- * Resolve PDF path (mirrors the coordinator's view_report.php; the intern list
- * no longer needs this, it only links here).
+ * Resolve PDF path.
+ *
+ * Moved to src/services/report_workspace.php. This file and
+ * coordinator/view_report.php each had their own copy with a different return type
+ * and a different set of fallback candidates, and the background extraction worker
+ * needs the same resolution logic from outside the web context.
+ *
+ * Note the shared version returns null on failure rather than false, so the
+ * comparison at the call site below changed with it.
  */
-function resolveReportPdfPath($filePath)
-{
-    if (empty($filePath)) {
-        return false;
-    }
-
-    $filePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $filePath);
-
-    if (is_file($filePath)) {
-        $realPath = realpath($filePath);
-        if ($realPath !== false) {
-            return $realPath;
-        }
-    }
-
-    $projectRoot = realpath(__DIR__ . '/..');
-    if ($projectRoot !== false) {
-        $relativePath = ltrim($filePath, DIRECTORY_SEPARATOR);
-        $fileName = basename($filePath);
-
-        $candidateReports = $projectRoot . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'reports' . DIRECTORY_SEPARATOR . $fileName;
-        if (is_file($candidateReports)) {
-            return realpath($candidateReports);
-        }
-
-        $candidate = $projectRoot . DIRECTORY_SEPARATOR . $relativePath;
-        if (is_file($candidate)) {
-            return realpath($candidate);
-        }
-
-        $normalized = str_replace('\\', '/', $relativePath);
-        $normalized = preg_replace('#^ICS-PORTAL/#i', '', $normalized);
-        $candidate = $projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
-        if (is_file($candidate)) {
-            return realpath($candidate);
-        }
-    }
-
-    $candidate = __DIR__ . DIRECTORY_SEPARATOR . ltrim($filePath, DIRECTORY_SEPARATOR);
-    if (is_file($candidate)) {
-        return realpath($candidate);
-    }
-
-    return false;
-}
 
 /**
  * A supervisor may only inspect interns assigned to them.
@@ -119,6 +81,20 @@ $weekClericalPct = 0;
 $weekTotalCount = 0;
 $pdfUrl = '';
 $pageError = '';
+
+/*
+ * Background-extraction state for the view. Seeded empty because the block
+ * below only fills them in when there is an active report to extract, and the
+ * view renders either way.
+ */
+$extractionStatus = [
+    'report_id'    => 0,
+    'extracted_at' => null,
+    'started_at'   => null,
+    'error'        => null,
+    'pending'      => false,
+];
+$extractionPending = false;
 
 /**
  * Apply a supervisor verdict to one of their intern's reports.
@@ -284,9 +260,13 @@ try {
 if (!empty($activeReport) && (int) $activeReport['id'] > 0 && $pageError === '') {
     $reportIdActive = (int) $activeReport['id'];
 
+    // Seeded here so the view always has them, whichever branch is taken below.
+    $extractionStatus = entityExtractionReportStatus($pdo, $reportIdActive);
+    $extractionPending = false;
+
     $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
 
-    if ($pdfPath === false) {
+    if ($pdfPath === null) {
         // Only worth warning about if extraction would otherwise have run.
         if (reportNeedsEntityExtraction($pdo, $reportIdActive)) {
             $_SESSION['flash_error'] =
@@ -300,14 +280,32 @@ if (!empty($activeReport) && (int) $activeReport['id'] > 0 && $pageError === '')
         );
     } else {
         try {
+            /*
+             * $async = true. Extraction is a transformer inference that takes
+             * seconds, and doing it inline made the supervisor wait on a spinner
+             * for a list they may not have been looking at. The work now goes to
+             * src/cli/extract_report.php and this page renders straight away;
+             * the entities appear on refresh, and viewReportPage.php polls for
+             * them via api/report_entities_status.php.
+             *
+             * Nothing is lost if the worker cannot be spawned -- the service
+             * falls back to running inline, so 'ran' is still true and the
+             * workspace is still rebuilt below.
+             */
             $extraction = ensureReportEntitiesExtracted(
                 $pdfPath,
                 $reportIdActive,
-                $pdo
+                $pdo,
+                false,
+                true
             );
 
-            // Re-read only when extraction actually ran. On a skipped run the
-            // stored rows are unchanged, so the workspace is already correct.
+            // Feeds the "analyzing" banner in the view.
+            $extractionPending = !empty($extraction['pending']);
+
+            // Re-read only when extraction actually ran. On a skipped or
+            // deferred run the stored rows are unchanged, so the workspace read
+            // at the top of this request is already correct.
             if (!empty($extraction['ran'])) {
                 $workspace = reportWorkspaceBuild($pdo, $studentId, [
                     'reportId' => $requestedReportId,
@@ -338,6 +336,13 @@ if (!empty($activeReport) && (int) $activeReport['id'] > 0 && $pageError === '')
                 'The report itself is still shown below.';
         }
     }
+
+    /*
+     * Re-read after the attempt. A spawn that fails, a job that is already in
+     * flight, and a fresh report all resolve to a different status than the one
+     * seeded above, and the banner in the view is built from this.
+     */
+    $extractionStatus = entityExtractionReportStatus($pdo, $reportIdActive);
 }
 
 require_once __DIR__ . '/../src/pages/supervisor/viewReportPage.php';

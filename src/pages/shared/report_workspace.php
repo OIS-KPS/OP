@@ -366,6 +366,63 @@ $renderWeekSelector = function (bool $asCard) use (
                     <?php unset($_SESSION['review_message']); ?>
                 <?php endif; ?>
 
+                <?php
+                /*
+                 * Background extraction status.
+                 *
+                 * Extraction is no longer part of the page load, so the entity
+                 * percentages below can briefly describe an earlier state (or no
+                 * state at all) while a worker is running. These two notices say
+                 * which of those is happening instead of leaving a 0% that looks
+                 * like a finding.
+                 *
+                 * A permanent failure is a stored column, not a flash, so it
+                 * survives reloads and keeps explaining the empty list. The
+                 * extractor's own wording is shown, which names the actual limit
+                 * or problem rather than a generic error.
+                 */
+                $icsExtractionStatus = $extractionStatus ?? null;
+                $icsExtractionPending = !empty($extractionPending) || !empty($icsExtractionStatus['pending']);
+                $icsExtractionError = $icsExtractionStatus['error'] ?? null;
+
+                /*
+                 * Whether anything is already on screen decides what the banner is
+                 * allowed to promise.
+                 *
+                 * With no stored entities the percentages really are about to go
+                 * from 0% to real, so saying they will update is accurate. With
+                 * entities already saved -- a first refresh after the migration
+                 * added the tracking columns, or a dictionary change re-running
+                 * extraction -- the figures below are valid right now and only
+                 * risk being revised. Telling that user "the percentages below
+                 * will update on their own" describes a change that may never
+                 * happen and implies the current numbers are not to be trusted.
+                 */
+                $icsHasStoredEntities = count($weekEntities ?? []) > 0
+                    || count($allEntities ?? []) > 0;
+                ?>
+                <?php if ($icsExtractionPending): ?>
+                    <div id="ics-extracting-banner"
+                         class="bg-amber-50 border border-amber-300 text-amber-900 text-xs p-4 rounded-2xl font-bold flex items-center gap-2.5 shadow-2xs">
+                        <span class="inline-block w-3 h-3 rounded-full bg-amber-500 animate-pulse" aria-hidden="true"></span>
+                        <span>
+                            <?php if ($icsHasStoredEntities): ?>
+                                Refreshing report entities&hellip; the figures below are from the last analysis and may be revised when it finishes.
+                            <?php else: ?>
+                                Analyzing report entities&hellip; this takes a few seconds. The percentages below will update on their own.
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($icsExtractionError)): ?>
+                    <div id="ics-extraction-error-banner"
+                         class="bg-rose-50 border border-rose-300 text-rose-900 text-xs p-4 rounded-2xl font-bold flex items-start gap-2.5 shadow-2xs">
+                        <span class="text-rose-700 font-black">&times;</span>
+                        <span>Could not analyze this PDF: <?= htmlspecialchars($icsExtractionError); ?></span>
+                    </div>
+                <?php endif; ?>
+
                 <!-- Student Profile Banner Header -->
                 <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
@@ -908,6 +965,105 @@ $renderWeekSelector = function (bool $asCard) use (
                 }
             }
         }
+    </script>
+
+    <script>
+    /*
+     * Pick up a finished background extraction.
+     *
+     * Extraction no longer happens during the page load, so a report that has
+     * just been opened renders with whatever entities were already stored and the
+     * percentages below can read 0% for a few seconds. Rather than make staff
+     * reload by hand, watch api/report_entities_status.php and refresh once the
+     * extraction timestamp actually moves.
+     *
+     * The status endpoint is only consulted when there is something to wait for,
+     * so a page for an already-extracted report makes no extra requests at all.
+     */
+    (function () {
+        var REPORT_ID = <?= (int) ($activeReport['id'] ?? 0); ?>;
+        var BASELINE = <?= json_encode($icsExtractionStatus['extracted_at'] ?? null); ?>;
+        var PENDING = <?= $icsExtractionPending ? 'true' : 'false'; ?>;
+        var ERROR = <?= json_encode($icsExtractionError); ?>;
+
+        if (!REPORT_ID || (!PENDING && !ERROR)) {
+            return;
+        }
+
+        var POLL_INTERVAL_MS = 4000;
+        // Give up eventually rather than poll forever if the worker never lands.
+        // The page stays usable either way; the banner just stops claiming work
+        // is in progress once it reloads.
+        var MAX_WAIT_MS = 5 * 60 * 1000;
+        var startedAt = Date.now();
+
+        /*
+         * Never reload out from under someone who is mid-edit. A refresh here
+         * would discard a half-typed entity name in the Add Missing Entity modal
+         * or a half-written supervisor remark, and those are worse to lose than a
+         * few seconds of stale percentages.
+         */
+        function userIsEditing() {
+            var modalIds = ['addEntityModal', 'archiveModal'];
+
+            for (var i = 0; i < modalIds.length; i++) {
+                var modal = document.getElementById(modalIds[i]);
+                if (modal && !modal.classList.contains('hidden')) {
+                    return true;
+                }
+            }
+
+            var active = document.activeElement;
+
+            if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) {
+                // Hidden inputs never take focus, but be explicit anyway so a
+                // future hidden field cannot wedge the poller off permanently.
+                return active.type !== 'hidden';
+            }
+
+            return false;
+        }
+
+        function poll() {
+            if (Date.now() - startedAt > MAX_WAIT_MS) {
+                return;
+            }
+
+            if (!userIsEditing()) {
+                fetch('/ICS-PORTAL/api/report_entities_status.php?report_id=' + REPORT_ID, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                })
+                    .then(function (response) {
+                        return response.ok ? response.json() : null;
+                    })
+                    .then(function (data) {
+                        if (!data) {
+                            return;
+                        }
+
+                        // A failure that appeared while the page was open.
+                        if (data.error && !ERROR) {
+                            window.location.reload();
+                            return;
+                        }
+
+                        // The timestamp moved, so the entities on screen are stale.
+                        if (data.extracted_at !== BASELINE) {
+                            window.location.reload();
+                        }
+                    })
+                    .catch(function () {
+                        // A dropped request is not worth reporting. The next tick
+                        // tries again and the worker is unaffected.
+                    });
+            }
+
+            setTimeout(poll, POLL_INTERVAL_MS);
+        }
+
+        setTimeout(poll, POLL_INTERVAL_MS);
+    })();
     </script>
 </body>
 </html>

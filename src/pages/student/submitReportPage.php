@@ -99,7 +99,7 @@
 
                         <!-- Drop Text -->
                         <p class="text-xs font-bold text-slate-800 mb-0.5" id="file-label">Click to upload or drag and drop</p>
-                        <p class="text-[11px] text-slate-400 font-medium" id="file-subtext">PDF files only</p>
+                        <p class="text-[11px] text-slate-400 font-medium" id="file-subtext">PDF files only &middot; Max <?= uploadLimitLabel() ?></p>
                     </div>
 
                     <!-- Clean Action Button -->
@@ -162,14 +162,97 @@
 
     <!-- Drag & Drop Visual Script -->
     <script>
+        // Injected from config/upload_limits.php so the browser enforces the same
+        // number the server does. This used to be copy only -- handleFileSelect
+        // checked nothing at all, so an oversized or non-PDF file was accepted by
+        // the page and only rejected after the whole body had been uploaded.
+        const MAX_UPLOAD_BYTES = <?= (int) MAX_UPLOAD_PDF_BYTES ?>;
+        const MAX_UPLOAD_LABEL = '<?= uploadLimitLabel() ?>';
+
+        // Set when the picked file is rejected. The submit handler reads it, because
+        // clearing input.files does not stop the form being submitted on its own.
+        let uploadRejected = false;
+
+        function rejectSelection(message) {
+            uploadRejected = true;
+
+            const input = document.getElementById('report_file');
+            if (input) {
+                input.value = '';
+            }
+
+            const label = document.getElementById('file-label');
+            const subtext = document.getElementById('file-subtext');
+            const icon = document.getElementById('upload-icon');
+            const dropZone = document.getElementById('drop-zone');
+
+            if (label) {
+                label.textContent = 'No file selected';
+                label.classList.remove('text-[#0F2854]');
+                label.classList.add('text-rose-600');
+            }
+
+            if (subtext) {
+                subtext.textContent = message;
+                subtext.classList.add('text-rose-600');
+            }
+
+            if (dropZone) {
+                dropZone.classList.add('border-rose-300', 'bg-rose-50/30');
+            }
+
+            if (icon) {
+                icon.innerHTML = `<svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+            }
+        }
+
         function handleFileSelect(input) {
             const label = document.getElementById('file-label');
             const subtext = document.getElementById('file-subtext');
             const icon = document.getElementById('upload-icon');
             const dropZone = document.getElementById('drop-zone');
 
+            // Any new pick clears the previous rejection and the error styling.
+            uploadRejected = false;
+
+            if (subtext) {
+                subtext.classList.remove('text-rose-600');
+            }
+
+            if (label) {
+                label.classList.remove('text-rose-600');
+            }
+
+            if (dropZone) {
+                dropZone.classList.remove('border-rose-300', 'bg-rose-50/30');
+            }
+
             if (input.files && input.files[0]) {
-                const fileName = input.files[0].name;
+                const file = input.files[0];
+                const fileName = file.name;
+                const isPdf = file.type === 'application/pdf'
+                    || /\.pdf$/i.test(fileName);
+
+                // Size first. It is the limit the extractor actually enforces, so
+                // a file over it can never be analysed however it is named.
+                if (file.size > MAX_UPLOAD_BYTES) {
+                    rejectSelection(
+                        'That file is too large. The maximum allowed size is '
+                        + MAX_UPLOAD_LABEL + '.'
+                    );
+                    return;
+                }
+
+                if (file.size === 0) {
+                    rejectSelection('That file appears to be empty.');
+                    return;
+                }
+
+                if (!isPdf) {
+                    rejectSelection('Please choose a PDF file.');
+                    return;
+                }
+
                 label.textContent = "Selected: " + fileName;
                 label.classList.add("text-[#0F2854]");
                 subtext.textContent = "Click or drag to replace PDF";
@@ -230,7 +313,25 @@
                 return;
             }
 
-            form.addEventListener('submit', function () {
+            form.addEventListener('submit', function (event) {
+                /*
+                 * Rejected selections must never reach the network. Clearing
+                 * input.files detaches the picked file but does not stop the form
+                 * being submitted, so the check has to live here rather than in a
+                 * listener of its own: the form is the event target, so both
+                 * listeners would run in registration order, and a separate one
+                 * would only get to act after this one had already disabled the
+                 * button and rewritten its label.
+                 *
+                 * The server-side check in submit_report.php is the real
+                 * guarantee. This only avoids wasting the upload.
+                 */
+                if (uploadRejected) {
+                    event.preventDefault();
+                    alert('Please choose a PDF file no larger than ' + MAX_UPLOAD_LABEL + '.');
+                    return;
+                }
+
                 const button = document.getElementById('submit-war-btn');
                 if (!button || button.disabled) {
                     return;

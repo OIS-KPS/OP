@@ -6,6 +6,7 @@ date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/report_deadlines.php';
 require_once __DIR__ . '/config/csrf.php';
+require_once __DIR__ . '/config/upload_limits.php';
 
 // Auth Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
@@ -86,8 +87,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
         $fileTmpPath   = $_FILES['report_file']['tmp_name'];
         $fileName      = $_FILES['report_file']['name'];
         $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $fileSize      = (int) ($_FILES['report_file']['size'] ?? 0);
 
-        if ($fileExtension === 'pdf') {
+        /*
+         * Backstop for a php.ini that accepts more than the extractor does.
+         *
+         * MAX_PDF_BYTES in python/api/main.py is 25 MiB while upload_max_filesize
+         * here is 40M, so a 30 MB PDF was stored happily and then rejected by the
+         * extractor permanently. The report kept its 0% entities and nothing on
+         * screen ever said why. Rejected here instead, before it reaches disk, and
+         * the intern is told the size limit rather than being left with a report
+         * that can never be analysed.
+         */
+        if (uploadExceedsSizeLimit($fileSize)) {
+            $errors[] = 'That file is too large. The maximum allowed size is '
+                . uploadLimitLabel() . '. Please compress it or upload a smaller PDF.';
+
+        } elseif ($fileSize === 0) {
+            $errors[] = 'That file appears to be empty. Please upload a PDF that contains your report.';
+
+        } elseif (!in_array($fileExtension, ALLOWED_UPLOAD_EXTENSIONS, true)) {
+            $errors[] = "Invalid file format. Please upload a PDF file.";
+
+        } else {
             $uploadDir = __DIR__ . '/uploads/reports/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0777, true);
@@ -101,8 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
             } else {
                 $errors[] = "Failed to save the uploaded file to the server.";
             }
-        } else {
-            $errors[] = "Invalid file format. Please upload a PDF file.";
         }
     } elseif (isset($_FILES['report_file']) && in_array(
         $_FILES['report_file']['error'],

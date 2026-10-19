@@ -39,38 +39,12 @@ if ($studentId <= 0 && $reportId <= 0 && $selectedReportId <= 0) {
 
 /**
  * Resolve the PDF path stored in reports.file_path to a local file.
+ *
+ * Moved to src/services/report_workspace.php. This file and
+ * supervisor/view_report.php each had their own copy with a different return type
+ * and a different set of fallback candidates, and the background extraction worker
+ * needs the same resolution logic from outside the web context.
  */
-function resolveReportPdfPath(string $storedPath): ?string
-{
-    $storedPath = trim(str_replace('\\', '/', $storedPath));
-    if ($storedPath === '') {
-        return null;
-    }
-
-    $projectRoot = realpath(__DIR__ . '/..') ?: dirname(__DIR__);
-    $relativePath = ltrim($storedPath, '/');
-    $relativePath = preg_replace('#^ICS-PORTAL/#i', '', $relativePath);
-
-    $candidates = [
-        $storedPath,
-        $projectRoot . '/' . $relativePath,
-        $projectRoot . '/public/' . $relativePath,
-    ];
-
-    if (!empty($_SERVER['DOCUMENT_ROOT'])) {
-        $documentRoot = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\');
-        $candidates[] = $documentRoot . '/' . $relativePath;
-    }
-
-    foreach ($candidates as $candidate) {
-        $realPath = realpath($candidate);
-        if ($realPath !== false && is_file($realPath) && is_readable($realPath)) {
-            return $realPath;
-        }
-    }
-
-    return null;
-}
 
 /**
  * Locate the Python extractor.
@@ -424,6 +398,20 @@ $weekClericalPct = 0;
 $weekTotalCount = 0;
 $pdfUrl = '';
 
+/*
+ * Background-extraction state for the view. Seeded empty because the block below
+ * only fills them in when there is an active report to extract, and the view
+ * renders either way.
+ */
+$extractionStatus = [
+    'report_id'    => 0,
+    'extracted_at' => null,
+    'started_at'   => null,
+    'error'        => null,
+    'pending'      => false,
+];
+$extractionPending = false;
+
 try {
     $workspace = reportWorkspaceBuild($pdo, $studentId, [
         'reportId' => $selectedReportId > 0 ? $selectedReportId : $reportId,
@@ -458,13 +446,31 @@ try {
         $reportIdActive = (int)$activeReport['id'];
         $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
 
-        if ($pdfPath !== false) {
+        $extractionStatus = entityExtractionReportStatus($pdo, $reportIdActive);
+        $extractionPending = false;
+
+        if ($pdfPath !== null) {
+            /*
+             * $async = true, except for an explicit ?extract=1.
+             *
+             * The force path is left synchronous on purpose: the coordinator has
+             * just asked for a re-extract and the flash a few lines below reports
+             * a truthful success or failure immediately. Deferring it would mean
+             * claiming "Entities re-extracted" before anything had run.
+             *
+             * For the ordinary case the work goes to src/cli/extract_report.php
+             * and this page renders immediately; the entities appear on refresh,
+             * and viewReportPage.php polls for them.
+             */
             $extraction = ensureReportEntitiesExtracted(
                 $pdfPath,
                 $reportIdActive,
                 $pdo,
-                $forceExtraction
+                $forceExtraction,
+                !$forceExtraction
             );
+
+            $extractionPending = !empty($extraction['pending']);
 
             // Report the outcome of an explicit re-extract, then drop
             // ?extract=1 from the address bar so a refresh does not silently
@@ -536,6 +542,10 @@ try {
                 'not be found on the server. The previously stored entities ' .
                 'are unchanged.';
         }
+
+        // Re-read after the attempt so the view's banner reflects what actually
+        // happened rather than the state before it.
+        $extractionStatus = entityExtractionReportStatus($pdo, $reportIdActive);
     }
 
     if (isset($_GET['export']) && $_GET['export'] === 'csv') {

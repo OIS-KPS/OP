@@ -31,6 +31,16 @@ if (!defined('ENTITY_API_URL')) {
     );
 }
 
+/*
+ * Background spawn settings (PHP CLI path, debounce window).
+ *
+ * config/db.php loads .env before this file is reached at every call site, so
+ * $_ENV is already populated here. The require is placed inside a guard because
+ * this file is included from both the web controllers and the CLI worker, and
+ * only one of them may have pulled it in already.
+ */
+require_once __DIR__ . '/../../config/background_jobs.php';
+
 /**
  * ------------------------------------------------------------
  * POST JSON to FastAPI
@@ -686,6 +696,12 @@ function extractEntitiesFromReport(
                 ?? 'Entity extraction failed.',
             'details' => $result['details']
                 ?? '',
+            // Carried through deliberately. Without it the caller cannot tell a
+            // 400 (this PDF will never be accepted, stop asking) from a 503 (the
+            // API is briefly down, ask again later), so every failure would look
+            // transient and a permanently unanalysable report would be retried on
+            // every single view for ever.
+            'http_code' => (int) ($result['http_code'] ?? 0),
             'entities' => [],
             'content' => $result['content'] ?? '',
             'summary' => $result['summary'] ?? [],
@@ -872,6 +888,13 @@ function reportNeedsEntityExtraction(
  *
  * Only called after a successful extraction, so a failed run leaves the report
  * unstamped and is retried on the next view.
+ *
+ * entities_extraction_started_at is cleared here. It is the marker the page uses
+ * to decide whether a job is in flight, and leaving it behind meant a successful
+ * extraction kept reporting itself as still running -- the "Analyzing..." banner
+ * survived a finished run for the whole debounce window. The window exists to
+ * stop duplicate spawns of work that has not finished; once the work has
+ * finished there is nothing left to debounce.
  */
 function markReportEntitiesExtracted(PDO $pdo, int $reportId): void
 {
@@ -879,7 +902,8 @@ function markReportEntitiesExtracted(PDO $pdo, int $reportId): void
         $stmt = $pdo->prepare(
             'UPDATE reports
              SET entities_extracted_at = NOW(),
-                 entities_dictionary_version = ?
+                 entities_dictionary_version = ?,
+                 entities_extraction_started_at = NULL
              WHERE id = ?'
         );
 
@@ -901,35 +925,415 @@ function markReportEntitiesExtracted(PDO $pdo, int $reportId): void
 
 /**
  * ------------------------------------------------------------
- * Extract for a report only if it is actually needed
+ * Decide whether a failure is worth retrying
  * ------------------------------------------------------------
  *
- * Drop-in replacement for calling extractEntitiesFromReport() directly from a
- * page. Returns the same shape as extractEntitiesFromReport(), plus:
+ * A failed extraction splits into two very different kinds, and treating them
+ * the same is what produces a report that is stuck at 0% entities with nothing
+ * on screen saying why.
  *
- *   'skipped' => true  when the stored result was reused unchanged
+ * PERMANENT -- the extractor has already made up its mind about this PDF and
+ * would refuse it again no matter how often we asked. HTTP 400 means the file is
+ * too large or its text too long; HTTP 422 means the PDF has no readable text
+ * (typically a scan rather than an export). Retrying burns a model call per view
+ * for ever and never succeeds, so the reason is recorded on the report and shown
+ * to the coordinator.
  *
- * The caller should rebuild its workspace whenever 'ran' is true, since only
- * then can the stored rows have changed.
+ * TRANSIENT -- the request never got a verdict: the API is restarting, the
+ * connection was refused, the read timed out, the model failed mid-inference.
+ * HTTP 500 / 503 and a missing HTTP status all land here. These are logged and
+ * nothing is recorded, so the next view simply tries again. One bad minute at the
+ * API must not permanently mark a perfectly good report as unanalysable.
+ */
+function entityExtractionClassify(array $result): array
+{
+    $httpCode = isset($result['http_code']) ? (int) $result['http_code'] : 0;
+
+    $message = trim((string) ($result['error'] ?? ''));
+
+    // entityApiExtractPdf() hands back FastAPI's own wording, which is already
+    // written for a human and names the actual limit. Prefer it over anything
+    // invented here; fall back only when the API said nothing useful.
+    if ($message === '') {
+        $message = $httpCode > 0
+            ? 'The extraction service returned an error (HTTP ' . $httpCode . ').'
+            : 'The extraction service could not be reached.';
+    }
+
+    $permanent = in_array($httpCode, [400, 415, 422], true);
+
+    return [
+        'permanent' => $permanent,
+        'message'   => $permanent
+            ? mb_substr($message, 0, 255)
+            : mb_substr($message, 0, 255),
+    ];
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Record a permanent failure against the report
+ * ------------------------------------------------------------
+ *
+ * The reason survives, so the coordinator sees why the entity list is empty
+ * instead of assuming there were simply no skills in the report.
+ */
+function entityExtractionRecordError(PDO $pdo, int $reportId, string $message): void
+{
+    try {
+        $stmt = $pdo->prepare(
+            'UPDATE reports
+             SET entities_extraction_error = ?
+             WHERE id = ?'
+        );
+
+        $stmt->execute([mb_substr($message, 0, 255), $reportId]);
+
+    } catch (Throwable $e) {
+        error_log(
+            'Could not record extraction error for report ' . $reportId . ': ' .
+            $e->getMessage()
+        );
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Clear a previously recorded failure
+ * ------------------------------------------------------------
+ *
+ * Run on success only. A transient blip must not clear a genuine permanent
+ * failure, and a permanent failure must not linger once the report is re-uploaded
+ * and successfully analysed.
+ */
+function entityExtractionClearError(PDO $pdo, int $reportId): void
+{
+    try {
+        $stmt = $pdo->prepare(
+            'UPDATE reports
+             SET entities_extraction_error = NULL
+             WHERE id = ? AND entities_extraction_error IS NOT NULL'
+        );
+
+        $stmt->execute([$reportId]);
+
+    } catch (Throwable $e) {
+        error_log(
+            'Could not clear extraction error for report ' . $reportId . ': ' .
+            $e->getMessage()
+        );
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Mark a background job as started
+ * ------------------------------------------------------------
+ *
+ * Doubles as the debounce marker. A view that arrives while a job is in flight
+ * sees this and spawns nothing, which is what stops a report that keeps failing
+ * from being respawned on every single page view for ever.
+ */
+function entityExtractionMarkStarted(PDO $pdo, int $reportId): void
+{
+    try {
+        $stmt = $pdo->prepare(
+            'UPDATE reports
+             SET entities_extraction_started_at = NOW()
+             WHERE id = ?'
+        );
+
+        $stmt->execute([$reportId]);
+
+    } catch (Throwable $e) {
+        error_log(
+            'Could not mark extraction start for report ' . $reportId . ': ' .
+            $e->getMessage()
+        );
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Is a background job already in flight for this report?
+ * ------------------------------------------------------------
+ *
+ * Deliberately only concerned with the spawn marker. It must NOT clear a
+ * permanent failure, or the retry loop we are avoiding would come straight back.
+ */
+function entityExtractionInFlight(PDO $pdo, int $reportId): bool
+{
+    try {
+        /*
+         * The elapsed time is computed by MySQL, never in PHP.
+         *
+         * This used to be strtotime($startedAt) against time(), which silently
+         * produced a NEGATIVE interval whenever the two disagreed about the
+         * clock: MySQL's NOW() writes Asia/Manila while PHP's default timezone
+         * here is Europe/Berlin, six hours apart. A negative interval passes a
+         * naive "< 900 seconds" test, so the report read as permanently in flight
+         * -- the page refused to ever spawn a job again and the "Analyzing"
+         * banner never went away.
+         *
+         * TIMESTAMPDIFF keeps both ends inside MySQL, where the timezone is
+         * unambiguous. The >= 0 guard then makes a stale or skewed row expire
+         * instead of wedging the report, whatever the cause.
+         */
+        $stmt = $pdo->prepare(
+            'SELECT TIMESTAMPDIFF(SECOND, entities_extraction_started_at, NOW()) AS elapsed
+             FROM reports
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        $stmt->execute([$reportId]);
+
+        $elapsed = $stmt->fetchColumn();
+
+        if ($elapsed === false || $elapsed === null) {
+            return false;
+        }
+
+        $elapsed = (int) $elapsed;
+
+        return $elapsed >= 0 && $elapsed < EXTRACTION_DEBOUNCE_SECONDS;
+
+    } catch (Throwable $e) {
+        // Unknown. Assume nothing is running, so the work still gets attempted.
+        error_log(
+            'Could not read extraction start marker for report ' . $reportId . ': ' .
+            $e->getMessage()
+        );
+
+        return false;
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Hand a report to the background worker
+ * ------------------------------------------------------------
+ *
+ * Returns true when the worker was launched. False means the caller must run the
+ * extraction inline instead -- nothing is lost either way, the work still gets
+ * done, it just happens on the request that noticed it.
+ *
+ * The command is detached on purpose. popen() keeps the child's pipes open until
+ * it exits, so a caller that reads the handle or waits on it would sit there for
+ * the length of a model run and undo the whole point. Closing the handle
+ * immediately and redirecting the child's output to NUL is what makes this fire
+ * and forget.
+ */
+function entityExtractionSpawn(int $reportId): bool
+{
+    if (!BACKGROUND_JOBS_ENABLED) {
+        return false;
+    }
+
+    $binary = backgroundPhpBinary();
+
+    if ($binary === null) {
+        error_log(
+            'Background extraction disabled: no PHP CLI binary found. ' .
+            'Set BACKGROUND_PHP_BINARY in .env.'
+        );
+
+        return false;
+    }
+
+    // Confirm the function we are about to rely on is actually available; hosts
+    // do disable it and the failure would otherwise look like a bad command.
+    if (!function_exists('popen')) {
+        error_log('Background extraction disabled: popen() is unavailable.');
+
+        return false;
+    }
+
+    $worker = dirname(__DIR__, 2) . '/src/cli/extract_report.php';
+
+    if (!is_file($worker)) {
+        error_log('Background extraction disabled: worker missing at ' . $worker);
+
+        return false;
+    }
+
+    /*
+     * Windows needs start /B to fully detach, and the empty "" pair is the
+     * documented workaround for start's habit of treating a quoted executable
+     * path as a window title. The posix branch is the plain form.
+     *
+     * The worker writes to a log file rather than to NUL. Discarding its output
+     * hid every failure: a launch that never started and an extraction that
+     * threw both looked identical from the portal's side -- the report simply
+     * sat there stamped as "started" and never completed, with nothing anywhere
+     * to explain it. popen() returning a handle only means cmd.exe accepted the
+     * command, not that the worker ran, so the worker's own output is the only
+     * real evidence.
+     */
+    $logDir = dirname(__DIR__, 2) . '/logs';
+    $logFile = $logDir . '/extraction.log';
+
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0775, true);
+    }
+
+    $logRedirect = is_dir($logDir)
+        ? (DIRECTORY_SEPARATOR === '\\'
+            ? '>> "' . $logFile . '" 2>&1'
+            : '>> ' . escapeshellarg($logFile) . ' 2>&1')
+        : '>NUL 2>&1';
+
+    if (DIRECTORY_SEPARATOR === '\\') {
+        $command = 'start /B "" ' . escapeshellarg($binary) . ' '
+            . escapeshellarg($worker) . ' ' . $reportId . ' ' . $logRedirect;
+    } else {
+        $command = 'nohup ' . escapeshellarg($binary) . ' '
+            . escapeshellarg($worker) . ' ' . $reportId
+            . ' ' . $logRedirect . ' &';
+    }
+
+    $handle = @popen($command, 'r');
+
+    if ($handle === false) {
+        error_log('Background extraction: popen() failed for report ' . $reportId);
+
+        return false;
+    }
+
+    // Never read the handle: waiting on it would block this request for the
+    // length of the extraction.
+    pclose($handle);
+
+    return true;
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Extraction state for one report, for the polling endpoint
+ * ------------------------------------------------------------
+ */
+function entityExtractionReportStatus(PDO $pdo, int $reportId): array
+{
+    $status = [
+        'report_id' => $reportId,
+        'extracted_at' => null,
+        'started_at'  => null,
+        'error'       => null,
+        'pending'     => false,
+    ];
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT entities_extracted_at, entities_extraction_started_at,
+                    entities_extraction_error,
+                    TIMESTAMPDIFF(SECOND, entities_extraction_started_at, NOW()) AS elapsed
+             FROM reports
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        $stmt->execute([$reportId]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return $status;
+        }
+
+        $status['extracted_at'] = $row['entities_extracted_at'] ?: null;
+        $status['started_at']   = $row['entities_extraction_started_at'] ?: null;
+        $status['error']        = $row['entities_extraction_error'] ?: null;
+
+        /*
+         * Same reasoning as entityExtractionInFlight(): the interval is computed
+         * by MySQL so the two clocks cannot disagree. See the comment there for
+         * what a negative interval did to the banner.
+         */
+        $status['pending'] = $row['elapsed'] !== null
+            && (int) $row['elapsed'] >= 0
+            && (int) $row['elapsed'] < EXTRACTION_DEBOUNCE_SECONDS;
+
+        // A recorded permanent failure is not something a running job will fix,
+        // so it wins over the pending flag.
+        if ($status['error'] !== null) {
+            $status['pending'] = false;
+        }
+
+    } catch (Throwable $e) {
+        error_log(
+            'Could not read extraction status for report ' . $reportId . ': ' .
+            $e->getMessage()
+        );
+    }
+
+    return $status;
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Main extraction entry point for a page request
+ * ------------------------------------------------------------
+ *
+ * $async = true runs the work in the background and returns immediately, so the
+ * caller renders whatever entities already exist. $async = false keeps the
+ * original blocking behaviour.
+ *
+ * $force always runs inline. ?extract=1 is a deliberate "do it now" action from
+ * a member of staff, and the caller reports a truthful success or failure
+ * straight away; deferring it would mean that flash message was a lie.
  */
 function ensureReportEntitiesExtracted(
     string $pdfPath,
     int $reportId,
     PDO $pdo,
-    bool $force = false
+    bool $force = false,
+    bool $async = false
 ): array {
 
-    if (!reportNeedsEntityExtraction($pdo, $reportId, $force)) {
-        return [
+    $skipped = static function (array $extra = []): array {
+        return array_merge([
             'success'   => true,
             'skipped'   => true,
             'ran'       => false,
+            'deferred'  => false,
+            'pending'   => false,
             'error'     => '',
             'entities'  => [],
             'content'   => '',
             'summary'   => [],
-            'entity_count' => 0
-        ];
+            'entity_count' => 0,
+        ], $extra);
+    };
+
+    if (!reportNeedsEntityExtraction($pdo, $reportId, $force)) {
+        return $skipped();
+    }
+
+    /*
+     * Background path. Deliberately placed after the freshness check so a report
+     * that is already done never spawns anything.
+     */
+    if ($async && !$force) {
+
+        if (entityExtractionInFlight($pdo, $reportId)) {
+            return $skipped(['pending' => true]);
+        }
+
+        if (entityExtractionSpawn($reportId)) {
+            entityExtractionMarkStarted($pdo, $reportId);
+
+            return $skipped(['deferred' => true, 'pending' => true]);
+        }
+
+        // Spawning was not possible. Fall through and do the work inline, so the
+        // page still ends up with its entities.
     }
 
     /*
@@ -950,17 +1354,10 @@ function ensureReportEntitiesExtracted(
     $lockName = 'extract_report_' . $reportId;
 
     if (!entityExtractionLock($pdo, $lockName, 10)) {
-        return [
-            'success'   => true,
-            'skipped'   => true,
-            'ran'       => false,
-            'error'     => 'Another extraction for this report is already ' .
-                           'running. Please try again in a moment.',
-            'entities'  => [],
-            'content'   => '',
-            'summary'   => [],
-            'entity_count' => 0
-        ];
+        return $skipped([
+            'error' => 'Another extraction for this report is already ' .
+                       'running. Please try again in a moment.',
+        ]);
     }
 
     try {
@@ -970,25 +1367,37 @@ function ensureReportEntitiesExtracted(
          * $force is passed through so an explicit ?extract=1 is never skipped.
          */
         if (!reportNeedsEntityExtraction($pdo, $reportId, $force)) {
-            return [
-                'success'   => true,
-                'skipped'   => true,
-                'ran'       => false,
-                'error'     => '',
-                'entities'  => [],
-                'content'   => '',
-                'summary'   => [],
-                'entity_count' => 0
-            ];
+            return $skipped();
         }
 
         $result = extractEntitiesFromReport($pdfPath, $reportId, $pdo, true);
 
-        $result['skipped'] = false;
-        $result['ran'] = !empty($result['success']);
+        $result['skipped']  = false;
+        $result['ran']      = !empty($result['success']);
+        $result['deferred'] = false;
+        $result['pending']  = false;
 
         if (!empty($result['success'])) {
             markReportEntitiesExtracted($pdo, $reportId);
+
+            // A success supersedes any failure recorded against an earlier
+            // version of this report.
+            entityExtractionClearError($pdo, $reportId);
+
+        } else {
+            $failure = entityExtractionClassify($result);
+
+            error_log(
+                'Entity extraction failed for report ' . $reportId .
+                ' (' . ($failure['permanent'] ? 'permanent' : 'transient') . '): ' .
+                $failure['message']
+            );
+
+            if ($failure['permanent']) {
+                entityExtractionRecordError($pdo, $reportId, $failure['message']);
+            }
+
+            $result['permanent'] = $failure['permanent'];
         }
 
         return $result;

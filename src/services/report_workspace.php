@@ -182,6 +182,67 @@ if (!function_exists('reportWorkspaceStudentIdForReport')) {
 }
 
 /**
+ * Resolve reports.file_path to a readable PDF on local disk.
+ *
+ * Two copies of this existed -- coordinator/view_report.php returned ?string and
+ * tried DOCUMENT_ROOT, supervisor/view_report.php returned false and added a
+ * bare-basename fallback under uploads/reports. Both had to be preserved because
+ * the stored path is written by several different entry points over time and a
+ * report can be referenced as a relative path, a project-root-relative path, a
+ * public/ path, or with an ICS-PORTAL prefix.
+ *
+ * Lives here rather than in either controller because the background extraction
+ * worker (src/cli/extract_report.php) runs outside the web context: it has no
+ * $_SERVER['DOCUMENT_ROOT'] and no controller around it, so it needs the shared
+ * copy plus a project root it can compute for itself.
+ *
+ * Returns the resolved absolute path, or null when the file cannot be found.
+ */
+if (!function_exists('resolveReportPdfPath')) {
+    function resolveReportPdfPath(string $storedPath): ?string
+    {
+        $storedPath = trim($storedPath);
+
+        if ($storedPath === '') {
+            return null;
+        }
+
+        $projectRoot = dirname(__DIR__, 2);
+
+        // Normalise to forward slashes so the candidate list below is identical on
+        // Windows and on a Linux deploy.
+        $normalized = str_replace('\\', '/', $storedPath);
+        $normalized = preg_replace('#^ICS-PORTAL/#i', '', $normalized);
+        $normalized = ltrim($normalized, '/');
+        $fileName = basename($normalized);
+
+        $candidates = [
+            $storedPath,
+            $projectRoot . '/' . $normalized,
+            $projectRoot . '/public/' . $normalized,
+            // Fallback for rows whose stored path is only the bare filename.
+            $projectRoot . '/uploads/reports/' . $fileName,
+        ];
+
+        // Only present in the web SAPI. The CLI worker skips this candidate.
+        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+            $documentRoot = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\');
+            $candidates[] = $documentRoot . '/' . $normalized;
+        }
+
+        foreach ($candidates as $candidate) {
+            $realPath = realpath($candidate);
+
+            if ($realPath !== false && is_file($realPath) && is_readable($realPath)) {
+                return $realPath;
+            }
+        }
+
+        return null;
+    }
+}
+
+/**
  * Load active + archived entities for a set of reports.
  */
 if (!function_exists('reportWorkspaceLoadEntities')) {
