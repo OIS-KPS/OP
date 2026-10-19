@@ -932,14 +932,118 @@ function ensureReportEntitiesExtracted(
         ];
     }
 
-    $result = extractEntitiesFromReport($pdfPath, $reportId, $pdo, true);
+    /*
+     * The cache above stops a second run on a LATER view, but it cannot stop
+     * two views that are already in flight: both read "not extracted yet"
+     * before either one stamps the row, so both would call FastAPI.
+     *
+     * That is not hypothetical. saveExtractedEntities() clears the previous
+     * auto-extracted rows with a DELETE and then INSERTs the new ones inside
+     * one transaction, so two overlapping runs can each insert a copy of the
+     * same term and leave the report showing duplicates.
+     *
+     * A MySQL named lock serialises the runs per report, and only per report:
+     * two students' reports still extract concurrently, which is what we want.
+     * It also releases itself if the connection dies, so a crashed worker
+     * cannot wedge a report forever.
+     */
+    $lockName = 'extract_report_' . $reportId;
 
-    $result['skipped'] = false;
-    $result['ran'] = !empty($result['success']);
-
-    if (!empty($result['success'])) {
-        markReportEntitiesExtracted($pdo, $reportId);
+    if (!entityExtractionLock($pdo, $lockName, 10)) {
+        return [
+            'success'   => true,
+            'skipped'   => true,
+            'ran'       => false,
+            'error'     => 'Another extraction for this report is already ' .
+                           'running. Please try again in a moment.',
+            'entities'  => [],
+            'content'   => '',
+            'summary'   => [],
+            'entity_count' => 0
+        ];
     }
 
-    return $result;
+    try {
+        /*
+         * Re-check now that the lock is held. Whoever held it may have finished
+         * between the first check and here, in which case this run is redundant.
+         * $force is passed through so an explicit ?extract=1 is never skipped.
+         */
+        if (!reportNeedsEntityExtraction($pdo, $reportId, $force)) {
+            return [
+                'success'   => true,
+                'skipped'   => true,
+                'ran'       => false,
+                'error'     => '',
+                'entities'  => [],
+                'content'   => '',
+                'summary'   => [],
+                'entity_count' => 0
+            ];
+        }
+
+        $result = extractEntitiesFromReport($pdfPath, $reportId, $pdo, true);
+
+        $result['skipped'] = false;
+        $result['ran'] = !empty($result['success']);
+
+        if (!empty($result['success'])) {
+            markReportEntitiesExtracted($pdo, $reportId);
+        }
+
+        return $result;
+
+    } finally {
+        entityExtractionUnlock($pdo, $lockName);
+    }
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * Per-report extraction lock
+ * ------------------------------------------------------------
+ *
+ * MySQL named locks are scoped to a single connection and are dropped by the
+ * server when that connection closes, which is exactly the lifetime wanted
+ * here: the lock lives no longer than the request that took it.
+ */
+function entityExtractionLock(PDO $pdo, string $name, int $timeoutSeconds): bool
+{
+    try {
+        $stmt = $pdo->prepare('SELECT GET_LOCK(?, ?)');
+
+        if ($stmt->execute([$name, $timeoutSeconds]) === false) {
+            return false;
+        }
+
+        return (int) $stmt->fetchColumn() === 1;
+
+    } catch (Throwable $e) {
+        // Without the lock the worst case is the duplicate-row race this
+        // function exists to prevent, so carry on rather than fail the page.
+        error_log(
+            'Entity extraction lock could not be taken (' . $name . '): ' .
+            $e->getMessage()
+        );
+
+        return true;
+    }
+}
+
+
+function entityExtractionUnlock(PDO $pdo, string $name): void
+{
+    try {
+        $stmt = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+        $stmt->execute([$name]);
+
+    } catch (Throwable $e) {
+        // Nothing to do. The lock dies with the connection at end of request,
+        // so a failed release cannot outlive the page that took it.
+        error_log(
+            'Entity extraction lock could not be released (' . $name . '): ' .
+            $e->getMessage()
+        );
+    }
 }
