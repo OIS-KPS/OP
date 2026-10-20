@@ -32,7 +32,7 @@ if (!defined('REPORT_WORKSPACE_LOW_CONFIDENCE')) {
 if (!function_exists('reportWorkspaceIsLowConfidence')) {
     function reportWorkspaceIsLowConfidence(array $entity): bool
     {
-        if ((string)($entity['source'] ?? '') !== 'spacy') {
+        if ((string) ($entity['source'] ?? '') !== 'spacy') {
             return false;
         }
 
@@ -40,7 +40,7 @@ if (!function_exists('reportWorkspaceIsLowConfidence')) {
 
         return $score !== null
             && is_numeric($score)
-            && (float)$score < REPORT_WORKSPACE_LOW_CONFIDENCE;
+            && (float) $score < REPORT_WORKSPACE_LOW_CONFIDENCE;
     }
 }
 
@@ -53,7 +53,7 @@ if (!function_exists('reportWorkspaceIsPredefined')) {
     function reportWorkspaceIsPredefined(array $entity): bool
     {
         return in_array(
-            (string)($entity['source'] ?? ''),
+            (string) ($entity['source'] ?? ''),
             ['predefined', 'spacy_predefined'],
             true
         );
@@ -66,7 +66,7 @@ if (!function_exists('reportWorkspaceIsPredefined')) {
 if (!function_exists('reportWorkspacePdfUrl')) {
     function reportWorkspacePdfUrl($filePath): string
     {
-        $path = trim(str_replace('\\', '/', (string)$filePath));
+        $path = trim(str_replace('\\', '/', (string) $filePath));
         if ($path === '') {
             return '';
         }
@@ -75,7 +75,10 @@ if (!function_exists('reportWorkspacePdfUrl')) {
             return $path;
         }
 
-        if (preg_match('#^/?ICS-PORTAL/#i', $path)) {
+        $base = defined('BASE_PATH') ? BASE_PATH : (defined('SUB_URL') && SUB_URL !== '' ? '/' . SUB_URL : '/ICS-PORTAL');
+        $sub = defined('SUB_URL') && SUB_URL !== '' ? preg_quote(SUB_URL, '#') : 'ICS-PORTAL';
+
+        if (preg_match('#^/?(' . $sub . '|ICS-PORTAL)/#i', $path)) {
             return '/' . ltrim($path, '/');
         }
 
@@ -86,10 +89,10 @@ if (!function_exists('reportWorkspacePdfUrl')) {
         $projectRoot = dirname(__DIR__, 2);
         $fileName = basename($path);
         if ($fileName !== '' && is_file($projectRoot . '/uploads/reports/' . $fileName)) {
-            return '/ICS-PORTAL/uploads/reports/' . $fileName;
+            return $base . '/uploads/reports/' . $fileName;
         }
 
-        return '/ICS-PORTAL/' . ltrim($path, '/');
+        return $base . '/' . ltrim($path, '/');
     }
 }
 
@@ -177,7 +180,7 @@ if (!function_exists('reportWorkspaceStudentIdForReport')) {
         $stmt = $pdo->prepare('SELECT student_id FROM reports WHERE id = ? LIMIT 1');
         $stmt->execute([$reportId]);
 
-        return (int)($stmt->fetchColumn() ?: 0);
+        return (int) ($stmt->fetchColumn() ?: 0);
     }
 }
 
@@ -212,7 +215,8 @@ if (!function_exists('resolveReportPdfPath')) {
         // Normalise to forward slashes so the candidate list below is identical on
         // Windows and on a Linux deploy.
         $normalized = str_replace('\\', '/', $storedPath);
-        $normalized = preg_replace('#^ICS-PORTAL/#i', '', $normalized);
+        $sub = defined('SUB_URL') && SUB_URL !== '' ? preg_quote(SUB_URL, '#') : 'ICS-PORTAL';
+        $normalized = preg_replace('#^(' . $sub . '|ICS-PORTAL)/#i', '', $normalized);
         $normalized = ltrim($normalized, '/');
         $fileName = basename($normalized);
 
@@ -294,7 +298,7 @@ if (!function_exists('reportWorkspacePrepareEntities')) {
         $entities = [];
 
         foreach ($rawEntities as $entity) {
-            $dedupeKey = (int)($entity['week_number'] ?? 0)
+            $dedupeKey = (int) ($entity['week_number'] ?? 0)
                 . '|'
                 . strtolower(trim($entity['entity_name'] ?? ''));
 
@@ -320,8 +324,8 @@ if (!function_exists('reportWorkspacePrepareEntities')) {
 if (!function_exists('workspaceActivityType')) {
     function workspaceActivityType(array $entity): string
     {
-        $activityType = ucfirst(strtolower(trim((string)($entity['activity_type'] ?? ''))));
-        $category = strtoupper(trim((string)($entity['category'] ?? '')));
+        $activityType = ucfirst(strtolower(trim((string) ($entity['activity_type'] ?? ''))));
+        $category = strtoupper(trim((string) ($entity['category'] ?? '')));
 
         if (
             $activityType === '' ||
@@ -355,7 +359,7 @@ if (!function_exists('workspaceActivityType')) {
 if (!function_exists('workspaceItFlag')) {
     function workspaceItFlag(array $entity, string $activityType): string
     {
-        $flag = strtolower(trim((string)($entity['it_related'] ?? '')));
+        $flag = strtolower(trim((string) ($entity['it_related'] ?? '')));
         if (in_array($flag, ['yes', 'no'], true)) {
             return $flag;
         }
@@ -389,7 +393,7 @@ if (!function_exists('reportWorkspaceGroupEntities')) {
         foreach ($entities as $entity) {
             $flag = workspaceItFlag($entity, workspaceActivityType($entity));
 
-            $name = trim((string)($entity['entity_name'] ?? ''));
+            $name = trim((string) ($entity['entity_name'] ?? ''));
             if ($name === '') {
                 continue;
             }
@@ -422,7 +426,7 @@ if (!function_exists('reportWorkspaceRatio')) {
         $clerical = 0;
 
         foreach ($entities as $entity) {
-            $itFlag = strtolower(trim((string)($entity['it_related'] ?? '')));
+            $itFlag = strtolower(trim((string) ($entity['it_related'] ?? '')));
             if ($itFlag === 'no') {
                 $clerical++;
             } elseif ($itFlag === 'yes' || $itFlag === 'unknown' || $itFlag === '') {
@@ -451,7 +455,7 @@ if (!function_exists('reportWorkspaceRatio')) {
 if (!function_exists('reportWorkspaceBuild')) {
     function reportWorkspaceBuild(PDO $pdo, int $studentId, array $options = []): array
     {
-        $requestedReportId = (int)($options['reportId'] ?? 0);
+        $requestedReportId = (int) ($options['reportId'] ?? 0);
         $statusFilter = array_key_exists('status', $options) ? $options['status'] : null;
 
         $workspace = [
@@ -482,7 +486,7 @@ if (!function_exists('reportWorkspaceBuild')) {
 
         if (!empty($workspace['reportsList'])) {
             foreach ($workspace['reportsList'] as $report) {
-                if ($requestedReportId > 0 && (int)$report['id'] === $requestedReportId) {
+                if ($requestedReportId > 0 && (int) $report['id'] === $requestedReportId) {
                     $workspace['activeReport'] = $report;
                     break;
                 }
@@ -499,13 +503,13 @@ if (!function_exists('reportWorkspaceBuild')) {
         $workspace['allEntities'] = reportWorkspacePrepareEntities($entities['all']);
 
         $workspace['activeReportId'] = $workspace['activeReport'] !== null
-            ? (int)$workspace['activeReport']['id']
+            ? (int) $workspace['activeReport']['id']
             : 0;
 
         $workspace['weekEntities'] = array_values(array_filter(
             $workspace['allEntities'],
             static function ($entity) use ($workspace) {
-                return (int)$entity['report_id'] === $workspace['activeReportId'];
+                return (int) $entity['report_id'] === $workspace['activeReportId'];
             }
         ));
 
@@ -544,14 +548,14 @@ if (!function_exists('reportWorkspaceExportCsv')) {
             $weekEntities = array_values(array_filter(
                 $allEntities,
                 static function ($entity) use ($report) {
-                    return (int)$entity['report_id'] === (int)$report['id'];
+                    return (int) $entity['report_id'] === (int) $report['id'];
                 }
             ));
 
             $ratio = reportWorkspaceRatio($weekEntities);
 
             fputcsv($output, [
-                'Week ' . (int)$report['week_number'],
+                'Week ' . (int) $report['week_number'],
                 ucfirst($report['status'] ?? 'N/A'),
                 $report['submitted_at'] ?? 'N/A',
                 $ratio['itPct'] . '%',

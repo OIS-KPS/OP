@@ -8,51 +8,58 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-use Dotenv\Dotenv;
 
-class MailerService 
+class MailerService
 {
     private $mailer;
+    private $appUrl;
 
-    public function __construct() 
+    public function __construct()
     {
-        // 2. Automatically load the root .env file
-        if (class_exists(Dotenv::class) && file_exists(__DIR__ . '/../../.env')) {
-            $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
-            $dotenv->safeLoad();
-        }
+        // 2. Automatically load app and environment settings
+        require_once __DIR__ . '/../../config/app.php';
+
+        $this->appUrl = defined('BASE_URL') ? BASE_URL : (rtrim($_ENV['APP_URL'] ?? 'http://localhost', '/') . (!empty($_ENV['SUB_URL']) ? '/' . trim($_ENV['SUB_URL'], '/') : '/ICS-PORTAL'));
 
         $this->mailer = new PHPMailer(true);
 
         // Server Settings from your .env file
         $this->mailer->isSMTP();
-        $this->mailer->Host       = $_ENV['MAIL_HOST'] ?? 'smtp.gmail.com';
-        $this->mailer->SMTPAuth   = true;
-        $this->mailer->Username   = $_ENV['MAIL_USERNAME'] ?? '';
-        $this->mailer->Password   = $_ENV['MAIL_PASSWORD'] ?? '';
+        $this->mailer->Host = $_ENV['MAIL_HOST'] ?? 'smtp.gmail.com';
+        $this->mailer->SMTPAuth = true;
+        $this->mailer->Username = $_ENV['MAIL_USERNAME'] ?? '';
+        $this->mailer->Password = $_ENV['MAIL_PASSWORD'] ?? '';
         $this->mailer->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $this->mailer->Port       = $_ENV['MAIL_PORT'] ?? 587;
+        $this->mailer->Port = $_ENV['MAIL_PORT'] ?? 587;
 
         // Bypass SSL Certificate verification for localhost (XAMPP fix)
         $this->mailer->SMTPOptions = array(
             'ssl' => array(
-                'verify_peer'       => false,
-                'verify_peer_name'  => false,
+                'verify_peer' => false,
+                'verify_peer_name' => false,
                 'allow_self_signed' => true
             )
         );
 
         // Default Sender
         $fromEmail = $_ENV['MAIL_FROM_ADDRESS'] ?? ($_ENV['MAIL_USERNAME'] ?? 'no-reply@nbsc.edu.ph');
-        $fromName  = $_ENV['MAIL_FROM_NAME'] ?? 'NBSC OJT Portal';
+        $fromName = $_ENV['MAIL_FROM_NAME'] ?? 'NBSC OJT Portal';
         $this->mailer->setFrom($fromEmail, $fromName);
         $this->mailer->isHTML(true);
     }
 
     /**
+     * Get the configured application URL
+     */
+    public function getAppUrl(): string
+    {
+        return $this->appUrl;
+    }
+
+    /**
      * Send Welcome/Invitation Email to Newly Created User
      */
-    public function sendWelcomeEmail($recipientEmail, $recipientName, $role) 
+    public function sendWelcomeEmail($recipientEmail, $recipientName, $role)
     {
         try {
             $this->mailer->clearAddresses();
@@ -60,6 +67,7 @@ class MailerService
 
             $this->mailer->Subject = "Welcome to NBSC OJT Management Portal";
             $roleLabel = ($role === 'student') ? 'Student Intern' : (($role === 'coordinator') ? 'OJT Coordinator' : 'Industry Supervisor');
+            $portalUrl = htmlspecialchars($this->appUrl . '/auth/login.php');
 
             $this->mailer->Body = "
                 <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; color: #1e293b;'>
@@ -70,7 +78,7 @@ class MailerService
                         <p style='margin: 0; font-size: 14px;'><strong>Registered Email:</strong> " . htmlspecialchars($recipientEmail) . "</p>
                     </div>
                     <p>You can now sign in using your registered email address via Google Sign-In.</p>
-                    <p style='margin-top: 24px;'><a href='http://localhost/ICS-PORTAL/auth/login.php' style='background-color: #0F2854; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;'>Access Portal</a></p>
+                    <p style='margin-top: 24px;'><a href='{$portalUrl}' style='background-color: #0F2854; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;'>Access Portal</a></p>
                     <hr style='border: none; border-top: 1px solid #e2e8f0; margin-top: 32px;'>
                     <p style='font-size: 11px; color: #94a3b8; text-align: center;'>Northern Bukidnon State College - Institute for Computer Studies</p>
                 </div>
@@ -93,6 +101,7 @@ class MailerService
             $this->mailer->addAddress($recipientEmail, $recipientName);
 
             $roleLabel = ($role === 'coordinator') ? 'OJT Coordinator' : (($role === 'supervisor') ? 'Industry Supervisor' : 'Student Intern');
+            $portalUrl = htmlspecialchars($this->appUrl . '/auth/login.php');
 
             $this->mailer->Subject = "Your NBSC OJT Portal Account Has Been Updated";
             $this->mailer->Body = "
@@ -101,7 +110,7 @@ class MailerService
                     <p>Hello <strong>" . htmlspecialchars($recipientName) . "</strong>,</p>
                     <p>Your NBSC OJT Portal account has been updated to <strong>{$roleLabel}</strong> status.</p>
                     <p>You can sign in using your registered email address via Google Sign-In.</p>
-                    <p style='margin-top: 24px;'><a href='http://localhost/ICS-PORTAL/auth/login.php' style='background-color: #0F2854; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;'>Access Portal</a></p>
+                    <p style='margin-top: 24px;'><a href='{$portalUrl}' style='background-color: #0F2854; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;'>Access Portal</a></p>
                     <hr style='border: none; border-top: 1px solid #e2e8f0; margin-top: 32px;'>
                     <p style='font-size: 11px; color: #94a3b8; text-align: center;'>Northern Bukidnon State College - Institute for Computer Studies</p>
                 </div>
@@ -117,7 +126,7 @@ class MailerService
     /**
      * Send Password Reset / Change Email with One-Time Link
      */
-    public function sendPasswordResetEmail($recipientEmail, $recipientName, $resetLink, $expiresMinutes = 15) 
+    public function sendPasswordResetEmail($recipientEmail, $recipientName, $resetLink, $expiresMinutes = 15)
     {
         try {
             $this->mailer->clearAddresses();
