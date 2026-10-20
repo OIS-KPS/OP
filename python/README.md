@@ -186,16 +186,27 @@ pip install -r requirements.txt
 
 ### 3. Start the server
 
+**Low-Memory / 512 MB RAM Production Deployment (Recommended):**
+
+For environments constrained to ≤ 512 MB RAM, install from `requirements-deploy.txt` (which uses the PyTorch CPU wheel and avoids CUDA/NVIDIA shared libraries) and **ALWAYS use `--workers 1`**:
+
+```bash
+# 1. Install lean CPU deployment dependencies
+pip install -r requirements.txt
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# 2. Set environment variables (also handled automatically in api/main.py)
+export SPACY_CPU_ONLY=1
+export TORCH_NUM_THREADS=2
+
+# 3. Launch with exactly 1 worker (multiple workers duplicate model memory)
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
 **Development (with auto-reload):**
 
 ```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-**Production:**
-
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 2
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload --workers 1
 ```
 
 Wait until you see `Pipeline ready.` in the console before sending requests.

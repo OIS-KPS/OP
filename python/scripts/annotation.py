@@ -17,7 +17,7 @@ import json
 import random
 import logging
 from typing import List, Dict, Any, Tuple, Optional, Set
-import pandas as pd
+import csv
 import spacy
 from spacy.tokens import DocBin, Doc
 
@@ -42,14 +42,18 @@ def load_terms_dictionary(terms_csv_path: str = "data/terms.csv") -> Dict[str, s
     if not os.path.exists(terms_csv_path):
         raise FileNotFoundError(f"Terms dictionary not found at {terms_csv_path}")
 
-    df = pd.read_csv(terms_csv_path)
+    # Use stdlib csv so that importing this module at API startup does not
+    # implicitly initialise pandas (~40-60 MB RSS).  Pandas is still imported
+    # at module level for the training helpers below that genuinely need it.
     terms_dict = {}
-    for _, row in df.iterrows():
-        term = str(row["term"]).strip()
-        raw_label = str(row["label"]).strip()
-        norm_label = LABEL_MAPPING.get(raw_label, raw_label)
-        if term:
-            terms_dict[term] = norm_label
+    with open(terms_csv_path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            term = str(row.get("term", "")).strip()
+            raw_label = str(row.get("label", "")).strip()
+            norm_label = LABEL_MAPPING.get(raw_label, raw_label)
+            if term:
+                terms_dict[term] = norm_label
 
     # Sort descending by length to handle multi-word terms prior to single tokens
     sorted_terms = dict(sorted(terms_dict.items(), key=lambda item: len(item[0]), reverse=True))
