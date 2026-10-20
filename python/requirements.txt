@@ -1,0 +1,35 @@
+# -----------------------------------------------------------------------
+# Deployment requirements — CPU-only inference server
+# -----------------------------------------------------------------------
+# This is SEPARATE from requirements.txt (which includes training deps like
+# pandas, the full CUDA torch, nvidia drivers, etc.).
+# Use this file when installing on a production server with limited RAM.
+#
+# Install:
+#   pip install -r requirements-deploy.txt
+#
+# For torch CPU-only wheel (saves ~1 GB vs. CUDA build):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# -----------------------------------------------------------------------
+
+# --- Web server ----------------------------------------------------------
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+pydantic==2.13.2
+
+# --- spaCy NER (CPU) -----------------------------------------------------
+# Note: tok2vec is built into core spaCy and does not require spacy-transformers
+spacy==3.8.16
+
+# --- PDF extraction ------------------------------------------------------
+pdfplumber==0.11.10
+
+# --- Database ------------------------------------------------------------
+mysql-connector-python==9.3.0
+
+# --- Monitoring ----------------------------------------------------------
+psutil>=5.9                 # RSS logging in /health and startup
+
+# --- Runtime utilities ---------------------------------------------------
+python-dotenv==1.2.3

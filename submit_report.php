@@ -1,26 +1,115 @@
 <?php
 // submit_report.php
 session_start();
+date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/config/report_deadlines.php';
+require_once __DIR__ . '/config/csrf.php';
+require_once __DIR__ . '/config/upload_limits.php';
 
-// Auth Guard (comment out if testing without session login)
-$student_id = $_SESSION['student_id'] ?? 1;
-$weekNumber = isset($_GET['week']) ? intval($_GET['week']) : 1;
+// Auth Guard
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
+    header("Location: auth/login.php");
+    exit();
+}
 
-$errors = [];
-
-// Handle Form Submission
+// CSRF Guard: covers the report upload branch below. The fallback keeps the
+// requested week so a rejected submission does not reset the form to Week 1.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrfWeek = intval($_GET['week'] ?? $_POST['week'] ?? 1);
+    csrf_verify('submit_report.php?week=' . ($csrfWeek > 0 ? $csrfWeek : 1), 'error_message');
+}
+
+$sessionUserId = (int)$_SESSION['user_id'];
+
+// Resolve student profile and check evaluation trigger flag
+$stmtStudent = $pdo->prepare("
+    SELECT 
+        s.id, 
+        u.name, 
+        s.student_number, 
+        s.company_id,
+        s.evaluation_triggered,
+        s.ojt_start_date,
+        e.id AS evaluation_id 
+    FROM students s 
+    INNER JOIN users u ON s.user_id = u.id
+    LEFT JOIN evaluations e ON e.student_id = s.id
+    WHERE s.user_id = ? 
+    LIMIT 1
+");
+$stmtStudent->execute([$sessionUserId]);
+$studentRow = $stmtStudent->fetch(PDO::FETCH_ASSOC);
+
+if (!$studentRow) {
+    $_SESSION['error_message'] = "Student profile record not found.";
+    header("Location: reports.php");
+    exit();
+}
+
+// ONLY lock if the coordinator specifically triggered the evaluation
+$isLocked = !empty($studentRow['evaluation_triggered']) && (int)$studentRow['evaluation_triggered'] === 1;
+
+// Block report submission until the student has an assigned placement
+$isAssigned = !empty($studentRow['company_id']);
+
+$student_id  = (int)$studentRow['id'];
+$studentName = $studentRow['name'] ?? 'Student';
+$weekNumber  = isset($_GET['week']) ? intval($_GET['week']) : (isset($_POST['week']) ? intval($_POST['week']) : 1);
+$errors      = [];
+
+$ojtStart    = isset($studentRow) && $studentRow ? warOjtStart($studentRow) : null;
+$weekDue     = $ojtStart ? warWeekDue($ojtStart, $weekNumber) : null;
+$isLatePreview = $weekDue ? ((new DateTimeImmutable()) > $weekDue) : false;
+
+// Prevent modifying an already APPROVED report
+$stmtCheckApproved = $pdo->prepare("SELECT status FROM reports WHERE student_id = ? AND week_number = ?");
+$stmtCheckApproved->execute([$student_id, $weekNumber]);
+$existingStatus = strtolower($stmtCheckApproved->fetchColumn() ?: '');
+
+if ($existingStatus === 'approved') {
+    $_SESSION['error_message'] = "Week {$weekNumber} report has already been approved and cannot be re-uploaded.";
+    header("Location: reports.php");
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
+    if ($isLocked) {
+        $_SESSION['error_message'] = "Account locked for final evaluation.";
+        header("Location: reports.php");
+        exit();
+    }
+
     $filePath = null;
 
-    // Validate File Upload
     if (isset($_FILES['report_file']) && $_FILES['report_file']['error'] === UPLOAD_ERR_OK) {
         $fileTmpPath   = $_FILES['report_file']['tmp_name'];
         $fileName      = $_FILES['report_file']['name'];
         $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $fileSize      = (int) ($_FILES['report_file']['size'] ?? 0);
 
-        if ($fileExtension === 'pdf') {
+        /*
+         * Backstop for a php.ini that accepts more than the extractor does.
+         *
+         * MAX_PDF_BYTES in python/api/main.py is 25 MiB while upload_max_filesize
+         * here is 40M, so a 30 MB PDF was stored happily and then rejected by the
+         * extractor permanently. The report kept its 0% entities and nothing on
+         * screen ever said why. Rejected here instead, before it reaches disk, and
+         * the intern is told the size limit rather than being left with a report
+         * that can never be analysed.
+         */
+        if (uploadExceedsSizeLimit($fileSize)) {
+            $errors[] = 'That file is too large. The maximum allowed size is '
+                . uploadLimitLabel() . '. Please compress it or upload a smaller PDF.';
+
+        } elseif ($fileSize === 0) {
+            $errors[] = 'That file appears to be empty. Please upload a PDF that contains your report.';
+
+        } elseif (!in_array($fileExtension, ALLOWED_UPLOAD_EXTENSIONS, true)) {
+            $errors[] = "Invalid file format. Please upload a PDF file.";
+
+        } else {
             $uploadDir = __DIR__ . '/uploads/reports/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0777, true);
@@ -34,35 +123,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $errors[] = "Failed to save the uploaded file to the server.";
             }
-        } else {
-            $errors[] = "Invalid file format. Please upload a PDF file.";
         }
+    } elseif (isset($_FILES['report_file']) && in_array(
+        $_FILES['report_file']['error'],
+        [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE],
+        true
+    )) {
+        // The drop zone used to promise "Max size 10MB" and nothing enforced it --
+        // not the browser, not here. That claim is gone from the copy, but PHP's own
+        // upload_max_filesize still caps every upload, and an oversize file reports
+        // as a size failure here. Without this branch it fell through to the
+        // generic message below, which tells the intern to pick a different file
+        // format -- blaming the wrong thing entirely for a size problem.
+        $maxUpload = ini_get('upload_max_filesize');
+        $errors[] = "That file is larger than this server accepts ({$maxUpload}). Please compress it or upload a smaller PDF.";
     } else {
         $errors[] = "Please select a PDF file to upload.";
     }
 
-    // Save Record to Database
     if (empty($errors)) {
         try {
-            $sql = "INSERT INTO reports (student_id, week_number, attachment_path, status, created_at)
-                    VALUES (?, ?, ?, 'Pending', NOW())
-                    ON DUPLICATE KEY UPDATE 
-                        attachment_path = VALUES(attachment_path),
-                        status = 'Pending',
-                        created_at = NOW()";
+            $stmtCheckRow = $pdo->prepare("SELECT id, file_path, previous_file_path FROM reports WHERE student_id = ? AND week_number = ?");
+            $stmtCheckRow->execute([$student_id, $weekNumber]);
+            $existingReport = $stmtCheckRow->fetch(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$student_id, $weekNumber, $filePath]);
+            if ($existingReport) {
+                $archivedOldFile = !empty($existingReport['file_path']) ? $existingReport['file_path'] : $existingReport['previous_file_path'];
 
-            // Redirect back to My Reports with success alert
+                // Recompute timeliness for this new submission.
+                $submittedAt = new DateTimeImmutable();
+                $isLate = ($ojtStart && $submittedAt > warWeekDue($ojtStart, $weekNumber)) ? 1 : 0;
+                $deadlineDb = $ojtStart ? warWeekDue($ojtStart, $weekNumber)->setTime(0, 0, 0)->format('Y-m-d') : null;
+
+                $stmtUpdate = $pdo->prepare("
+                    UPDATE reports 
+                    SET previous_file_path = ?,
+                        file_path = ?, 
+                        status = 'pending', 
+                        submitted_at = NOW(),
+                        is_late = ?,
+                        deadline_date = ?,
+                        updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmtUpdate->execute([$archivedOldFile, $filePath, $isLate, $deadlineDb, $existingReport['id']]);
+
+                $logDesc = "Student {$studentName} submitted revised Week {$weekNumber} accomplishment report.";
+                $stmtLog = $pdo->prepare("
+                    INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
+                    VALUES (?, 'student', 'REPORT_SUBMISSION', ?, ?, ?, NOW())
+                ");
+                $stmtLog->execute([
+                    $sessionUserId,
+                    $logDesc,
+                    $_SERVER['REMOTE_ADDR'] ?? '::1',
+                    $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+                ]);
+            } else {
+                $submittedAt = new DateTimeImmutable();
+                $isLate = ($ojtStart && $submittedAt > warWeekDue($ojtStart, $weekNumber)) ? 1 : 0;
+                $deadlineDb = $ojtStart ? warWeekDue($ojtStart, $weekNumber)->setTime(0, 0, 0)->format('Y-m-d') : null;
+
+                $stmtInsert = $pdo->prepare("
+                    INSERT INTO reports (student_id, week_number, file_path, status, submitted_at, is_late, deadline_date)
+                    VALUES (?, ?, ?, 'pending', NOW(), ?, ?)
+                ");
+                $stmtInsert->execute([$student_id, $weekNumber, $filePath, $isLate, $deadlineDb]);
+
+                $logDesc = "Student {$studentName} submitted Week {$weekNumber} accomplishment report.";
+                $stmtLog = $pdo->prepare("
+                    INSERT INTO audit_logs (user_id, role, action, description, ip_address, user_agent, created_at)
+                    VALUES (?, 'student', 'REPORT_SUBMISSION', ?, ?, ?, NOW())
+                ");
+                $stmtLog->execute([
+                    $sessionUserId,
+                    $logDesc,
+                    $_SERVER['REMOTE_ADDR'] ?? '::1',
+                    $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+                ]);
+            }
+
             header("Location: reports.php?submitted=success");
             exit();
 
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             $errors[] = "Database Error: " . $e->getMessage();
         }
     }
 }
 
-// Render View Template
+// Surface the session-level errors this controller writes at the approval check,
+// the lock check and the CSRF guard. They used to be stored and never read, so
+// the intern saw a blank page with no explanation. Unset either way so a stale
+// message cannot survive into the next submission.
+if (!empty($_SESSION['error_message'])) {
+    $errors[] = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
+
 require_once __DIR__ . '/src/pages/student/submitReportPage.php';
