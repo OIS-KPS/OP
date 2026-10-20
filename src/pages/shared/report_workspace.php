@@ -513,52 +513,14 @@ $renderWeekSelector = function (bool $asCard) use (
 
                     <!-- Right Column: Aggregated Analytics & Active Week Entities (5 of 12 columns; omitted entirely when it would be empty) -->
                     <?php if ($hasRightColumn): ?>
-                    <div class="xl:col-span-5 flex flex-col h-[60vh] min-h-[420px] xl:h-[calc(100vh-210px)] xl:min-h-[780px] space-y-5">
+                    <div class="xl:col-span-5 flex flex-col h-[60vh] min-h-[420px] xl:h-[calc(100vh-250px)] xl:min-h-[740px] space-y-5">
 
                         <!-- Week Dropdown / Submitted Stamp / Fullscreen / Late (roles that set $selectorInRightPanel) -->
                         <?php if ($selectorInRightPanel): ?>
                             <?php $renderWeekSelector(true); ?>
                         <?php endif; ?>
 
-                        <!-- Active Week Review Verdict (supervisor only) -->
-                        <?php if ($canReview && $activeReport): ?>
-                            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-3 shrink-0">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="font-extrabold text-xs text-slate-950 uppercase tracking-wider">Review Verdict</h3>
-                                    <?php if ($activeStatus === 'approved'): ?>
-                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 text-xs font-bold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span> Approved
-                                        </span>
-                                    <?php elseif ($activeStatus === 'rejected'): ?>
-                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Needs Changes
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Waiting for Review
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-
-                                <?php if ($activeStatus !== 'approved'): ?>
-                                    <form method="POST" action="<?= htmlspecialchars($selfPath . '?student_id=' . $studentId . '&report_id=' . (int)$activeReport['id']); ?>" class="space-y-3" id="verdictForm">
-                                        <?= csrf_field(); ?>
-                                        <input type="hidden" name="action" value="approve">
-                                        <input type="hidden" name="report_id" value="<?= (int)$activeReport['id']; ?>">
-                                        <div class="space-y-1.5">
-                                            <label for="verdictRemarks" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Revision Instructions <span class="normal-case font-semibold text-slate-400">(required to request changes)</span></label>
-                                            <textarea id="verdictRemarks" name="supervisor_remarks" rows="2" placeholder="Explain the corrections or missing items the intern needs to address..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#0F2854]"></textarea>
-                                        </div>
-                                        <div class="flex items-center justify-end gap-2">
-                                            <button type="button" id="btnRequestChanges" class="px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-900 text-xs font-bold rounded-xl border border-rose-300 transition-all cursor-pointer">Request Changes</button>
-                                            <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer">Approve Report</button>
-                                        </div>
-                                    </form>
-                                <?php else: ?>
-                                    <p class="text-[11px] font-semibold text-slate-500">Approved <?= htmlspecialchars($activeApprovedAt); ?>. This submission is locked for editing.</p>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
+                        <!-- Review verdict controls moved into the Extracted Entities panel below. -->
 
                         <!-- Supervisor Feedback Banner -->
                         <?php if ($activeReport && $activeRemarks !== ''): ?>
@@ -792,7 +754,31 @@ $renderWeekSelector = function (bool $asCard) use (
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>
-                        </div>
+                            <?php if ($canReview && $activeReport): ?>
+                            <div class="p-4 border-t border-slate-200/70 bg-slate-50/60 shrink-0">
+                                <?php if ($activeStatus === 'approved'): ?>
+                                    <p class="text-[11px] font-semibold text-slate-500 text-right">Approved <?= htmlspecialchars($activeApprovedAt); ?>. This submission is locked for editing.</p>
+                                <?php else: ?>
+                                    <form method="POST" action="<?= htmlspecialchars($selfPath . '?student_id=' . $studentId . '&report_id=' . (int)$activeReport['id']); ?>" class="space-y-3" id="verdictForm">
+                                        <?= csrf_field(); ?>
+                                        <input type="hidden" name="action" value="approve">
+                                        <input type="hidden" name="report_id" value="<?= (int)$activeReport['id']; ?>">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button type="button" id="btnRequestChanges" class="px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-900 text-xs font-bold rounded-xl border border-rose-300 transition-all cursor-pointer">Request Changes</button>
+                                            <button type="submit" class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer">Approve Report</button>
+                                        </div>
+                                        <div id="requestChangesBox" class="hidden space-y-1.5">
+                                            <label for="verdictRemarks" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Revision Instructions <span class="normal-case font-semibold text-slate-400">(required to request changes)</span></label>
+                                            <textarea id="verdictRemarks" name="supervisor_remarks" rows="2" placeholder="Explain the corrections or missing items the intern needs to address..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#0F2854]"></textarea>
+                                            <div class="flex items-center justify-end">
+                                                <button type="button" id="btnConfirmRequestChanges" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer">Confirm Request Changes</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                            <?php endif; ?>
+                            </div>
                         <?php endif; ?>
 
                     </div>
@@ -911,16 +897,35 @@ $renderWeekSelector = function (bool $asCard) use (
     <?php if ($canReview && $activeReport && $activeStatus !== 'approved'): ?>
     <script>
         document.getElementById('btnRequestChanges').addEventListener('click', function () {
-            var remarks = document.getElementById('verdictRemarks').value.trim();
-            if (!remarks) {
-                document.getElementById('verdictRemarks').focus();
-                return;
-            }
-            if (confirm('Send this change request to the intern?')) {
-                this.form.querySelector('input[name="action"]').value = 'reject';
-                this.form.submit();
+            var box = document.getElementById('requestChangesBox');
+            if (box) {
+                if (box.classList.contains('hidden')) {
+                    box.classList.remove('hidden');
+                    var ta = document.getElementById('verdictRemarks');
+                    if (ta) {
+                        ta.focus();
+                    }
+                } else {
+                    box.classList.add('hidden');
+                }
             }
         });
+
+        var confirmBtn = document.getElementById('btnConfirmRequestChanges');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function () {
+                var remarks = document.getElementById('verdictRemarks').value.trim();
+                if (!remarks) {
+                    document.getElementById('verdictRemarks').focus();
+                    return;
+                }
+                if (confirm('Send this change request to the intern?')) {
+                    var form = document.getElementById('verdictForm');
+                    form.querySelector('input[name="action"]').value = 'reject';
+                    form.submit();
+                }
+            });
+        }
     </script>
     <?php endif; ?>
 
