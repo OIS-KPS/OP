@@ -31,7 +31,7 @@ if (!function_exists('e')) {
 
     <link
         rel="stylesheet"
-        href="/ICS-PORTAL/public/css/style.css"
+        href="<?= BASE_PATH; ?>/public/css/style.css"
     >
 
     <style>
