@@ -6,7 +6,6 @@ if (!function_exists('e')) {
     }
 }
 $view = $view ?? 'active';
-$viewParam = $view === 'archived' ? '&view=archived' : '';
 
 // Normalised here because the closure below binds them by value. PHP closures do
 // NOT inherit the enclosing scope the way a nested block would, so anything it
@@ -120,46 +119,34 @@ $entityFilterFields = static function () use (
 
             <!-- Filter & Search Controls -->
             <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
-                <form method="GET" action="entities.php" class="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
-                    <input type="hidden" name="view" value="<?= e($view); ?>">
-
-                    <!-- View switch + Quick Activity Filters -->
-                    <div class="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 text-xs">
-                        <div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 shrink-0">
-                            <a href="entities.php" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($view === 'active') ? 'bg-[#0F2854] text-white shadow-xs' : 'text-slate-600 hover:bg-white'; ?>">
-                                Active <span class="ml-1 opacity-90 font-bold"><?= (int) ($activeCount ?? 0); ?></span>
-                            </a>
-                            <a href="entities.php?view=archived" class="px-3.5 py-1.5 rounded-lg font-bold transition-all <?= ($view === 'archived') ? 'bg-rose-700 text-white shadow-xs' : 'text-slate-600 hover:bg-white'; ?>">
-                                Archive <span class="ml-1 opacity-90 font-bold"><?= (int) ($archivedCount ?? 0); ?></span>
-                            </a>
+                <form method="GET" action="entities.php" class="flex flex-col gap-4">
+                    <!-- Filters -->
+                    <div class="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label for="entityViewFilter" class="sr-only">Entity status</label>
+                            <select id="entityViewFilter" name="view" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer">
+                                <option value="active" <?= $view === 'active' ? 'selected' : ''; ?>>Active (<?= (int) ($activeCount ?? 0); ?>)</option>
+                                <option value="archived" <?= $view === 'archived' ? 'selected' : ''; ?>>Archived (<?= (int) ($archivedCount ?? 0); ?>)</option>
+                            </select>
                         </div>
 
-                        <span class="mx-0.5 h-6 w-px bg-slate-300 shrink-0"></span>
-
-                        <div class="flex items-center gap-1.5 overflow-x-auto text-xs">
-                            <!-- "All" means "no IT/clerical filter", so its badge is the whole current
-                                 view. It used to read count($entities), which is the FILTERED
-                                 set -- so searching made this tab claim "All 3" out of 25. The
-                                 Active/Archive badges above have always used the unfiltered
-                                 $activeCount/$archivedCount; this now agrees with them. -->
-                                <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'All') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                                    All <span class="ml-1 opacity-90 font-bold"><?= (int) ($view === 'archived' ? ($archivedCount ?? 0) : ($activeCount ?? 0)); ?></span>
-                                </a>
-                            <a href="entities.php?it_related=yes<?= $viewParam; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'yes') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                                IT
-                            </a>
-                            <a href="entities.php?it_related=no<?= $viewParam; ?>" class="px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap <?= ($typeFilter === 'no') ? 'bg-[#0F2854] text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'; ?>">
-                                Clerical
-                            </a>
+                        <div>
+                            <label for="entityTypeFilter" class="sr-only">Entity type</label>
+                            <select id="entityTypeFilter" name="it_related" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer">
+                                <option value="All" <?= $typeFilter === 'All' ? 'selected' : ''; ?>>All Types (<?= (int) ($view === 'archived' ? ($archivedCount ?? 0) : ($activeCount ?? 0)); ?>)</option>
+                                <option value="yes" <?= $typeFilter === 'yes' ? 'selected' : ''; ?>>IT</option>
+                                <option value="no" <?= $typeFilter === 'no' ? 'selected' : ''; ?>>Clerical</option>
+                            </select>
                         </div>
                     </div>
 
                     <!-- Search Input -->
-                    <div class="flex items-center gap-2">
-                        <div class="relative w-full sm:w-64">
-                            <input type="text" name="search" value="<?= e($search); ?>" placeholder="Search entities..." class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854]">
-                            <svg class="w-4 h-4 text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <div class="flex w-full items-center gap-2">
+                        <div class="relative min-w-0 flex-1">
+                            <input type="text" name="search" value="<?= e($search); ?>" placeholder="Search entities..." class="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-semibold text-slate-900 placeholder-slate-500 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
+                        <button type="submit" class="shrink-0 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-300">Search</button>
 
                         <?php /* No category filter. category on predefined_entities is now just the
                                IT_TERM/CLERICAL_TERM mirror of it_related, so a second
@@ -167,7 +154,7 @@ $entityFilterFields = static function () use (
                                already gives. The controller still honours ?category=
                                so old bookmarked URLs keep working. */ ?>
                         <?php if ($search !== '' || $categoryFilter !== 'All' || $typeFilter !== 'All'): ?>
-                            <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="px-3 py-2 text-slate-600 hover:text-slate-900 text-xs font-bold whitespace-nowrap">Reset</a>
+                            <a href="entities.php<?= $view === 'archived' ? '?view=archived' : ''; ?>" class="shrink-0 rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200">Reset</a>
                         <?php endif; ?>
                     </div>
 

@@ -56,10 +56,10 @@
                     </div>
 
                     <!-- 2. Integrated Filter & Search Toolbar (server-side filtered) -->
-                    <form method="GET" action="audit_logs.php" id="logFilterForm" class="p-4 border-b border-slate-200/70 flex flex-col md:flex-row items-center justify-between gap-4 bg-white shrink-0">
+                    <form method="GET" action="audit_logs.php" id="logFilterForm" class="p-4 border-b border-slate-200/70 flex flex-col gap-4 bg-white shrink-0">
                         
                         <!-- Role Filter Tabs -->
-                        <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
+                        <div class="flex w-full flex-wrap items-center gap-2">
                             <?php
                                 $roleTabs = [
                                     'all'         => 'All Roles',
@@ -79,9 +79,10 @@
                             <?php endforeach; ?>
                         </div>
 
-                        <!-- Search Input (debounced auto-submit) -->
-                        <div class="relative w-full md:w-72">
-                            <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        <!-- Search Input -->
+                        <div class="flex w-full items-center gap-2">
+                          <div class="relative min-w-0 flex-1">
+                            <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                             <input
                                 type="search"
                                 name="search"
@@ -89,10 +90,12 @@
                                 value="<?= htmlspecialchars($searchQuery); ?>"
                                 placeholder="Search user, action, or details..."
                                 autocomplete="off"
-                                class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
+                                class="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-semibold text-slate-900 placeholder-slate-500 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                             >
-                            <input type="hidden" name="role" value="<?= htmlspecialchars($roleFilter); ?>">
+                          </div>
+                          <button type="submit" class="shrink-0 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-300">Search</button>
                         </div>
+                        <input type="hidden" name="role" value="<?= htmlspecialchars($roleFilter); ?>">
                     </form>
 
                     <!-- 3. Audit Logs Scrollable Table -->
@@ -291,33 +294,5 @@
         </div>
     </div>
 
-    <!-- Search is now server-side (it must match across paginated results),
-         so the input just debounces a real GET form submit. -->
-    <script>
-        const logSearchForm = document.getElementById('logFilterForm');
-        const logSearchInput = document.getElementById('logSearchInput');
-
-        if (logSearchForm && logSearchInput) {
-            let searchTimer = null;
-
-            // The form has no hidden "page" input, so a submit always lands on
-            // page 1 by default — a filter change correctly restarts at the top.
-            logSearchInput.addEventListener('input', function () {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(function () {
-                    logSearchForm.submit();
-                }, 350);
-            });
-
-            // Enter submits immediately rather than waiting for the debounce
-            logSearchInput.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    clearTimeout(searchTimer);
-                    logSearchForm.submit();
-                }
-            });
-        }
-    </script>
 </body>
 </html>

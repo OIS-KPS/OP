@@ -188,7 +188,8 @@
                         <form id="userFilterForm" method="GET" action="users.php" class="p-4 border-b border-slate-200/70 bg-white">
                             <input type="hidden" name="tab" value="students">
                             <input type="hidden" name="section" value="<?= htmlspecialchars($selectedSection ?? 'all'); ?>">
-                            <div class="relative w-full">
+                            <div class="flex w-full items-center gap-2">
+                              <div class="relative min-w-0 flex-1">
                                 <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                                 <input
                                     type="text"
@@ -198,6 +199,8 @@
                                     placeholder="Search all students by name, ID or email..."
                                     class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                                 >
+                              </div>
+                              <button type="submit" class="shrink-0 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-300">Search</button>
                             </div>
                         </form>
                     <?php else: ?>
@@ -1602,28 +1605,6 @@ if (searchInput && !isStudentsTab) {
             });
 }
 
-/* Students-tab search is server-side. Debounce a real GET submit; the form's
-   hidden inputs keep the tab and course code, and there is no hidden "page"
-   input so a new search lands on page 1. */
-const userFilterForm = document.getElementById('userFilterForm');
-if (userFilterForm && searchInput) {
-    let userSearchTimer = null;
-
-    searchInput.addEventListener('input', function () {
-        clearTimeout(userSearchTimer);
-        userSearchTimer = setTimeout(function () {
-            userFilterForm.submit();
-        }, 350);
-    });
-
-    searchInput.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            clearTimeout(userSearchTimer);
-            userFilterForm.submit();
-        }
-    });
-}
     </script>
 </body>
 </html>
