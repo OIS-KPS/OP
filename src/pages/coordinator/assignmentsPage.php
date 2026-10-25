@@ -480,8 +480,9 @@
          * The right panel owns one hidden student_ids[] input per intern, so
          * the form posts exactly the queued selection.
          * ------------------------------------------------------------- */
-        const roster = <?= json_encode($rosterStudents ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        let roster = <?= json_encode($rosterStudents ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const selectedStudents = new Map();
+        let rosterRequestId = 0;
 
         const courseCodeSelect  = document.getElementById('courseCodeSelect');
         const pickerSearchInput = document.getElementById('pickerSearchInput');
@@ -530,6 +531,35 @@
 
         function emptyStateMarkup(message) {
             return '<p class="px-3 py-6 text-center text-[11px] font-semibold text-slate-400 italic">' + message + '</p>';
+        }
+
+        async function refreshAssignmentRoster() {
+            const requestId = ++rosterRequestId;
+            availableCount.textContent = '…';
+            availableList.innerHTML = emptyStateMarkup('Loading the latest intern list…');
+
+            try {
+                const response = await fetch('assignment_roster.php', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store',
+                    credentials: 'same-origin'
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success || !Array.isArray(result.students)) {
+                    throw new Error(result.message || 'Roster refresh failed.');
+                }
+
+                if (requestId !== rosterRequestId) return;
+                roster = result.students;
+                renderAvailable();
+            } catch (error) {
+                if (requestId !== rosterRequestId) return;
+                availableCount.textContent = '0';
+                availableList.innerHTML = emptyStateMarkup('Could not refresh the intern list. Close the modal and try again.');
+                console.error('Assignment roster refresh failed.', error);
+            }
         }
 
         // An intern counts as assigned only when BOTH the company and its supervisor
@@ -685,6 +715,7 @@ function isPlaced(stu) {
         function openAssignModal() {
             resetPicker();
             openModal('assignModal');
+            refreshAssignmentRoster();
         }
 
         function filterSupervisorsByCompany(preselectedSupId = null) {
