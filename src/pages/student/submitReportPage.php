@@ -16,7 +16,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Global Custom Stylesheet -->
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 

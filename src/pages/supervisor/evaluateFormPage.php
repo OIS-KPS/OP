@@ -24,7 +24,7 @@ $ojtCsrfToken      = json_encode(csrf_token(), $ojtJsonFlags);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
     <style>
         /* Whole-cell hover/selected affordance for the 1-5 radio columns. */
         .rating-option:hover { background-color: rgba(15, 40, 84, 0.05); }
@@ -368,7 +368,7 @@ $ojtCsrfToken      = json_encode(csrf_token(), $ojtJsonFlags);
             document.getElementById('resendTimerText').classList.remove('hidden');
 
             try {
-                const res = await fetch('/ICS-PORTAL/supervisor/api/evaluation_otp.php', {
+                const res = await fetch('<?= BASE_PATH; ?>/supervisor/api/evaluation_otp.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'request_otp', student_id: document.getElementById('eval_student_id').value, csrf_token: ICSRF_TOKEN })
@@ -437,7 +437,7 @@ $ojtCsrfToken      = json_encode(csrf_token(), $ojtJsonFlags);
             };
 
             try {
-                const res = await fetch('/ICS-PORTAL/supervisor/api/evaluation_otp.php', {
+                const res = await fetch('<?= BASE_PATH; ?>/supervisor/api/evaluation_otp.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)

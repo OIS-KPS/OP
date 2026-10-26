@@ -1,23 +1,18 @@
 <?php
 // config/db.php
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/app.php';
 
-if (class_exists('Dotenv\Dotenv') && file_exists(__DIR__ . '/../.env')) {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-    $dotenv->safeLoad();
-}
-
-$host     = $_ENV['DB_HOST'] ?? 'localhost';
-$dbname   = $_ENV['DB_NAME'] ?? 'nbsc_ojt'; 
-$username = $_ENV['DB_USER'] ?? 'root';      
-$password = $_ENV['DB_PASSWORD'] ?? '';          
+$host = $_ENV['DB_HOST'] ?? 'localhost';
+$dbname = $_ENV['DB_NAME'] ?? 'nbsc_ojt';
+$username = $_ENV['DB_USER'] ?? 'root';
+$password = $_ENV['DB_PASSWORD'] ?? '';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
+        PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 } catch (PDOException $e) {
     // Never expose host, database name or driver detail to an anonymous
@@ -30,7 +25,8 @@ try {
  * Retrieve the most accurate client IP address
  */
 if (!function_exists('getClientIp')) {
-    function getClientIp() {
+    function getClientIp()
+    {
         if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
             return $_SERVER['HTTP_CLIENT_IP'];
         }
@@ -53,7 +49,8 @@ if (!function_exists('getClientIp')) {
  * @return bool True if logged successfully, false otherwise
  */
 if (!function_exists('logActivity')) {
-    function logActivity($pdo, $userId, $role, $action, $description) {
+    function logActivity($pdo, $userId, $role, $action, $description)
+    {
         try {
             $ipAddress = getClientIp();
             $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown', 0, 255);
@@ -83,7 +80,8 @@ if (!function_exists('logActivity')) {
  * @return string[]
  */
 if (!function_exists('section_course_codes')) {
-    function section_course_codes() {
+    function section_course_codes()
+    {
         return ['IT44A', 'IT44B', 'IT44C', 'IT44D'];
     }
 }
@@ -99,9 +97,10 @@ if (!function_exists('section_course_codes')) {
  * @return string A course code; defaults to the first code when unrecognised.
  */
 if (!function_exists('normalizeSectionCode')) {
-    function normalizeSectionCode($value) {
+    function normalizeSectionCode($value)
+    {
         $codes = section_course_codes();
-        $raw   = strtoupper(trim((string)$value));
+        $raw = strtoupper(trim((string) $value));
 
         if ($raw === '') {
             return $codes[0];
@@ -109,7 +108,7 @@ if (!function_exists('normalizeSectionCode')) {
 
         // Strip the legacy "SECTION"/"SEC" prefix, then any leading non-letters.
         $bare = preg_replace('/^(SECTION|SEC)\s*/', '', $raw);
-        $bare = ltrim((string)$bare, '- ');
+        $bare = ltrim((string) $bare, '- ');
 
         foreach ($codes as $code) {
             if ($bare === $code || $bare === substr($code, -1)) {
@@ -148,8 +147,8 @@ if (!function_exists('sortByCourseCodeSequence')) {
         $codeRank = array_flip(section_course_codes());
 
         usort($rows, static function (array $a, array $b) use ($codeRank): int {
-            $codeA = (string)($a['section'] ?? '');
-            $codeB = (string)($b['section'] ?? '');
+            $codeA = (string) ($a['section'] ?? '');
+            $codeB = (string) ($b['section'] ?? '');
 
             $rankA = $codeRank[$codeA] ?? PHP_INT_MAX;
             $rankB = $codeRank[$codeB] ?? PHP_INT_MAX;
@@ -163,11 +162,11 @@ if (!function_exists('sortByCourseCodeSequence')) {
                 return strcmp($codeA, $codeB);
             }
 
-            $lastA = strtoupper(substr(strrchr(' ' . trim((string)($a['student_name'] ?? '')), ' '), 1));
-            $lastB = strtoupper(substr(strrchr(' ' . trim((string)($b['student_name'] ?? '')), ' '), 1));
+            $lastA = strtoupper(substr(strrchr(' ' . trim((string) ($a['student_name'] ?? '')), ' '), 1));
+            $lastB = strtoupper(substr(strrchr(' ' . trim((string) ($b['student_name'] ?? '')), ' '), 1));
             $cmp = strcmp($lastA, $lastB);
 
-            return $cmp !== 0 ? $cmp : strcmp((string)($a['student_name'] ?? ''), (string)($b['student_name'] ?? ''));
+            return $cmp !== 0 ? $cmp : strcmp((string) ($a['student_name'] ?? ''), (string) ($b['student_name'] ?? ''));
         });
 
         return $rows;
@@ -188,7 +187,8 @@ if (!function_exists('sortByCourseCodeSequence')) {
  * @return string
  */
 if (!function_exists('userFacingError')) {
-    function userFacingError(Throwable $e, $context = '') {
+    function userFacingError(Throwable $e, $context = '')
+    {
         if ($e instanceof PDOException) {
             error_log(($context !== '' ? $context . ': ' : '') . $e->getMessage());
 

@@ -24,11 +24,23 @@
  * ============================================================
  */
 
+
 if (!defined('ENTITY_API_URL')) {
-    define(
-        'ENTITY_API_URL',
-        'http://127.0.0.1:8000'
-    );
+    if (!isset($_ENV['ENTITY_API_URL']) && file_exists(__DIR__ . '/../../.env')) {
+        require_once __DIR__ . '/../../vendor/autoload.php';
+        if (class_exists('Dotenv\Dotenv')) {
+            $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
+            $dotenv->safeLoad();
+        }
+    }
+
+    $apiUrl = $_ENV['ENTITY_API_URL'] ?? getenv('ENTITY_API_URL') ?: 'http://127.0.0.1:8000';
+    $apiUrl = trim($apiUrl);
+    if ($apiUrl === '') {
+        $apiUrl = 'http://127.0.0.1:8000';
+    }
+
+    define('ENTITY_API_URL', rtrim($apiUrl, '/'));
 }
 
 /*
@@ -1004,7 +1016,7 @@ function entityExtractionClassify(array $result): array
 
     return [
         'permanent' => $permanent,
-        'message'   => $permanent
+        'message' => $permanent
             ? mb_substr($message, 0, 255)
             : mb_substr($message, 0, 255),
     ];
@@ -1263,9 +1275,9 @@ function entityExtractionReportStatus(PDO $pdo, int $reportId): array
     $status = [
         'report_id' => $reportId,
         'extracted_at' => null,
-        'started_at'  => null,
-        'error'       => null,
-        'pending'     => false,
+        'started_at' => null,
+        'error' => null,
+        'pending' => false,
     ];
 
     try {
@@ -1287,8 +1299,8 @@ function entityExtractionReportStatus(PDO $pdo, int $reportId): array
         }
 
         $status['extracted_at'] = $row['entities_extracted_at'] ?: null;
-        $status['started_at']   = $row['entities_extraction_started_at'] ?: null;
-        $status['error']        = $row['entities_extraction_error'] ?: null;
+        $status['started_at'] = $row['entities_extraction_started_at'] ?: null;
+        $status['error'] = $row['entities_extraction_error'] ?: null;
 
         /*
          * Same reasoning as entityExtractionInFlight(): the interval is computed
@@ -1339,15 +1351,15 @@ function ensureReportEntitiesExtracted(
 
     $skipped = static function (array $extra = []): array {
         return array_merge([
-            'success'   => true,
-            'skipped'   => true,
-            'ran'       => false,
-            'deferred'  => false,
-            'pending'   => false,
-            'error'     => '',
-            'entities'  => [],
-            'content'   => '',
-            'summary'   => [],
+            'success' => true,
+            'skipped' => true,
+            'ran' => false,
+            'deferred' => false,
+            'pending' => false,
+            'error' => '',
+            'entities' => [],
+            'content' => '',
+            'summary' => [],
             'entity_count' => 0,
         ], $extra);
     };
@@ -1396,7 +1408,7 @@ function ensureReportEntitiesExtracted(
     if (!entityExtractionLock($pdo, $lockName, 10)) {
         return $skipped([
             'error' => 'Another extraction for this report is already ' .
-                       'running. Please try again in a moment.',
+                'running. Please try again in a moment.',
         ]);
     }
 
@@ -1412,10 +1424,10 @@ function ensureReportEntitiesExtracted(
 
         $result = extractEntitiesFromReport($pdfPath, $reportId, $pdo, true);
 
-        $result['skipped']  = false;
-        $result['ran']      = !empty($result['success']);
+        $result['skipped'] = false;
+        $result['ran'] = !empty($result['success']);
         $result['deferred'] = false;
-        $result['pending']  = false;
+        $result['pending'] = false;
 
         if (!empty($result['success'])) {
             markReportEntitiesExtracted($pdo, $reportId);

@@ -151,7 +151,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
     <title>CQI Analytics Dashboard - OJT Coordinator Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
 

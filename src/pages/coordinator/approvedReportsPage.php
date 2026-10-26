@@ -25,7 +25,7 @@ $exportParamsAll = http_build_query([
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
     </style>
@@ -124,7 +124,8 @@ $exportParamsAll = http_build_query([
                     <div class="p-4 border-b border-slate-200/70 bg-white">
                         <form id="filterForm" method="GET" action="approved_reports.php" class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
                             <!-- Live Search Input -->
-                            <div class="relative flex-1 w-full">
+                            <div class="flex w-full min-w-0 flex-1 items-center gap-2">
+                              <div class="relative min-w-0 flex-1">
                                 <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                                 <input 
                                     type="text" 
@@ -134,6 +135,8 @@ $exportParamsAll = http_build_query([
                                     placeholder="Search all students by name or ID number..." 
                                     class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
                                 >
+                              </div>
+                              <button type="submit" class="shrink-0 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-300">Search</button>
                             </div>
 
                             <!-- Filter by Course Code -->
@@ -360,34 +363,6 @@ $exportParamsAll = http_build_query([
             }
         });
 
-        /* Search is server-side: the list is now paginated, so a JS row filter
-           would only ever see the current page and would silently hide matches
-           sitting on page 2. The input debounces a real GET submit instead,
-           matching coordinator/audit_logs.php and coordinator/evaluations.php. */
-        const reportFilterForm = document.getElementById('filterForm');
-        const searchInput = document.getElementById('searchInput');
-
-        if (reportFilterForm && searchInput) {
-            let reportSearchTimer = null;
-
-            // The form has no hidden "page" input, so a submit always lands on
-            // page 1 -- a filter change correctly restarts at the top.
-            searchInput.addEventListener('input', function () {
-                clearTimeout(reportSearchTimer);
-                reportSearchTimer = setTimeout(function () {
-                    reportFilterForm.submit();
-                }, 350);
-            });
-
-            // Enter submits immediately rather than waiting out the debounce.
-            searchInput.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    clearTimeout(reportSearchTimer);
-                    reportFilterForm.submit();
-                }
-            });
-        }
     </script>
 </body>
 </html>

@@ -31,7 +31,7 @@ if (!function_exists('e')) {
 
     <link
         rel="stylesheet"
-        href="/ICS-PORTAL/public/css/style.css"
+        href="<?= BASE_PATH; ?>/public/css/style.css"
     >
 
     <style>
@@ -98,33 +98,11 @@ if (!function_exists('e')) {
                 <?php endif; ?>
 
 
-                <!-- Page Header with bulk export -->
-                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 class="text-base font-extrabold text-slate-950 tracking-tight leading-snug">Performance Evaluations</h1>
-                        <p class="text-xs font-semibold text-slate-600 mt-1">
-                            Supervisor-signed OJT evaluation forms.
-                        </p>
-                    </div>
-
-                    <?php if ((int)($completedCount ?? 0) > 0): ?>
-                        <a
-                            href="export_evaluation.php?bulk=1&amp;download=1"
-                            class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
-                            title="Download every signed evaluation as one PDF"
-                        >
-                            <svg class="w-3.5 h-3.5 text-blue-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-                            <span>Export All Signed (<?= (int)$completedCount; ?>)</span>
-                        </a>
-                    <?php endif; ?>
-                </div>
-
-
                 <!-- 1. Top Stat Cards
 
                      Programme-wide totals: these ignore the filters below, and
                      $completedCount also drives the "Export All Signed" button
-                     above. Labelled so they are not misread as filter-aware. -->
+                     in the evaluations header. Labelled so they are not misread as filter-aware. -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
 
                     <!-- Total -->
@@ -252,260 +230,78 @@ if (!function_exists('e')) {
                 <!-- 2. Unified Evaluations Container -->
                 <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
 
-                    <!-- Header -->
-                    <div class="p-6 border-b border-slate-200/70 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/60">
+                    <!-- Filters and actions -->
+                    <form id="filterForm" method="GET" action="evaluations.php" class="border-b border-slate-200/70 bg-white p-5 sm:p-6">
+                        <div class="space-y-4">
+                            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                                <div class="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 xl:max-w-3xl">
+                                    <div>
+                                        <label for="evaluationSectionFilter" class="sr-only">Course code</label>
+                                        <select id="evaluationSectionFilter" name="section" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer">
+                                            <option value="all" <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>>All Course Codes</option>
+                                            <?php foreach ($activeSections as $sec): ?>
+                                                <option value="<?= e($sec); ?>" <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>><?= e($sec); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
 
-                        <div>
+                                    <div>
+                                        <label for="evaluationCompanyFilter" class="sr-only">Company</label>
+                                        <select id="evaluationCompanyFilter" name="company_id" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer">
+                                            <option value="all" <?= ($selectedCompany ?? 'all') === 'all' ? 'selected' : ''; ?>>All Companies</option>
+                                            <?php foreach ($companiesList as $comp): ?>
+                                                <option value="<?= $comp['id']; ?>" <?= ($selectedCompany ?? 'all') == $comp['id'] ? 'selected' : ''; ?>><?= e($comp['name']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
 
-                            <h1 class="text-base font-extrabold text-slate-950 tracking-tight leading-snug">
-                                Final Evaluations
-                            </h1>
-
-                            <p class="text-xs font-semibold text-slate-600 mt-1">
-                                Supervisor ratings, performance grades, and verified sign-off records.
-                            </p>
-
-                        </div>
-
-
-                        <div class="flex items-center gap-3 shrink-0">
-
-                            <!-- Bulk Trigger -->
-                            <button
-                                type="button"
-                                onclick="openTriggerModal()"
-                                class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-2 cursor-pointer"
-                            >
-
-                                <svg
-                                    class="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.5"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M12 4.5v15m7.5-7.5h-15"
-                                    />
-                                </svg>
-
-                                <span>
-                                    Bulk Trigger Evaluations
-                                </span>
-
-                            </button>
-
-
-                            <!-- Editable evaluation form: the 12 competency questions -->
-                            <button
-                                type="button"
-                                onclick="openEvaluationFormEditor()"
-                                class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-xs transition-all inline-flex items-center gap-2 cursor-pointer"
-                            >
-
-                                <svg
-                                    class="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.2"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
-                                    />
-                                </svg>
-
-                                <span>
-                                    Update Evaluation Form
-                                </span>
-
-                            </button>
-
-
-                            <span
-                                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs"
-                                title="Interns matching the filters below, across every page"
-                            >
-
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
-
-                                <?= (int)$totalFiltered; ?>
-
-                                <?= (int)$totalFiltered === 1 ? 'Record' : 'Records'; ?>
-
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- Filter Toolbar -->
-                    <div class="p-4 border-b border-slate-200/70 bg-white">
-
-                        <form
-                            id="filterForm"
-                            method="GET"
-                            action="evaluations.php"
-                            class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs"
-                        >
-
-                            <!-- Search -->
-                            <div class="relative flex-1 w-full">
-
-                                <svg
-                                    class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.5"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-                                    />
-                                </svg>
-
-                                <input
-                                    type="text"
-                                    id="searchInput"
-                                    name="search"
-                                    value="<?= e($searchQuery ?? ''); ?>"
-                                    placeholder="Search all interns by name or ID..."
-                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 placeholder-slate-500 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors"
-                                >
-
-                            </div>
-
-
-                            <!-- Course Code -->
-                            <div class="w-full md:w-36">
-
-                                <select
-                                    name="section"
-                                    onchange="this.form.submit()"
-                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer"
-                                >
-
-                                    <option
-                                        value="all"
-                                        <?= ($selectedSection ?? 'all') === 'all' ? 'selected' : ''; ?>
-                                    >
-                                        All Course Codes
-                                    </option>
-
-                                    <?php foreach ($activeSections as $sec): ?>
-
-                                        <option
-                                            value="<?= e($sec); ?>"
-                                            <?= ($selectedSection ?? '') === $sec ? 'selected' : ''; ?>
-                                        >
-                                            <?= e($sec); ?>
-                                        </option>
-
-                                    <?php endforeach; ?>
-
-                                </select>
-
-                            </div>
-
-
-                            <!-- Company -->
-                            <div class="w-full md:w-48">
-
-                                <select
-                                    name="company_id"
-                                    onchange="this.form.submit()"
-                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer"
-                                >
-
-                                    <option
-                                        value="all"
-                                        <?= ($selectedCompany ?? 'all') === 'all' ? 'selected' : ''; ?>
-                                    >
-                                        All Companies
-                                    </option>
-
-                                    <?php foreach ($companiesList as $comp): ?>
-
-                                        <option
-                                            value="<?= $comp['id']; ?>"
-                                            <?= ($selectedCompany ?? 'all') == $comp['id'] ? 'selected' : ''; ?>
-                                        >
-                                            <?= e($comp['name']); ?>
-                                        </option>
-
-                                    <?php endforeach; ?>
-
-                                </select>
-
-                            </div>
-
-
-                            <!-- Status -->
-                            <div class="w-full md:w-32">
-
-                                <select
-                                    name="status"
-                                    onchange="this.form.submit()"
-                                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] focus:bg-white transition-colors cursor-pointer"
-                                >
-
-                                    <option
-                                        value="all"
-                                        <?= ($selectedStatus ?? 'all') === 'all' ? 'selected' : ''; ?>
-                                    >
-                                        All Statuses
-                                    </option>
-
-                                    <option
-                                        value="Completed"
-                                        <?= ($selectedStatus ?? '') === 'Completed' ? 'selected' : ''; ?>
-                                    >
-                                        Completed
-                                    </option>
-
-                                    <option
-                                        value="Pending"
-                                        <?= ($selectedStatus ?? '') === 'Pending' ? 'selected' : ''; ?>
-                                    >
-                                        Pending
-                                    </option>
-
-                                </select>
-
-                            </div>
-
-
-                            <!-- Reset -->
-                            <?php if (
-                                !empty($searchQuery) ||
-                                ($selectedSection ?? 'all') !== 'all' ||
-                                ($selectedCompany ?? 'all') !== 'all' ||
-                                ($selectedStatus ?? 'all') !== 'all'
-                            ): ?>
-
-                                <div class="w-full md:w-auto">
-
-                                    <a
-                                        href="evaluations.php"
-                                        class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 transition-colors inline-block text-center whitespace-nowrap"
-                                    >
-                                        Reset
-                                    </a>
-
+                                    <div>
+                                        <label for="evaluationStatusFilter" class="sr-only">Status</label>
+                                        <select id="evaluationStatusFilter" name="status" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer">
+                                            <option value="all" <?= ($selectedStatus ?? 'all') === 'all' ? 'selected' : ''; ?>>All Statuses</option>
+                                            <option value="Completed" <?= ($selectedStatus ?? '') === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                                            <option value="Pending" <?= ($selectedStatus ?? '') === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                        </select>
+                                    </div>
                                 </div>
 
-                            <?php endif; ?>
+                                <div class="flex flex-wrap items-center gap-3 xl:justify-end">
+                                    <?php if ((int)($completedCount ?? 0) > 0): ?>
+                                        <a href="export_evaluation.php?bulk=1&amp;download=1" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-blue-900" title="Download every signed evaluation as one PDF">
+                                            <svg class="h-3.5 w-3.5 shrink-0 text-blue-200" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+                                            <span>Export All Signed (<?= (int)$completedCount; ?>)</span>
+                                        </a>
+                                    <?php endif; ?>
 
-                        </form>
+                                    <button type="button" onclick="openTriggerModal()" class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-blue-900 cursor-pointer">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                        <span>Bulk Trigger Evaluations</span>
+                                    </button>
 
-                    </div>
+                                    <button type="button" onclick="openEvaluationFormEditor()" class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-blue-900 cursor-pointer">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg>
+                                        <span>Update Evaluation Form</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex w-full items-center gap-2">
+                                <div class="relative min-w-0 flex-1">
+                                    <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                                    <input type="text" id="searchInput" name="search" value="<?= e($searchQuery ?? ''); ?>" placeholder="Search all interns by name or ID..." class="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-semibold text-slate-900 placeholder-slate-500 transition-colors focus:border-[#0F2854] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                </div>
+                                <button type="submit" class="shrink-0 rounded-xl bg-[#0F2854] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-300">Search</button>
+                                <?php if (
+                                    !empty($searchQuery) ||
+                                    ($selectedSection ?? 'all') !== 'all' ||
+                                    ($selectedCompany ?? 'all') !== 'all' ||
+                                    ($selectedStatus ?? 'all') !== 'all'
+                                ): ?>
+                                    <a href="evaluations.php" class="shrink-0 rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200">Reset</a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </form>
 
 
                     <!-- Evaluation Table -->
@@ -1540,34 +1336,9 @@ if (!function_exists('e')) {
 
            Server-side, because the list is now paginated: a JS filter would
            only ever see the 25 rows on the current page and would silently
-           hide matches sitting on page 2. The input debounces a real GET
-           submit instead, matching coordinator/audit_logs.php.
+           hide matches sitting on page 2. The form submits when the coordinator
+           presses Enter or clicks Search.
         ===================================================== */
-
-        const evalFilterForm = document.getElementById('filterForm');
-        const searchInput = document.getElementById('searchInput');
-
-        if (evalFilterForm && searchInput) {
-            let evalSearchTimer = null;
-
-            // The form carries no hidden "page" input, so a submit always lands
-            // on page 1 -- a filter change correctly restarts at the top.
-            searchInput.addEventListener('input', function () {
-                clearTimeout(evalSearchTimer);
-                evalSearchTimer = setTimeout(function () {
-                    evalFilterForm.submit();
-                }, 350);
-            });
-
-            // Enter submits immediately rather than waiting out the debounce.
-            searchInput.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    clearTimeout(evalSearchTimer);
-                    evalFilterForm.submit();
-                }
-            });
-        }
 
         /* =====================================================
            BULK MODAL

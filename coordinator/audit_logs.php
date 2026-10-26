@@ -1,5 +1,6 @@
 <?php
 // coordinator/audit_logs.php
+date_default_timezone_set('Asia/Manila');
 session_start();
 
 require_once __DIR__ . '/../config/db.php';

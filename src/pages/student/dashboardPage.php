@@ -47,7 +47,7 @@ $isAssigned  = !empty($student['company_id']);
 
     <link
         rel="stylesheet"
-        href="/ICS-PORTAL/public/css/style.css"
+        href="<?= BASE_PATH; ?>/public/css/style.css"
     >
 
     <style>
@@ -102,7 +102,7 @@ $isAssigned  = !empty($student['company_id']);
 
     </style>
 
-    <script src="/ICS-PORTAL/public/js/loadingOverlay.js"></script>
+    <script src="<?= BASE_PATH; ?>/public/js/loadingOverlay.js"></script>
 
 </head>
 
@@ -209,7 +209,7 @@ $isAssigned  = !empty($student['company_id']);
                             ================================================== -->
 
                             <a
-                                href="/ICS-PORTAL/public/files/ICS-WAR-TEMPLATE.docx"
+                                href="<?= BASE_PATH; ?>/public/files/ICS-WAR-TEMPLATE.docx"
                                 download="ICS-WAR-TEMPLATE.docx"
                                 class="shrink-0 w-full sm:w-auto justify-center px-4 py-2.5 bg-transparent hover:bg-white/10 text-white font-bold rounded-xl text-xs transition-colors border border-white/25 inline-flex items-center gap-2"
                             >

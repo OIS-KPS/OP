@@ -28,8 +28,8 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
-    <script src="/ICS-PORTAL/public/js/loadingOverlay.js"></script>
+    <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
+    <script src="<?= BASE_PATH; ?>/public/js/loadingOverlay.js"></script>
     
     <style>
         /* Scoped Tab Styles to Prevent Global Hover Glitches */
@@ -349,7 +349,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="text-[10px] font-black uppercase tracking-wider text-rose-950">Supervisor Note</span>
                                                 <button type="button"
-                                                        onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $filePath), '/')); ?>')"
+                                                        onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars(BASE_PATH . '/' . ltrim(str_replace('\\', '/', $filePath), '/')); ?>')"
                                                         class="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer shrink-0">
                                                     View Feedback
                                                 </button>
@@ -360,7 +360,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                         </div>
                                     <?php elseif ($isApproved && !empty($prevFilePath)): ?>
                                         <button type="button"
-                                                onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>')"
+                                                onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars(BASE_PATH . '/' . ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>')"
                                                 class="w-full text-[10px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-2.5 py-2 rounded-lg border border-slate-200 transition-colors cursor-pointer">
                                             View Feedback
                                         </button>
@@ -385,7 +385,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                         <?php if (!empty($prevFilePath)): ?>
                                             <p class="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
                                                 <span>Previous Flagged:</span>
-                                                <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>" target="_blank" class="text-rose-700 font-bold hover:underline inline-flex items-center gap-1">
+                                                <a href="<?= BASE_PATH; ?>/<?= htmlspecialchars(ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>" target="_blank" class="text-rose-700 font-bold hover:underline inline-flex items-center gap-1">
                                                     <span>PDF</span>
                                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                                                 </a>
@@ -459,7 +459,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                             </span>
                                                             <?php if (!empty($prevFilePath)): ?>
                                                                 <button type="button" 
-                                                                        onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>')" 
+                                                                        onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars(BASE_PATH . '/' . ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>')" 
                                                                         class="text-[10px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 transition-colors cursor-pointer">
                                                                     View Feedback
                                                                 </button>
@@ -485,7 +485,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                                         Supervisor Note
                                                                     </span>
                                                                     <button type="button" 
-                                                                            onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars('/ICS-PORTAL/' . ltrim(str_replace('\\', '/', $filePath), '/')); ?>')" 
+                                                                            onclick="openStudentRemarksModal('Week <?= htmlspecialchars($report['week_number']); ?>', '<?= htmlspecialchars(addslashes($remarks)); ?>', '<?= htmlspecialchars(BASE_PATH . '/' . ltrim(str_replace('\\', '/', $filePath), '/')); ?>')" 
                                                                             class="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer">
                                                                         View Feedback
                                                                     </button>
@@ -536,7 +536,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                     <?php if (!empty($prevFilePath)): ?>
                                                         <div class="text-[11px] font-semibold text-slate-500 pr-0.5 flex items-center gap-1">
                                                             <span>Previous Flagged:</span>
-                                                            <a href="/ICS-PORTAL/<?= htmlspecialchars(ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>" target="_blank" class="text-rose-700 font-bold hover:underline inline-flex items-center gap-1">
+                                                            <a href="<?= BASE_PATH; ?>/<?= htmlspecialchars(ltrim(str_replace('\\', '/', $prevFilePath), '/')); ?>" target="_blank" class="text-rose-700 font-bold hover:underline inline-flex items-center gap-1">
                                                                 <span>PDF</span>
                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                                                             </a>

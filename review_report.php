@@ -45,10 +45,10 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
  * 1. AUTHENTICATION & ACCESS CONTROL
  * ============================================================ */
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /ICS-PORTAL/auth/login.php');
+    header('Location: ' . BASE_PATH . '/auth/login.php');
     exit;
 }
-$userId = (int)$_SESSION['user_id'];
+$userId = (int) $_SESSION['user_id'];
 $userRole = strtolower($_SESSION['role'] ?? '');
 
 // Accept report_id OR id query parameter
@@ -75,7 +75,7 @@ if (!$reportId) {
    change, and before the extraction block further down, which deletes and
    re-inserts every report_entities row on each view. */
 if ($userRole === 'student') {
-    header('Location: view_report.php?report_id=' . (int)$reportId);
+    header('Location: view_report.php?report_id=' . (int) $reportId);
     exit;
 }
 
@@ -85,15 +85,15 @@ if ($userRole === 'student') {
    students too, but the branches below are role-gated, so only the supervisor
    path can actually reach a state change from here. */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    csrf_verify('review_report.php?report_id=' . (int)$reportId, 'error_message');
+    csrf_verify('review_report.php?report_id=' . (int) $reportId, 'error_message');
 }
 
 /* ============================================================
  * 2. HANDLE SUPERVISOR REVIEW ACTIONS (Approve / Needs Changes)
  * ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRole === 'supervisor') {
-    $action = trim((string)$_POST['action']);
-    
+    $action = trim((string) $_POST['action']);
+
     // Resolve report details and student name for audit trail
     $stmtFetchReport = $pdo->prepare("
         SELECT r.id, r.week_number, u.name AS student_name 
@@ -137,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRol
             exit;
 
         } elseif ($action === 'reject') {
-            $remarks = trim((string)($_POST['supervisor_remarks'] ?? ''));
+            $remarks = trim((string) ($_POST['supervisor_remarks'] ?? ''));
 
             $stmtUpdate = $pdo->prepare("
                 UPDATE reports 
@@ -201,9 +201,9 @@ try {
     ";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        ':report_id'  => $reportId,
-        ':user_id'    => $userId,
-        ':user_role'  => $userRole
+        ':report_id' => $reportId,
+        ':user_id' => $userId,
+        ':user_role' => $userRole
     ]);
     $report = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -220,7 +220,7 @@ if (!$report) {
 /* ============================================================
  * 4. DETERMINE PDF URL
  * ============================================================ */
-$filePath = trim((string)($report['file_path'] ?? ''));
+$filePath = trim((string) ($report['file_path'] ?? ''));
 function buildPdfUrl(string $filePath): string
 {
     $path = trim(str_replace('\\', '/', $filePath));
@@ -234,17 +234,19 @@ function buildPdfUrl(string $filePath): string
     $normalizedProjectRoot = rtrim($projectRoot, '/');
     $lowerPath = strtolower($path);
     $lowerRoot = strtolower($normalizedProjectRoot);
+    $base = defined('BASE_PATH') ? BASE_PATH : (defined('SUB_URL') && SUB_URL !== '' ? '/' . SUB_URL : '/ICS-PORTAL');
+    $sub = defined('SUB_URL') && SUB_URL !== '' ? preg_quote(SUB_URL, '#') : 'ICS-PORTAL';
     if (str_starts_with($lowerPath, $lowerRoot . '/')) {
         $relative = substr($path, strlen($normalizedProjectRoot) + 1);
-        return '/ICS-PORTAL/' . ltrim($relative, '/');
+        return $base . '/' . ltrim($relative, '/');
     }
-    if (preg_match('#^/?ICS-PORTAL/#i', $path)) {
+    if (preg_match('#^/?(' . $sub . '|ICS-PORTAL)/#i', $path)) {
         return '/' . ltrim($path, '/');
     }
     if (str_starts_with($path, '/')) {
         return $path;
     }
-    return '/ICS-PORTAL/' . ltrim($path, '/');
+    return $base . '/' . ltrim($path, '/');
 }
 $pdfUrl = buildPdfUrl($filePath);
 
@@ -254,7 +256,8 @@ $pdfUrl = buildPdfUrl($filePath);
 function rr_local_pdf_path(string $filePath): string
 {
     $path = trim(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $filePath));
-    if ($path === '') return '';
+    if ($path === '')
+        return '';
 
     $projectRoot = __DIR__;
     $candidates = [
@@ -264,7 +267,8 @@ function rr_local_pdf_path(string $filePath): string
 
     foreach ($candidates as $candidate) {
         $realPath = realpath($candidate);
-        if ($realPath && is_file($realPath)) return $realPath;
+        if ($realPath && is_file($realPath))
+            return $realPath;
     }
 
     return '';
@@ -334,19 +338,19 @@ function rr_run_python_extractor(string $pdfPath): array
     fclose($pipes[2]);
     $exitCode = proc_close($process);
 
-    $rawOutput = trim((string)$stdout);
+    $rawOutput = trim((string) $stdout);
     $result = json_decode($rawOutput, true);
     if (!is_array($result)) {
         throw new RuntimeException(
             'Python returned invalid JSON. Exit code: ' . $exitCode .
             '. Output: ' . $rawOutput .
-            '. Error: ' . trim((string)$stderr)
+            '. Error: ' . trim((string) $stderr)
         );
     }
 
     if ($exitCode !== 0 || empty($result['success'])) {
-        $message = (string)($result['error'] ?? 'Python entity extraction failed.');
-        $details = trim((string)($result['details'] ?? $stderr));
+        $message = (string) ($result['error'] ?? 'Python entity extraction failed.');
+        $details = trim((string) ($result['details'] ?? $stderr));
         throw new RuntimeException($message . ($details !== '' ? ' Details: ' . $details : ''));
     }
 
@@ -395,14 +399,14 @@ function rr_build_entity_catalog(array $rows): array
     $catalog = [];
 
     foreach ($rows as $row) {
-        $canonical = trim((string)($row['entity_name'] ?? ''));
+        $canonical = trim((string) ($row['entity_name'] ?? ''));
         if ($canonical === '') {
             continue;
         }
 
         $values = [$canonical];
 
-        $aliases = trim((string)($row['aliases'] ?? ''));
+        $aliases = trim((string) ($row['aliases'] ?? ''));
         if ($aliases !== '') {
             foreach (preg_split('/\|/u', $aliases) as $alias) {
                 $alias = trim($alias);
@@ -420,24 +424,24 @@ function rr_build_entity_catalog(array $rows): array
 
             if (
                 !isset($catalog[$normalized]) ||
-                strlen($term) > strlen((string)($catalog[$normalized]['matched_term'] ?? ''))
+                strlen($term) > strlen((string) ($catalog[$normalized]['matched_term'] ?? ''))
             ) {
                 $itRelated = in_array(
-                $row['it_related'] ?? '',
-                ['yes', 'no'],
-                true
-            ) ? $row['it_related'] : 'unknown';
+                    $row['it_related'] ?? '',
+                    ['yes', 'no'],
+                    true
+                ) ? $row['it_related'] : 'unknown';
 
-            $catalog[$normalized] = [
-                'id'           => (int)$row['id'],
-                'entity_name'  => $canonical,
-                'matched_term' => $term,
-                'it_related'   => $itRelated,
-                // Derived rather than read. The dictionary no longer carries a
-                // category of its own; this is the IT_TERM/CLERICAL_TERM mirror
-                // that report_entities stores.
-                'category'     => ($itRelated === 'no') ? 'CLERICAL_TERM' : 'IT_TERM',
-            ];
+                $catalog[$normalized] = [
+                    'id' => (int) $row['id'],
+                    'entity_name' => $canonical,
+                    'matched_term' => $term,
+                    'it_related' => $itRelated,
+                    // Derived rather than read. The dictionary no longer carries a
+                    // category of its own; this is the IT_TERM/CLERICAL_TERM mirror
+                    // that report_entities stores.
+                    'category' => ($itRelated === 'no') ? 'CLERICAL_TERM' : 'IT_TERM',
+                ];
             }
         }
     }
@@ -461,7 +465,7 @@ function rr_match_predefined_entity(array $entity, array $catalog): ?array
             continue;
         }
 
-        $value = trim((string)$entity[$key]);
+        $value = trim((string) $entity[$key]);
         if ($value === '') {
             continue;
         }
@@ -513,12 +517,12 @@ function rr_prepare_report_entities(
             $category = $matched['category'];
             $itRelated = $matched['it_related'];
             $source = in_array(
-                (string)($entity['source'] ?? 'predefined'),
+                (string) ($entity['source'] ?? 'predefined'),
                 ['spacy', 'predefined', 'spacy_predefined'],
                 true
-            ) ? (string)$entity['source'] : 'predefined';
+            ) ? (string) $entity['source'] : 'predefined';
         } else {
-            $entityName = trim((string)(
+            $entityName = trim((string) (
                 $entity['matched_term']
                 ?? $entity['entity_name']
                 ?? $entity['entity']
@@ -531,7 +535,7 @@ function rr_prepare_report_entities(
                 continue;
             }
 
-            $canonical = trim((string)(
+            $canonical = trim((string) (
                 $entity['canonical_name']
                 ?? $entity['entity_name']
                 ?? $entity['entity']
@@ -580,7 +584,7 @@ function rr_prepare_report_entities(
         if ($confidence === null || !is_numeric($confidence)) {
             $confidence = 0.0;
         } else {
-            $confidence = (float)$confidence;
+            $confidence = (float) $confidence;
 
             if ($confidence <= 1) {
                 $confidence *= 100;
@@ -590,12 +594,12 @@ function rr_prepare_report_entities(
         $confidence = max(0, min(100, $confidence));
 
         $prepared[] = [
-            'entity_name'     => $entityName,
-            'canonical_name'  => $canonical,
-            'category'        => $category !== '' ? $category : 'Other',
-            'it_related'      => $itRelated,
-            'source'          => $source,
-            'confidence_score'=> round($confidence, 2),
+            'entity_name' => $entityName,
+            'canonical_name' => $canonical,
+            'category' => $category !== '' ? $category : 'Other',
+            'it_related' => $itRelated,
+            'source' => $source,
+            'confidence_score' => round($confidence, 2),
         ];
     }
 
@@ -706,16 +710,16 @@ try {
             }
 
             $insertStmt->execute([
-                ':report_id'       => $reportId,
-                ':entity_name'     => $entity['entity_name'],
-                ':canonical_name'  => $entity['canonical_name'],
-                ':category'        => $entity['category'],
-                ':it_related'      => $entity['it_related'],
-                ':source'          => $entity['source'],
+                ':report_id' => $reportId,
+                ':entity_name' => $entity['entity_name'],
+                ':canonical_name' => $entity['canonical_name'],
+                ':category' => $entity['category'],
+                ':it_related' => $entity['it_related'],
+                ':source' => $entity['source'],
                 // The value the extractor actually returned. This was a
                 // hardcoded 100.00, which made every ML prediction look
                 // certain regardless of how weak the model was.
-                ':confidence_score'=> $entity['confidence_score'],
+                ':confidence_score' => $entity['confidence_score'],
             ]);
         }
 
@@ -750,7 +754,7 @@ try {
 function rr_e($value): string
 {
     return htmlspecialchars(
-        (string)$value,
+        (string) $value,
         ENT_QUOTES,
         'UTF-8'
     );
@@ -783,11 +787,11 @@ if ($entityJson === false) {
     $entityJson = '[]';
 }
 
-$weekNumber = (string)($report['week_number'] ?? '—');
+$weekNumber = (string) ($report['week_number'] ?? '—');
 $submittedAt = $report['submitted_at'] ?? null;
 $formattedDate = $submittedAt ? date('M d, Y \a\t g:i A', strtotime($submittedAt)) : '—';
 
-$status = strtolower((string)($report['status'] ?? 'pending'));
+$status = strtolower((string) ($report['status'] ?? 'pending'));
 $statusLabel = 'Waiting for Review';
 $statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
 if ($status === 'approved') {
@@ -799,15 +803,16 @@ if ($status === 'approved') {
 }
 
 // Back button URL routing based on user role
-$backUrl = '/ICS-PORTAL/dashboard.php';
+$backUrl = BASE_PATH . '/dashboard.php';
 if ($userRole === 'coordinator') {
-    $backUrl = '/ICS-PORTAL/coordinator/approved_reports.php';
+    $backUrl = BASE_PATH . '/coordinator/approved_reports.php';
 } elseif ($userRole === 'supervisor') {
-    $backUrl = '/ICS-PORTAL/supervisor/interns.php';
+    $backUrl = BASE_PATH . '/supervisor/interns.php';
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -817,9 +822,12 @@ if ($userRole === 'coordinator') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <link rel="stylesheet" href="/ICS-PORTAL/public/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
         /* Keep both panels at a fixed height so each panel
            handles its own vertical scrolling while the page
            itself scrolls normally. */
@@ -852,7 +860,7 @@ if ($userRole === 'coordinator') {
             min-height: 54px;
             background: #323232;
             color: #fff;
-            border-bottom: 1px solid rgba(255,255,255,.08);
+            border-bottom: 1px solid rgba(255, 255, 255, .08);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -874,7 +882,7 @@ if ($userRole === 'coordinator') {
         }
 
         .pdf-toolbar-btn:hover {
-            background: rgba(255,255,255,.10);
+            background: rgba(255, 255, 255, .10);
         }
 
         .pdf-toolbar-btn:disabled {
@@ -885,7 +893,7 @@ if ($userRole === 'coordinator') {
         .pdf-toolbar-separator {
             width: 1px;
             height: 28px;
-            background: rgba(255,255,255,.18);
+            background: rgba(255, 255, 255, .18);
             margin: 0 2px;
         }
 
@@ -995,15 +1003,18 @@ if ($userRole === 'coordinator') {
                 padding: 12px 10px 24px;
             }
         }
+
         .pdf-page {
             position: relative;
             flex: 0 0 auto;
             background: #fff;
-            box-shadow: 0 2px 10px rgba(0,0,0,.35);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
         }
+
         .pdf-page canvas {
             display: block;
         }
+
         .pdf-text-layer {
             position: absolute;
             inset: 0;
@@ -1011,6 +1022,7 @@ if ($userRole === 'coordinator') {
             line-height: 1;
             user-select: text;
         }
+
         .pdf-text-layer span {
             position: absolute;
             color: transparent;
@@ -1019,489 +1031,504 @@ if ($userRole === 'coordinator') {
             transform-origin: 0 0;
             border-radius: 3px;
         }
+
         .pdf-text-layer .entity-highlight {
             color: transparent;
             background: rgba(250, 204, 21, .68);
             box-shadow: 0 0 0 1px rgba(180, 83, 9, .28);
         }
+
         .entity-card {
             transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
         }
-        .entity-card:hover { transform: translateY(-1px); }
-        .entity-card.active { border-color: #f59e0b; background: #fffbeb; }
-        .thin-scrollbar::-webkit-scrollbar { width: 7px; height: 7px; }
-        .thin-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
-        .pdf-loading { min-height: 300px; }
+
+        .entity-card:hover {
+            transform: translateY(-1px);
+        }
+
+        .entity-card.active {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .thin-scrollbar::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+
+        .thin-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+
+        .pdf-loading {
+            min-height: 300px;
+        }
     </style>
 </head>
+
 <body class="bg-[#F8FAFC] text-slate-800 antialiased">
-<div class="flex min-h-screen">
-    <?php
-    /* Resolve layout components with filesystem paths on Windows and Linux. */
-    if (!function_exists('rr_include_component')) {
-        function rr_include_component(string $relativePath): void
-        {
-            $relativePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($relativePath, '/\\'));
-            $candidates = [
-                __DIR__ . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'components' . DIRECTORY_SEPARATOR . $relativePath,
-                __DIR__ . DIRECTORY_SEPARATOR . 'components' . DIRECTORY_SEPARATOR . $relativePath,
-            ];
+    <div class="flex min-h-screen">
+        <?php
+        /* Resolve layout components with filesystem paths on Windows and Linux. */
+        if (!function_exists('rr_include_component')) {
+            function rr_include_component(string $relativePath): void
+            {
+                $relativePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($relativePath, '/\\'));
+                $candidates = [
+                    __DIR__ . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'components' . DIRECTORY_SEPARATOR . $relativePath,
+                    __DIR__ . DIRECTORY_SEPARATOR . 'components' . DIRECTORY_SEPARATOR . $relativePath,
+                ];
 
-            foreach ($candidates as $componentPath) {
-                if (is_file($componentPath) && is_readable($componentPath)) {
-                    require $componentPath;
-                    return;
+                foreach ($candidates as $componentPath) {
+                    if (is_file($componentPath) && is_readable($componentPath)) {
+                        require $componentPath;
+                        return;
+                    }
                 }
+
+                http_response_code(500);
+                exit('Required layout component not found: ' . $relativePath);
             }
-
-            http_response_code(500);
-            exit('Required layout component not found: ' . $relativePath);
         }
-    }
 
-    if ($userRole === 'coordinator') {
-        rr_include_component('coordinator_sidebar.php');
-    } elseif ($userRole === 'supervisor') {
-        rr_include_component('supervisor_sidebar.php');
-    } else {
-        rr_include_component('sidebar.php');
-    }
-    ?>
-<div class="flex-1 flex flex-col min-w-0">
-        <?php rr_include_component('header.php'); ?>
-        <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5">
+        if ($userRole === 'coordinator') {
+            rr_include_component('coordinator_sidebar.php');
+        } elseif ($userRole === 'supervisor') {
+            rr_include_component('supervisor_sidebar.php');
+        } else {
+            rr_include_component('sidebar.php');
+        }
+        ?>
+        <div class="flex-1 flex flex-col min-w-0">
+            <?php rr_include_component('header.php'); ?>
+            <main class="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5">
 
-            <?php /* Red banner channel, written by the CSRF guard above. This page
-                    had no flash rendering at all, so a rejected verdict was
-                    silently dropped and the supervisor just saw a reload. */ ?>
-            <?php $rrError = $_SESSION['error_message'] ?? ''; unset($_SESSION['error_message']); ?>
-            <?php if ($rrError !== ''): ?>
-                <div class="bg-rose-50 border border-rose-300 text-rose-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs">
-                    <div class="flex items-center gap-2.5">
-                        <span aria-hidden="true" class="text-rose-700 font-black text-sm">&#9888;</span>
-                        <p class="font-bold text-xs"><?= htmlspecialchars($rrError); ?></p>
-                    </div>
-                    <a href="review_report.php?report_id=<?= (int)$reportId; ?>" class="text-xs font-bold text-rose-800 hover:underline">Dismiss</a>
-                </div>
-            <?php endif; ?>
-
-            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                <div class="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div class="flex items-start gap-3">
-                        <a
-                            href="<?= $backUrl; ?>"
-                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/40 text-slate-600 hover:bg-slate-100 hover:text-emerald-700 transition"
-                            aria-label="Back to reports list"
-                            title="Back"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m7 7-7-7 7-7" />
-                            </svg>
-                        </a>
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                                Report Review
-                            </p>
-                            <h1 class="mt-1 text-base sm:text-lg font-bold text-slate-900">
-                                Week <?= rr_e($weekNumber); ?> Accomplishment Report
-                            </h1>
-                            <p class="mt-1 text-xs font-medium text-slate-500">
-                                Submitted by: <strong class="text-slate-800"><?= rr_e($report['student_name'] ?? 'Student'); ?></strong> (<?= rr_e($report['student_number'] ?? '—'); ?>) &bull; Submitted: <?= rr_e($formattedDate); ?>
-                            </p>
+                <?php /* Red banner channel, written by the CSRF guard above. This page
+had no flash rendering at all, so a rejected verdict was
+silently dropped and the supervisor just saw a reload. */ ?>
+                <?php $rrError = $_SESSION['error_message'] ?? '';
+                unset($_SESSION['error_message']); ?>
+                <?php if ($rrError !== ''): ?>
+                    <div
+                        class="bg-rose-50 border border-rose-300 text-rose-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs">
+                        <div class="flex items-center gap-2.5">
+                            <span aria-hidden="true" class="text-rose-700 font-black text-sm">&#9888;</span>
+                            <p class="font-bold text-xs"><?= htmlspecialchars($rrError); ?></p>
                         </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-3">
-                        <span class="px-3 py-1.5 rounded-full border text-[10px] font-bold <?= rr_e($statusClass); ?>">
-                            <?= rr_e($statusLabel); ?>
-                        </span>
-
-                        <?php if ($userRole === 'supervisor' && $status !== 'approved'): ?>
-                            <!-- Supervisor Approval Button -->
-                            <form method="POST" action="review_report.php" class="inline" onsubmit="return confirm('Approve this accomplishment report?');">
-                                <?= csrf_field(); ?>
-                                <input type="hidden" name="report_id" value="<?= (int)$report['id']; ?>">
-                                <input type="hidden" name="action" value="approve">
-                                <button type="submit" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                                    <span>Approve Report</span>
-                                </button>
-                            </form>
-
-                            <!-- Supervisor Request Changes Modal Trigger -->
-                            <button type="button" onclick="document.getElementById('rejectRemarksModal').classList.remove('hidden')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
-                                <span>Request Changes</span>
-                            </button>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <?php if (!empty($report['supervisor_remarks'])): ?>
-                    <div class="p-4 bg-rose-50 border-t border-rose-200/80 text-xs text-rose-950 flex items-start gap-2">
-                        <span class="font-bold shrink-0">Feedback Note:</span>
-                        <p class="font-medium leading-relaxed"><?= rr_e($report['supervisor_remarks']); ?></p>
+                        <a href="review_report.php?report_id=<?= (int) $reportId; ?>"
+                            class="text-xs font-bold text-rose-800 hover:underline">Dismiss</a>
                     </div>
                 <?php endif; ?>
-            </div>
 
-            <div
-                class="review-grid grid min-h-0 flex-1
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <div class="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div class="flex items-start gap-3">
+                            <a href="<?= $backUrl; ?>"
+                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/40 text-slate-600 hover:bg-slate-100 hover:text-emerald-700 transition"
+                                aria-label="Back to reports list" title="Back">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m7 7-7-7 7-7" />
+                                </svg>
+                            </a>
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                                    Report Review
+                                </p>
+                                <h1 class="mt-1 text-base sm:text-lg font-bold text-slate-900">
+                                    Week <?= rr_e($weekNumber); ?> Accomplishment Report
+                                </h1>
+                                <p class="mt-1 text-xs font-medium text-slate-500">
+                                    Submitted by: <strong
+                                        class="text-slate-800"><?= rr_e($report['student_name'] ?? 'Student'); ?></strong>
+                                    (<?= rr_e($report['student_number'] ?? '—'); ?>) &bull; Submitted:
+                                    <?= rr_e($formattedDate); ?>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <span
+                                class="px-3 py-1.5 rounded-full border text-[10px] font-bold <?= rr_e($statusClass); ?>">
+                                <?= rr_e($statusLabel); ?>
+                            </span>
+
+                            <?php if ($userRole === 'supervisor' && $status !== 'approved'): ?>
+                                <!-- Supervisor Approval Button -->
+                                <form method="POST" action="review_report.php" class="inline"
+                                    onsubmit="return confirm('Approve this accomplishment report?');">
+                                    <?= csrf_field(); ?>
+                                    <input type="hidden" name="report_id" value="<?= (int) $report['id']; ?>">
+                                    <input type="hidden" name="action" value="approve">
+                                    <button type="submit"
+                                        class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                        <span>Approve Report</span>
+                                    </button>
+                                </form>
+
+                                <!-- Supervisor Request Changes Modal Trigger -->
+                                <button type="button"
+                                    onclick="document.getElementById('rejectRemarksModal').classList.remove('hidden')"
+                                    class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5">
+                                    <span>Request Changes</span>
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <?php if (!empty($report['supervisor_remarks'])): ?>
+                        <div
+                            class="p-4 bg-rose-50 border-t border-rose-200/80 text-xs text-rose-950 flex items-start gap-2">
+                            <span class="font-bold shrink-0">Feedback Note:</span>
+                            <p class="font-medium leading-relaxed"><?= rr_e($report['supervisor_remarks']); ?></p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="review-grid grid min-h-0 flex-1
                        grid-cols-1
                        xl:grid-cols-[minmax(0,1.55fr)_minmax(330px,.7fr)]
                        rounded-2xl border border-slate-200/80
                        bg-white shadow-xs overflow-hidden
-                       xl:min-h-[420px]"
-            >
-                <!-- LEFT: PDF VIEWER -->
-                <section class="pdf-panel flex min-w-0 min-h-0 flex-col border-b xl:border-b-0 xl:border-r border-slate-700">
-                    <div class="pdf-toolbar shrink-0">
-                        <button
-                            type="button"
-                            class="pdf-toolbar-btn"
-                            aria-label="PDF viewer menu"
-                            title="PDF viewer menu"
-                        >
-                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M4 7h16M4 12h16M4 17h16"/>
-                            </svg>
-                        </button>
+                       xl:min-h-[420px]">
+                    <!-- LEFT: PDF VIEWER -->
+                    <section
+                        class="pdf-panel flex min-w-0 min-h-0 flex-col border-b xl:border-b-0 xl:border-r border-slate-700">
+                        <div class="pdf-toolbar shrink-0">
+                            <button type="button" class="pdf-toolbar-btn" aria-label="PDF viewer menu"
+                                title="PDF viewer menu">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M4 7h16M4 12h16M4 17h16" />
+                                </svg>
+                            </button>
 
-                        <div class="pdf-toolbar-separator"></div>
+                            <div class="pdf-toolbar-separator"></div>
 
-                        <div id="pdfFileName" class="pdf-toolbar-title">
-                            <?= rr_e(basename((string)($report['file_path'] ?? 'Report.pdf'))); ?>
+                            <div id="pdfFileName" class="pdf-toolbar-title">
+                                <?= rr_e(basename((string) ($report['file_path'] ?? 'Report.pdf'))); ?>
+                            </div>
+
+                            <div class="pdf-page-indicator" title="Current page">
+                                <span id="pdfCurrentPage" class="pdf-page-current">1</span>
+                                <span>/</span>
+                                <span id="pdfTotalPages">1</span>
+                            </div>
+
+                            <div class="pdf-toolbar-separator"></div>
+
+                            <button type="button" id="zoomOut" class="pdf-toolbar-btn" aria-label="Zoom out"
+                                title="Zoom out">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M5 12h14" />
+                                </svg>
+                            </button>
+
+                            <span id="zoomValue"
+                                class="min-w-[42px] text-center text-[12px] font-medium text-slate-100">100%</span>
+
+                            <button type="button" id="zoomIn" class="pdf-toolbar-btn" aria-label="Zoom in"
+                                title="Zoom in">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                            </button>
+
+                            <div class="pdf-toolbar-separator"></div>
+
+                            <a id="pdfDownload" href="<?= rr_e($pdfUrl); ?>" target="_blank" rel="noopener"
+                                class="pdf-toolbar-btn" aria-label="Download PDF" title="Download">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+                                </svg>
+                            </a>
+
+                            <button type="button" id="pdfPrint" class="pdf-toolbar-btn" aria-label="Print PDF"
+                                title="Print">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path
+                                        d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z" />
+                                </svg>
+                            </button>
                         </div>
 
-                        <div class="pdf-page-indicator" title="Current page">
-                            <span id="pdfCurrentPage" class="pdf-page-current">1</span>
-                            <span>/</span>
-                            <span id="pdfTotalPages">1</span>
+                        <div id="pdfStage" class="pdf-stage thin-scrollbar flex-1 min-h-0">
+                            <div id="pdfLoading"
+                                class="pdf-loading flex items-center justify-center text-xs text-slate-200">
+                                Loading PDF…
+                            </div>
+                            <div id="pdfPages" class="pdf-pages"></div>
                         </div>
+                    </section>
 
-                        <div class="pdf-toolbar-separator"></div>
-
-                        <button
-                            type="button"
-                            id="zoomOut"
-                            class="pdf-toolbar-btn"
-                            aria-label="Zoom out"
-                            title="Zoom out"
-                        >
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M5 12h14"/>
-                            </svg>
-                        </button>
-
-                        <span id="zoomValue" class="min-w-[42px] text-center text-[12px] font-medium text-slate-100">100%</span>
-
-                        <button
-                            type="button"
-                            id="zoomIn"
-                            class="pdf-toolbar-btn"
-                            aria-label="Zoom in"
-                            title="Zoom in"
-                        >
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 5v14M5 12h14"/>
-                            </svg>
-                        </button>
-
-                        <div class="pdf-toolbar-separator"></div>
-
-                        <a
-                            id="pdfDownload"
-                            href="<?= rr_e($pdfUrl); ?>"
-                            target="_blank"
-                            rel="noopener"
-                            class="pdf-toolbar-btn"
-                            aria-label="Download PDF"
-                            title="Download"
-                        >
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>
-                            </svg>
-                        </a>
-
-                        <button
-                            type="button"
-                            id="pdfPrint"
-                            class="pdf-toolbar-btn"
-                            aria-label="Print PDF"
-                            title="Print"
-                        >
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/>
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div
-                        id="pdfStage"
-                        class="pdf-stage thin-scrollbar flex-1 min-h-0"
-                    >
-                        <div id="pdfLoading" class="pdf-loading flex items-center justify-center text-xs text-slate-200">
-                            Loading PDF…
+                    <!-- RIGHT: EXTRACTED ENTITIES -->
+                    <aside class="entity-panel flex min-h-0 min-w-0 flex-col bg-white xl:h-full">
+                        <div
+                            class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
+                            <div>
+                                <h2 class="text-xs font-bold text-slate-900">Extracted Entities</h2>
+                                <p class="mt-1 text-[11px] text-slate-500">
+                                    Entities extracted from this report.
+                                    <?php if (isset($_GET['extract']) && $_GET['extract'] === '1'): ?>
+                                        <span class="text-amber-600">Fresh extraction requested.</span>
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                            <span id="entityCount"
+                                class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                <?= count($entities); ?> <?= count($entities) === 1 ? 'entity' : 'entities'; ?>
+                            </span>
                         </div>
-                        <div id="pdfPages" class="pdf-pages"></div>
-                    </div>
-                </section>
-
-                <!-- RIGHT: EXTRACTED ENTITIES -->
-                <aside class="entity-panel flex min-h-0 min-w-0 flex-col bg-white xl:h-full">
-                    <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
-                        <div>
-                            <h2 class="text-xs font-bold text-slate-900">Extracted Entities</h2>
-                            <p class="mt-1 text-[11px] text-slate-500">
-                                Entities extracted from this report.
-                                <?php if (isset($_GET['extract']) && $_GET['extract'] === '1'): ?>
-                                    <span class="text-amber-600">Fresh extraction requested.</span>
-                                <?php endif; ?>
-                            </p>
-                        </div>
-                        <span id="entityCount" class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-                            <?= count($entities); ?> <?= count($entities) === 1 ? 'entity' : 'entities'; ?>
-                        </span>
-                    </div>
-                    <div
-                        id="entityList"
-                        class="entity-scroll thin-scrollbar min-h-0 flex-1
-                               overflow-y-auto overscroll-contain p-4 space-y-2"
-                    ></div>
-                </aside>
-            </div>
-        </main>
-    </div>
-</div>
-
-<!-- Supervisor Request Changes Remarks Modal -->
-<?php if ($userRole === 'supervisor'): ?>
-<div id="rejectRemarksModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
-    <div class="bg-white rounded-2xl border border-slate-300 shadow-xl max-w-md w-full p-6 space-y-4">
-        <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
-            <div>
-                <h3 class="text-sm font-black text-slate-950">Request Report Changes</h3>
-                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Specify what the intern needs to revise</p>
-            </div>
-            <button type="button" onclick="document.getElementById('rejectRemarksModal').classList.add('hidden')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center">✕</button>
+                        <div id="entityList" class="entity-scroll thin-scrollbar min-h-0 flex-1
+                               overflow-y-auto overscroll-contain p-4 space-y-2"></div>
+                    </aside>
+                </div>
+            </main>
         </div>
-
-        <form method="POST" action="review_report.php" class="space-y-4">
-            <?= csrf_field(); ?>
-            <input type="hidden" name="report_id" value="<?= (int)$report['id']; ?>">
-            <input type="hidden" name="action" value="reject">
-
-            <div class="space-y-1.5">
-                <label for="supervisor_remarks" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Revision Instructions</label>
-                <textarea 
-                    id="supervisor_remarks" 
-                    name="supervisor_remarks" 
-                    rows="4" 
-                    required 
-                    placeholder="E.g., Please complete your accomplishment log breakdown for Friday..." 
-                    class="w-full text-xs p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                ></textarea>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-200/70">
-                <button type="button" onclick="document.getElementById('rejectRemarksModal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs">Submit Request</button>
-            </div>
-        </form>
     </div>
-</div>
-<?php endif; ?>
 
-<script>
-(() => {
-    'use strict';
-    const report = {
-        id: <?= json_encode((string)$reportId); ?>,
-        title: <?= json_encode('Week ' . $weekNumber . ' Accomplishment Report', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>,
-        fileUrl: <?= json_encode($pdfUrl, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>,
-        entities: <?= $entityJson; ?>
-    };
-    const pdfStage = document.getElementById('pdfStage');
-    const pdfPages = document.getElementById('pdfPages');
-    const pdfLoading = document.getElementById('pdfLoading');
-    const entityList = document.getElementById('entityList');
-    const entityCount = document.getElementById('entityCount');
-    const zoomIn = document.getElementById('zoomIn');
-    const zoomOut = document.getElementById('zoomOut');
-    const zoomValue = document.getElementById('zoomValue');
-    const pdfCurrentPage = document.getElementById('pdfCurrentPage');
-    const pdfTotalPages = document.getElementById('pdfTotalPages');
-    const pdfPrint = document.getElementById('pdfPrint');
-    let zoom = 1;
-    let pdfDocument = null;
-    let activeEntityKey = null;
+    <!-- Supervisor Request Changes Remarks Modal -->
+    <?php if ($userRole === 'supervisor'): ?>
+        <div id="rejectRemarksModal"
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
+            <div class="bg-white rounded-2xl border border-slate-300 shadow-xl max-w-md w-full p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-200/70 pb-3">
+                    <div>
+                        <h3 class="text-sm font-black text-slate-950">Request Report Changes</h3>
+                        <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Specify what the intern needs to revise
+                        </p>
+                    </div>
+                    <button type="button" onclick="document.getElementById('rejectRemarksModal').classList.add('hidden')"
+                        class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center">✕</button>
+                </div>
 
-    if (window.pdfjsLib) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
+                <form method="POST" action="review_report.php" class="space-y-4">
+                    <?= csrf_field(); ?>
+                    <input type="hidden" name="report_id" value="<?= (int) $report['id']; ?>">
+                    <input type="hidden" name="action" value="reject">
 
-    function escapeHtml(value) {
-        return String(value ?? '').replace(
-            /[&<>'"]/g,
-            character => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                "'": '&#039;',
-                '"': '&quot;'
-            })[character]
-        );
-    }
-    /* Mirrors REPORT_WORKSPACE_LOW_CONFIDENCE from
-       src/services/report_workspace.php, which is required at the top of this
-       file. Injected rather than hardcoded so the coordinator, supervisor,
-       student and this page all flag at the same score. */
-    const LOW_CONFIDENCE_THRESHOLD = <?= json_encode(REPORT_WORKSPACE_LOW_CONFIDENCE ?? 80.0) ?>;
+                    <div class="space-y-1.5">
+                        <label for="supervisor_remarks"
+                            class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Revision
+                            Instructions</label>
+                        <textarea id="supervisor_remarks" name="supervisor_remarks" rows="4" required
+                            placeholder="E.g., Please complete your accomplishment log breakdown for Friday..."
+                            class="w-full text-xs p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:outline-none"></textarea>
+                    </div>
 
-    function getValue(entity, keys, fallback = '') {
-        for (const key of keys) {
-            if (
-                entity &&
-                entity[key] !== undefined &&
-                entity[key] !== null &&
-                entity[key] !== ''
-            ) {
-                return entity[key];
+                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200/70">
+                        <button type="button"
+                            onclick="document.getElementById('rejectRemarksModal').classList.add('hidden')"
+                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl">Cancel</button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs">Submit
+                            Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <script>
+        (() => {
+            'use strict';
+            const report = {
+                id: <?= json_encode((string) $reportId); ?>,
+                title: <?= json_encode('Week ' . $weekNumber . ' Accomplishment Report', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>,
+                fileUrl: <?= json_encode($pdfUrl, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>,
+                entities: <?= $entityJson; ?>
+            };
+            const pdfStage = document.getElementById('pdfStage');
+            const pdfPages = document.getElementById('pdfPages');
+            const pdfLoading = document.getElementById('pdfLoading');
+            const entityList = document.getElementById('entityList');
+            const entityCount = document.getElementById('entityCount');
+            const zoomIn = document.getElementById('zoomIn');
+            const zoomOut = document.getElementById('zoomOut');
+            const zoomValue = document.getElementById('zoomValue');
+            const pdfCurrentPage = document.getElementById('pdfCurrentPage');
+            const pdfTotalPages = document.getElementById('pdfTotalPages');
+            const pdfPrint = document.getElementById('pdfPrint');
+            let zoom = 1;
+            let pdfDocument = null;
+            let activeEntityKey = null;
+
+            if (window.pdfjsLib) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc =
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             }
-        }
-        return fallback;
-    }
-    function normalize(text) {
-        return String(text || '')
-            .normalize('NFKC')
-            .toLowerCase()
-            .replace(/[\u2018\u2019]/g, "'")
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-    function getEntityName(entity, index) {
-        return getValue(
-            entity,
-            [
-                'entity_name',
-                'name',
-                'entity',
-                'label'
-            ],
-            `Entity ${index + 1}`
-        );
-    }
-    function getEntityKey(entity, index) {
-        return normalize(getEntityName(entity, index))
-            + '::'
-            + index;
-    }
 
-    function renderEntities() {
-        if (!entityList) return;
-        const allEntities = Array.isArray(report.entities)
-            ? report.entities
-            : [];
-        const filtered = allEntities.map((entity, index) => ({
-            entity,
-            index
-        }));
-        if (entityCount) {
-            entityCount.textContent =
-                `${allEntities.length} ${
-                    allEntities.length === 1
-                        ? 'entity'
-                        : 'entities'
-                }`;
-        }
-        entityList.innerHTML = '';
-        if (!filtered.length) {
-            entityList.innerHTML = `
+            function escapeHtml(value) {
+                return String(value ?? '').replace(
+                    /[&<>'"]/g,
+                    character => ({
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        "'": '&#039;',
+                        '"': '&quot;'
+                    })[character]
+                );
+            }
+            /* Mirrors REPORT_WORKSPACE_LOW_CONFIDENCE from
+               src/services/report_workspace.php, which is required at the top of this
+               file. Injected rather than hardcoded so the coordinator, supervisor,
+               student and this page all flag at the same score. */
+            const LOW_CONFIDENCE_THRESHOLD = <?= json_encode(REPORT_WORKSPACE_LOW_CONFIDENCE ?? 80.0) ?>;
+
+            function getValue(entity, keys, fallback = '') {
+                for (const key of keys) {
+                    if (
+                        entity &&
+                        entity[key] !== undefined &&
+                        entity[key] !== null &&
+                        entity[key] !== ''
+                    ) {
+                        return entity[key];
+                    }
+                }
+                return fallback;
+            }
+            function normalize(text) {
+                return String(text || '')
+                    .normalize('NFKC')
+                    .toLowerCase()
+                    .replace(/[\u2018\u2019]/g, "'")
+                    .replace(/[\u201C\u201D]/g, '"')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+            function getEntityName(entity, index) {
+                return getValue(
+                    entity,
+                    [
+                        'entity_name',
+                        'name',
+                        'entity',
+                        'label'
+                    ],
+                    `Entity ${index + 1}`
+                );
+            }
+            function getEntityKey(entity, index) {
+                return normalize(getEntityName(entity, index))
+                    + '::'
+                    + index;
+            }
+
+            function renderEntities() {
+                if (!entityList) return;
+                const allEntities = Array.isArray(report.entities)
+                    ? report.entities
+                    : [];
+                const filtered = allEntities.map((entity, index) => ({
+                    entity,
+                    index
+                }));
+                if (entityCount) {
+                    entityCount.textContent =
+                        `${allEntities.length} ${allEntities.length === 1
+                            ? 'entity'
+                            : 'entities'
+                        }`;
+                }
+                entityList.innerHTML = '';
+                if (!filtered.length) {
+                    entityList.innerHTML = `
                 <div class="py-10 text-center text-xs text-slate-500">
                     No extracted entities found for this report.
                 </div>
             `;
-            return;
-        }
-        filtered.forEach(({ entity, index }) => {
-            const name = getEntityName(entity, index);
-            const category = getValue(
-                entity,
-                [
-                    'category',
-                    'type'
-                ],
-                'Other'
-            );
+                    return;
+                }
+                filtered.forEach(({ entity, index }) => {
+                    const name = getEntityName(entity, index);
+                    const category = getValue(
+                        entity,
+                        [
+                            'category',
+                            'type'
+                        ],
+                        'Other'
+                    );
 
-            // report_entities no longer stores activity_type; derive the display label
-            // from it_related so the card matches the IT / Clerical model.
-            const activityType = (() => {
-                const it = String(getValue(entity, ['it_related'], '')).toLowerCase();
-                return it === 'no' ? 'Clerical' : 'Other';
-            })();
-            const itRelated = String(
-                getValue(
-                    entity,
-                    [
-                        'it_related',
-                        'is_it_related'
-                    ],
-                    ''
-                )
-            ).toLowerCase();
-            const key = getEntityKey(entity, index);
-            const isIT =
-                itRelated === 'yes' ||
-                itRelated === '1' ||
-                itRelated === 'true';
+                    // report_entities no longer stores activity_type; derive the display label
+                    // from it_related so the card matches the IT / Clerical model.
+                    const activityType = (() => {
+                        const it = String(getValue(entity, ['it_related'], '')).toLowerCase();
+                        return it === 'no' ? 'Clerical' : 'Other';
+                    })();
+                    const itRelated = String(
+                        getValue(
+                            entity,
+                            [
+                                'it_related',
+                                'is_it_related'
+                            ],
+                            ''
+                        )
+                    ).toLowerCase();
+                    const key = getEntityKey(entity, index);
+                    const isIT =
+                        itRelated === 'yes' ||
+                        itRelated === '1' ||
+                        itRelated === 'true';
 
-            /* Dictionary matches get a neutral "Predefined" badge: a term found
-               in predefined_entities is a certain match, so this is provenance
-               rather than a warning, and it never counts as a prediction. */
-            const source = String(getValue(entity, ['source'], '')).trim();
-            const isPredefined =
-                source === 'predefined' || source === 'spacy_predefined';
+                    /* Dictionary matches get a neutral "Predefined" badge: a term found
+                       in predefined_entities is a certain match, so this is provenance
+                       rather than a warning, and it never counts as a prediction. */
+                    const source = String(getValue(entity, ['source'], '')).trim();
+                    const isPredefined =
+                        source === 'predefined' || source === 'spacy_predefined';
 
-            /* Only ML predictions are flagged, and only below the extractor's
-               threshold. Dictionary rows carry 100.00 by construction, so this
-               is structurally spacy-only as well as semantically so. */
-            const rawConfidence = getValue(
-                entity,
-                ['confidence_score', 'confidence'],
-                null
-            );
-            const confidence =
-                rawConfidence === null || rawConfidence === ''
-                    ? null
-                    : Number(rawConfidence);
-            const isLowConfidence =
-                source === 'spacy' &&
-                confidence !== null &&
-                Number.isFinite(confidence) &&
-                confidence < LOW_CONFIDENCE_THRESHOLD;
+                    /* Only ML predictions are flagged, and only below the extractor's
+                       threshold. Dictionary rows carry 100.00 by construction, so this
+                       is structurally spacy-only as well as semantically so. */
+                    const rawConfidence = getValue(
+                        entity,
+                        ['confidence_score', 'confidence'],
+                        null
+                    );
+                    const confidence =
+                        rawConfidence === null || rawConfidence === ''
+                            ? null
+                            : Number(rawConfidence);
+                    const isLowConfidence =
+                        source === 'spacy' &&
+                        confidence !== null &&
+                        Number.isFinite(confidence) &&
+                        confidence < LOW_CONFIDENCE_THRESHOLD;
 
-            const provenanceBadge = [
-                isPredefined
-                    ? '<span class="rounded-full px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600" title="Matched a term in the predefined entity list, not predicted by the model">Predefined</span>'
-                    : '',
-                isLowConfidence
-                    ? '<span class="rounded-full px-2 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200" title="The model was less than ' +
-                      LOW_CONFIDENCE_THRESHOLD +
-                      '% sure about this term. Check it against the report.">&#9888; Low confidence</span>'
-                    : '',
-            ].join('');
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.className =
-                'entity-card w-full text-left rounded-xl ' +
-                'border border-slate-200 p-3 bg-white';
-            card.dataset.entityKey = key;
-            if (activeEntityKey === key) {
-                card.classList.add('active');
-            }
-            card.innerHTML = `
+                    const provenanceBadge = [
+                        isPredefined
+                            ? '<span class="rounded-full px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-600" title="Matched a term in the predefined entity list, not predicted by the model">Predefined</span>'
+                            : '',
+                        isLowConfidence
+                            ? '<span class="rounded-full px-2 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200" title="The model was less than ' +
+                            LOW_CONFIDENCE_THRESHOLD +
+                            '% sure about this term. Check it against the report.">&#9888; Low confidence</span>'
+                            : '',
+                    ].join('');
+                    const card = document.createElement('button');
+                    card.type = 'button';
+                    card.className =
+                        'entity-card w-full text-left rounded-xl ' +
+                        'border border-slate-200 p-3 bg-white';
+                    card.dataset.entityKey = key;
+                    if (activeEntityKey === key) {
+                        card.classList.add('active');
+                    }
+                    card.innerHTML = `
                 <div class="flex items-start justify-between gap-3">
                     <span
                         class="text-xs font-bold text-slate-800
@@ -1511,11 +1538,10 @@ if ($userRole === 'coordinator') {
                     </span>
                     <span
                         class="shrink-0 rounded-full px-2 py-0.5
-                               text-[9px] font-bold ${
-                                   isIT
-                                       ? 'bg-emerald-50 text-emerald-700'
-                                       : 'bg-slate-100 text-slate-600'
-                               }"
+                               text-[9px] font-bold ${isIT
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-slate-100 text-slate-600'
+                        }"
                     >
                         ${isIT ? 'IT-related' : 'Other'}
                     </span>
@@ -1531,488 +1557,487 @@ if ($userRole === 'coordinator') {
                         ${escapeHtml(activityType)}
                     </span>
                 </div>
-                ${
-                    provenanceBadge
-                        ? '<div class="mt-2 flex flex-wrap gap-1.5">' +
-                          provenanceBadge +
-                          '</div>'
-                        : ''
-                }
+                ${provenanceBadge
+                            ? '<div class="mt-2 flex flex-wrap gap-1.5">' +
+                            provenanceBadge +
+                            '</div>'
+                            : ''
+                        }
             `;
-            card.addEventListener('click', () => {
-                if (activeEntityKey === key) {
-                    activeEntityKey = null;
-                    clearHighlights();
-                } else {
-                    activeEntityKey = key;
-                    highlightEntity(name);
-                }
-                document
-                    .querySelectorAll('.entity-card')
-                    .forEach(cardElement => {
-                        cardElement.classList.toggle(
-                            'active',
-                            cardElement.dataset.entityKey ===
-                                activeEntityKey
-                        );
+                    card.addEventListener('click', () => {
+                        if (activeEntityKey === key) {
+                            activeEntityKey = null;
+                            clearHighlights();
+                        } else {
+                            activeEntityKey = key;
+                            highlightEntity(name);
+                        }
+                        document
+                            .querySelectorAll('.entity-card')
+                            .forEach(cardElement => {
+                                cardElement.classList.toggle(
+                                    'active',
+                                    cardElement.dataset.entityKey ===
+                                    activeEntityKey
+                                );
+                            });
                     });
-            });
-            entityList.appendChild(card);
-        });
-    }
-
-    function clearHighlights() {
-        document
-            .querySelectorAll(
-                '.pdf-text-layer .entity-highlight'
-            )
-            .forEach(mark => {
-                const parent = mark.parentNode;
-                if (!parent) return;
-                parent.replaceChild(
-                    document.createTextNode(
-                        mark.textContent || ''
-                    ),
-                    mark
-                );
-                parent.normalize();
-            });
-    }
-
-    function buildSearchIndex(spans) {
-        let raw = '';
-        const starts = [];
-        const ends = [];
-        spans.forEach((span, index) => {
-            if (index > 0) raw += ' ';
-            starts.push(raw.length);
-            raw += span.textContent || '';
-            ends.push(raw.length);
-        });
-
-        let value = '';
-        const map = [];
-        for (let i = 0; i < raw.length; i++) {
-            let character = raw[i]
-                .normalize('NFKC')
-                .toLowerCase();
-            if (
-                character === '\u2018' ||
-                character === '\u2019'
-            ) {
-                character = "'";
-            } else if (
-                character === '\u201C' ||
-                character === '\u201D'
-            ) {
-                character = '"';
-            }
-            if (/\s/.test(character)) {
-                if (
-                    value.length === 0 ||
-                    value[value.length - 1] === ' '
-                ) {
-                    continue;
-                }
-                character = ' ';
-            }
-            value += character;
-            map.push(i);
-        }
-
-        return {
-            raw,
-            value,
-            map,
-            starts,
-            ends
-        };
-    }
-
-    function findMatchRanges(index, target) {
-        const ranges = [];
-        const { raw, value, map } = index;
-        if (!target || !value) return ranges;
-
-        let from = 0;
-        while (from <= value.length - target.length) {
-            const at = value.indexOf(target, from);
-            if (at === -1) break;
-
-            const rawStart = map[at];
-            const rawEnd =
-                map[at + target.length - 1] + 1;
-            const before =
-                rawStart > 0 ? raw[rawStart - 1] : '';
-            const after =
-                rawEnd < raw.length ? raw[rawEnd] : '';
-
-            if (
-                !/[\p{L}\p{N}]/u.test(before) &&
-                !/[\p{L}\p{N}]/u.test(after)
-            ) {
-                ranges.push([rawStart, rawEnd]);
-            }
-
-            from = at + target.length;
-        }
-
-        return ranges;
-    }
-
-    function wrapMatch(span, start, end) {
-        const textNode = span.firstChild;
-        if (
-            !textNode ||
-            textNode.nodeType !== Node.TEXT_NODE
-        ) {
-            return;
-        }
-        const range = document.createRange();
-        range.setStart(textNode, start);
-        range.setEnd(textNode, end);
-        const mark = document.createElement('mark');
-        mark.className = 'entity-highlight';
-        range.surroundContents(mark);
-    }
-
-    function applyMatchRanges(
-        spans,
-        starts,
-        ends,
-        ranges
-    ) {
-        const perSpan = new Map();
-        ranges.forEach(([matchStart, matchEnd]) => {
-            spans.forEach((span, index) => {
-                const spanStart = starts[index];
-                const spanEnd = ends[index];
-                if (spanEnd <= spanStart) return;
-                if (
-                    spanStart < matchEnd &&
-                    spanEnd > matchStart
-                ) {
-                    const localStart =
-                        Math.max(matchStart, spanStart) -
-                        spanStart;
-                    const localEnd =
-                        Math.min(matchEnd, spanEnd) -
-                        spanStart;
-                    if (localEnd > localStart) {
-                        if (!perSpan.has(span)) {
-                            perSpan.set(span, []);
-                        }
-                        perSpan
-                            .get(span)
-                            .push([localStart, localEnd]);
-                    }
-                }
-            });
-        });
-
-        perSpan.forEach((list, span) => {
-            list.sort((a, b) => b[0] - a[0]);
-            list.forEach(([start, end]) => {
-                wrapMatch(span, start, end);
-            });
-        });
-    }
-
-    function highlightEntity(entityName) {
-        clearHighlights();
-        const target = normalize(entityName);
-        if (!target) return;
-
-        let found = false;
-        document
-            .querySelectorAll('.pdf-text-layer')
-            .forEach(layer => {
-                const spans = Array.from(
-                    layer.children
-                ).filter(
-                    element =>
-                        element.tagName === 'SPAN'
-                );
-                if (!spans.length) return;
-
-                const index = buildSearchIndex(spans);
-                const ranges = findMatchRanges(
-                    index,
-                    target
-                );
-                if (!ranges.length) return;
-
-                found = true;
-                applyMatchRanges(
-                    spans,
-                    index.starts,
-                    index.ends,
-                    ranges
-                );
-            });
-
-        if (!found) return;
-
-        const first = document.querySelector(
-            '.pdf-text-layer .entity-highlight'
-        );
-        if (first) {
-            first.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center'
-            });
-        }
-    }
-
-    async function renderPdf() {
-        pdfPages.innerHTML = '';
-        clearHighlights();
-        if (!report.fileUrl) {
-            pdfLoading.textContent =
-                'No PDF file is attached to this report.';
-            pdfLoading.classList.remove('hidden');
-            return;
-        }
-        if (!window.pdfjsLib) {
-            pdfLoading.textContent =
-                'PDF viewer could not be loaded. Please refresh the page.';
-            pdfLoading.classList.remove('hidden');
-            return;
-        }
-        pdfLoading.textContent = 'Loading PDF…';
-        pdfLoading.classList.remove('hidden');
-        try {
-            pdfDocument = await pdfjsLib
-                .getDocument({
-                    url: report.fileUrl
-                })
-                .promise;
-            for (
-                let pageNumber = 1;
-                pageNumber <= pdfDocument.numPages;
-                pageNumber++
-            ) {
-                const page =
-                    await pdfDocument.getPage(
-                        pageNumber
-                    );
-                const viewport =
-                    page.getViewport({
-                        scale: zoom
-                    });
-                const wrapper =
-                    document.createElement('div');
-                wrapper.className =
-                    'pdf-page';
-                wrapper.style.width =
-                    `${viewport.width}px`;
-                wrapper.style.height =
-                    `${viewport.height}px`;
-                const canvas =
-                    document.createElement('canvas');
-                const context =
-                    canvas.getContext(
-                        '2d',
-                        {
-                            alpha: false
-                        }
-                    );
-                canvas.width =
-                    Math.ceil(viewport.width);
-                canvas.height =
-                    Math.ceil(viewport.height);
-                canvas.setAttribute(
-                    'aria-label',
-                    `PDF page ${pageNumber}`
-                );
-                const textLayer =
-                    document.createElement('div');
-                textLayer.className =
-                    'pdf-text-layer';
-                textLayer.style.width =
-                    `${viewport.width}px`;
-                textLayer.style.height =
-                    `${viewport.height}px`;
-                wrapper.appendChild(canvas);
-                wrapper.appendChild(textLayer);
-                pdfPages.appendChild(wrapper);
-                await page.render({
-                    canvasContext: context,
-                    viewport
-                }).promise;
-                const textContent =
-                    await page.getTextContent();
-                textContent.items.forEach(
-                    item => {
-                        const span =
-                            document.createElement(
-                                'span'
-                            );
-                        span.textContent =
-                            item.str;
-                        const tx =
-                            pdfjsLib.Util.transform(
-                                viewport.transform,
-                                item.transform
-                            );
-                        const angle =
-                            Math.atan2(
-                                tx[1],
-                                tx[0]
-                            );
-                        const scaleX =
-                            Math.sqrt(
-                                tx[0] * tx[0] +
-                                tx[1] * tx[1]
-                            );
-                        const scaleY =
-                            Math.sqrt(
-                                tx[2] * tx[2] +
-                                tx[3] * tx[3]
-                            );
-                        span.style.left =
-                            `${tx[4]}px`;
-                        span.style.top =
-                            `${tx[5] - scaleY}px`;
-                        span.style.fontSize =
-                            `${scaleY}px`;
-                        span.style.transform =
-                            `rotate(${angle}rad) ` +
-                            `scaleX(${
-                                scaleX /
-                                Math.max(
-                                    scaleY,
-                                    1
-                                )
-                            })`;
-                        textLayer.appendChild(
-                            span
-                        );
-                    }
-                );
-            }
-            pdfLoading.classList.add('hidden');
-
-            if (pdfTotalPages) {
-                pdfTotalPages.textContent = String(pdfDocument.numPages);
-            }
-            if (pdfCurrentPage) {
-                pdfCurrentPage.textContent = '1';
-            }
-
-            // Update the page number while scrolling, similar to a browser PDF viewer.
-            if ('IntersectionObserver' in window) {
-                const pageElements = Array.from(
-                    pdfPages.querySelectorAll('.pdf-page')
-                );
-                const observer = new IntersectionObserver(
-                    entries => {
-                        let bestEntry = null;
-                        entries.forEach(entry => {
-                            if (!entry.isIntersecting) return;
-                            if (
-                                !bestEntry ||
-                                entry.intersectionRatio >
-                                    bestEntry.intersectionRatio
-                            ) {
-                                bestEntry = entry;
-                            }
-                        });
-                        if (bestEntry && pdfCurrentPage) {
-                            const pageIndex =
-                                pageElements.indexOf(bestEntry.target);
-                            if (pageIndex >= 0) {
-                                pdfCurrentPage.textContent =
-                                    String(pageIndex + 1);
-                            }
-                        }
-                    },
-                    {
-                        root: pdfStage,
-                        threshold: [0.25, 0.5, 0.75]
-                    }
-                );
-                pageElements.forEach(page => observer.observe(page));
-            }
-
-            if (zoomValue) {
-                zoomValue.textContent =
-                    `${Math.round(zoom * 100)}%`;
-            }
-
-            if (activeEntityKey) {
-                const index =
-                    Number(
-                        activeEntityKey
-                            .split('::')
-                            .pop()
-                    );
-                const entity =
-                    report.entities[index];
-                if (entity) {
-                    highlightEntity(
-                        getEntityName(
-                            entity,
-                            index
-                        )
-                    );
-                }
-            }
-        } catch (error) {
-            console.error(
-                'PDF rendering error:',
-                error
-            );
-            pdfPages.innerHTML = '';
-            pdfLoading.textContent =
-                'Unable to load the PDF. Check that the uploaded file exists and is accessible from the browser.';
-            pdfLoading.classList.remove(
-                'hidden'
-            );
-        }
-    }
-
-    zoomIn?.addEventListener('click', () => {
-        zoom = Math.min(
-            2,
-            Number(
-                (zoom + 0.1).toFixed(2)
-            )
-        );
-        renderPdf();
-    });
-    zoomOut?.addEventListener('click', () => {
-        zoom = Math.max(
-            0.6,
-            Number(
-                (zoom - 0.1).toFixed(2)
-            )
-        );
-        renderPdf();
-    });
-
-    pdfPrint?.addEventListener('click', () => {
-        if (report.fileUrl) {
-            const printWindow = window.open(
-                report.fileUrl,
-                '_blank',
-                'noopener,noreferrer'
-            );
-            if (printWindow) {
-                printWindow.addEventListener('load', () => {
-                    try {
-                        printWindow.print();
-                    } catch (error) {
-                        console.warn('Unable to trigger PDF print dialog.', error);
-                    }
+                    entityList.appendChild(card);
                 });
             }
-        }
-    });
 
-    renderEntities();
-    renderPdf();
-})();
-</script>
+            function clearHighlights() {
+                document
+                    .querySelectorAll(
+                        '.pdf-text-layer .entity-highlight'
+                    )
+                    .forEach(mark => {
+                        const parent = mark.parentNode;
+                        if (!parent) return;
+                        parent.replaceChild(
+                            document.createTextNode(
+                                mark.textContent || ''
+                            ),
+                            mark
+                        );
+                        parent.normalize();
+                    });
+            }
+
+            function buildSearchIndex(spans) {
+                let raw = '';
+                const starts = [];
+                const ends = [];
+                spans.forEach((span, index) => {
+                    if (index > 0) raw += ' ';
+                    starts.push(raw.length);
+                    raw += span.textContent || '';
+                    ends.push(raw.length);
+                });
+
+                let value = '';
+                const map = [];
+                for (let i = 0; i < raw.length; i++) {
+                    let character = raw[i]
+                        .normalize('NFKC')
+                        .toLowerCase();
+                    if (
+                        character === '\u2018' ||
+                        character === '\u2019'
+                    ) {
+                        character = "'";
+                    } else if (
+                        character === '\u201C' ||
+                        character === '\u201D'
+                    ) {
+                        character = '"';
+                    }
+                    if (/\s/.test(character)) {
+                        if (
+                            value.length === 0 ||
+                            value[value.length - 1] === ' '
+                        ) {
+                            continue;
+                        }
+                        character = ' ';
+                    }
+                    value += character;
+                    map.push(i);
+                }
+
+                return {
+                    raw,
+                    value,
+                    map,
+                    starts,
+                    ends
+                };
+            }
+
+            function findMatchRanges(index, target) {
+                const ranges = [];
+                const { raw, value, map } = index;
+                if (!target || !value) return ranges;
+
+                let from = 0;
+                while (from <= value.length - target.length) {
+                    const at = value.indexOf(target, from);
+                    if (at === -1) break;
+
+                    const rawStart = map[at];
+                    const rawEnd =
+                        map[at + target.length - 1] + 1;
+                    const before =
+                        rawStart > 0 ? raw[rawStart - 1] : '';
+                    const after =
+                        rawEnd < raw.length ? raw[rawEnd] : '';
+
+                    if (
+                        !/[\p{L}\p{N}]/u.test(before) &&
+                        !/[\p{L}\p{N}]/u.test(after)
+                    ) {
+                        ranges.push([rawStart, rawEnd]);
+                    }
+
+                    from = at + target.length;
+                }
+
+                return ranges;
+            }
+
+            function wrapMatch(span, start, end) {
+                const textNode = span.firstChild;
+                if (
+                    !textNode ||
+                    textNode.nodeType !== Node.TEXT_NODE
+                ) {
+                    return;
+                }
+                const range = document.createRange();
+                range.setStart(textNode, start);
+                range.setEnd(textNode, end);
+                const mark = document.createElement('mark');
+                mark.className = 'entity-highlight';
+                range.surroundContents(mark);
+            }
+
+            function applyMatchRanges(
+                spans,
+                starts,
+                ends,
+                ranges
+            ) {
+                const perSpan = new Map();
+                ranges.forEach(([matchStart, matchEnd]) => {
+                    spans.forEach((span, index) => {
+                        const spanStart = starts[index];
+                        const spanEnd = ends[index];
+                        if (spanEnd <= spanStart) return;
+                        if (
+                            spanStart < matchEnd &&
+                            spanEnd > matchStart
+                        ) {
+                            const localStart =
+                                Math.max(matchStart, spanStart) -
+                                spanStart;
+                            const localEnd =
+                                Math.min(matchEnd, spanEnd) -
+                                spanStart;
+                            if (localEnd > localStart) {
+                                if (!perSpan.has(span)) {
+                                    perSpan.set(span, []);
+                                }
+                                perSpan
+                                    .get(span)
+                                    .push([localStart, localEnd]);
+                            }
+                        }
+                    });
+                });
+
+                perSpan.forEach((list, span) => {
+                    list.sort((a, b) => b[0] - a[0]);
+                    list.forEach(([start, end]) => {
+                        wrapMatch(span, start, end);
+                    });
+                });
+            }
+
+            function highlightEntity(entityName) {
+                clearHighlights();
+                const target = normalize(entityName);
+                if (!target) return;
+
+                let found = false;
+                document
+                    .querySelectorAll('.pdf-text-layer')
+                    .forEach(layer => {
+                        const spans = Array.from(
+                            layer.children
+                        ).filter(
+                            element =>
+                                element.tagName === 'SPAN'
+                        );
+                        if (!spans.length) return;
+
+                        const index = buildSearchIndex(spans);
+                        const ranges = findMatchRanges(
+                            index,
+                            target
+                        );
+                        if (!ranges.length) return;
+
+                        found = true;
+                        applyMatchRanges(
+                            spans,
+                            index.starts,
+                            index.ends,
+                            ranges
+                        );
+                    });
+
+                if (!found) return;
+
+                const first = document.querySelector(
+                    '.pdf-text-layer .entity-highlight'
+                );
+                if (first) {
+                    first.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }
+            }
+
+            async function renderPdf() {
+                pdfPages.innerHTML = '';
+                clearHighlights();
+                if (!report.fileUrl) {
+                    pdfLoading.textContent =
+                        'No PDF file is attached to this report.';
+                    pdfLoading.classList.remove('hidden');
+                    return;
+                }
+                if (!window.pdfjsLib) {
+                    pdfLoading.textContent =
+                        'PDF viewer could not be loaded. Please refresh the page.';
+                    pdfLoading.classList.remove('hidden');
+                    return;
+                }
+                pdfLoading.textContent = 'Loading PDF…';
+                pdfLoading.classList.remove('hidden');
+                try {
+                    pdfDocument = await pdfjsLib
+                        .getDocument({
+                            url: report.fileUrl
+                        })
+                        .promise;
+                    for (
+                        let pageNumber = 1;
+                        pageNumber <= pdfDocument.numPages;
+                        pageNumber++
+                    ) {
+                        const page =
+                            await pdfDocument.getPage(
+                                pageNumber
+                            );
+                        const viewport =
+                            page.getViewport({
+                                scale: zoom
+                            });
+                        const wrapper =
+                            document.createElement('div');
+                        wrapper.className =
+                            'pdf-page';
+                        wrapper.style.width =
+                            `${viewport.width}px`;
+                        wrapper.style.height =
+                            `${viewport.height}px`;
+                        const canvas =
+                            document.createElement('canvas');
+                        const context =
+                            canvas.getContext(
+                                '2d',
+                                {
+                                    alpha: false
+                                }
+                            );
+                        canvas.width =
+                            Math.ceil(viewport.width);
+                        canvas.height =
+                            Math.ceil(viewport.height);
+                        canvas.setAttribute(
+                            'aria-label',
+                            `PDF page ${pageNumber}`
+                        );
+                        const textLayer =
+                            document.createElement('div');
+                        textLayer.className =
+                            'pdf-text-layer';
+                        textLayer.style.width =
+                            `${viewport.width}px`;
+                        textLayer.style.height =
+                            `${viewport.height}px`;
+                        wrapper.appendChild(canvas);
+                        wrapper.appendChild(textLayer);
+                        pdfPages.appendChild(wrapper);
+                        await page.render({
+                            canvasContext: context,
+                            viewport
+                        }).promise;
+                        const textContent =
+                            await page.getTextContent();
+                        textContent.items.forEach(
+                            item => {
+                                const span =
+                                    document.createElement(
+                                        'span'
+                                    );
+                                span.textContent =
+                                    item.str;
+                                const tx =
+                                    pdfjsLib.Util.transform(
+                                        viewport.transform,
+                                        item.transform
+                                    );
+                                const angle =
+                                    Math.atan2(
+                                        tx[1],
+                                        tx[0]
+                                    );
+                                const scaleX =
+                                    Math.sqrt(
+                                        tx[0] * tx[0] +
+                                        tx[1] * tx[1]
+                                    );
+                                const scaleY =
+                                    Math.sqrt(
+                                        tx[2] * tx[2] +
+                                        tx[3] * tx[3]
+                                    );
+                                span.style.left =
+                                    `${tx[4]}px`;
+                                span.style.top =
+                                    `${tx[5] - scaleY}px`;
+                                span.style.fontSize =
+                                    `${scaleY}px`;
+                                span.style.transform =
+                                    `rotate(${angle}rad) ` +
+                                    `scaleX(${scaleX /
+                                    Math.max(
+                                        scaleY,
+                                        1
+                                    )
+                                    })`;
+                                textLayer.appendChild(
+                                    span
+                                );
+                            }
+                        );
+                    }
+                    pdfLoading.classList.add('hidden');
+
+                    if (pdfTotalPages) {
+                        pdfTotalPages.textContent = String(pdfDocument.numPages);
+                    }
+                    if (pdfCurrentPage) {
+                        pdfCurrentPage.textContent = '1';
+                    }
+
+                    // Update the page number while scrolling, similar to a browser PDF viewer.
+                    if ('IntersectionObserver' in window) {
+                        const pageElements = Array.from(
+                            pdfPages.querySelectorAll('.pdf-page')
+                        );
+                        const observer = new IntersectionObserver(
+                            entries => {
+                                let bestEntry = null;
+                                entries.forEach(entry => {
+                                    if (!entry.isIntersecting) return;
+                                    if (
+                                        !bestEntry ||
+                                        entry.intersectionRatio >
+                                        bestEntry.intersectionRatio
+                                    ) {
+                                        bestEntry = entry;
+                                    }
+                                });
+                                if (bestEntry && pdfCurrentPage) {
+                                    const pageIndex =
+                                        pageElements.indexOf(bestEntry.target);
+                                    if (pageIndex >= 0) {
+                                        pdfCurrentPage.textContent =
+                                            String(pageIndex + 1);
+                                    }
+                                }
+                            },
+                            {
+                                root: pdfStage,
+                                threshold: [0.25, 0.5, 0.75]
+                            }
+                        );
+                        pageElements.forEach(page => observer.observe(page));
+                    }
+
+                    if (zoomValue) {
+                        zoomValue.textContent =
+                            `${Math.round(zoom * 100)}%`;
+                    }
+
+                    if (activeEntityKey) {
+                        const index =
+                            Number(
+                                activeEntityKey
+                                    .split('::')
+                                    .pop()
+                            );
+                        const entity =
+                            report.entities[index];
+                        if (entity) {
+                            highlightEntity(
+                                getEntityName(
+                                    entity,
+                                    index
+                                )
+                            );
+                        }
+                    }
+                } catch (error) {
+                    console.error(
+                        'PDF rendering error:',
+                        error
+                    );
+                    pdfPages.innerHTML = '';
+                    pdfLoading.textContent =
+                        'Unable to load the PDF. Check that the uploaded file exists and is accessible from the browser.';
+                    pdfLoading.classList.remove(
+                        'hidden'
+                    );
+                }
+            }
+
+            zoomIn?.addEventListener('click', () => {
+                zoom = Math.min(
+                    2,
+                    Number(
+                        (zoom + 0.1).toFixed(2)
+                    )
+                );
+                renderPdf();
+            });
+            zoomOut?.addEventListener('click', () => {
+                zoom = Math.max(
+                    0.6,
+                    Number(
+                        (zoom - 0.1).toFixed(2)
+                    )
+                );
+                renderPdf();
+            });
+
+            pdfPrint?.addEventListener('click', () => {
+                if (report.fileUrl) {
+                    const printWindow = window.open(
+                        report.fileUrl,
+                        '_blank',
+                        'noopener,noreferrer'
+                    );
+                    if (printWindow) {
+                        printWindow.addEventListener('load', () => {
+                            try {
+                                printWindow.print();
+                            } catch (error) {
+                                console.warn('Unable to trigger PDF print dialog.', error);
+                            }
+                        });
+                    }
+                }
+            });
+
+            renderEntities();
+            renderPdf();
+        })();
+    </script>
 </body>
+
 </html>
