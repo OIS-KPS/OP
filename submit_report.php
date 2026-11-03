@@ -1,8 +1,10 @@
 <?php
 // submit_report.php
 session_start();
+date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/config/report_deadlines.php';
 
 // Auth Guard
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
@@ -20,6 +22,7 @@ $stmtStudent = $pdo->prepare("
         s.student_number, 
         s.company_id,
         s.evaluation_triggered,
+        s.ojt_start_date,
         e.id AS evaluation_id 
     FROM students s 
     INNER JOIN users u ON s.user_id = u.id
@@ -46,6 +49,10 @@ $student_id  = (int)$studentRow['id'];
 $studentName = $studentRow['name'] ?? 'Student';
 $weekNumber  = isset($_GET['week']) ? intval($_GET['week']) : (isset($_POST['week']) ? intval($_POST['week']) : 1);
 $errors      = [];
+
+$ojtStart    = isset($studentRow) && $studentRow ? warOjtStart($studentRow) : null;
+$weekDue     = $ojtStart ? warWeekDue($ojtStart, $weekNumber) : null;
+$isLatePreview = $weekDue ? ((new DateTimeImmutable()) > $weekDue) : false;
 
 // Prevent modifying an already APPROVED report
 $stmtCheckApproved = $pdo->prepare("SELECT status FROM reports WHERE student_id = ? AND week_number = ?");
@@ -102,16 +109,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
             if ($existingReport) {
                 $archivedOldFile = !empty($existingReport['file_path']) ? $existingReport['file_path'] : $existingReport['previous_file_path'];
 
+                // Recompute timeliness for this new submission.
+                $submittedAt = new DateTimeImmutable();
+                $isLate = ($ojtStart && $submittedAt > warWeekDue($ojtStart, $weekNumber)) ? 1 : 0;
+                $deadlineDb = $ojtStart ? warWeekDue($ojtStart, $weekNumber)->setTime(0, 0, 0)->format('Y-m-d') : null;
+
                 $stmtUpdate = $pdo->prepare("
                     UPDATE reports 
                     SET previous_file_path = ?,
                         file_path = ?, 
                         status = 'pending', 
                         submitted_at = NOW(),
+                        is_late = ?,
+                        deadline_date = ?,
                         updated_at = NOW()
                     WHERE id = ?
                 ");
-                $stmtUpdate->execute([$archivedOldFile, $filePath, $existingReport['id']]);
+                $stmtUpdate->execute([$archivedOldFile, $filePath, $isLate, $deadlineDb, $existingReport['id']]);
 
                 $logDesc = "Student {$studentName} submitted revised Week {$weekNumber} accomplishment report.";
                 $stmtLog = $pdo->prepare("
@@ -125,11 +139,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
                     $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
                 ]);
             } else {
+                $submittedAt = new DateTimeImmutable();
+                $isLate = ($ojtStart && $submittedAt > warWeekDue($ojtStart, $weekNumber)) ? 1 : 0;
+                $deadlineDb = $ojtStart ? warWeekDue($ojtStart, $weekNumber)->setTime(0, 0, 0)->format('Y-m-d') : null;
+
                 $stmtInsert = $pdo->prepare("
-                    INSERT INTO reports (student_id, week_number, file_path, status, submitted_at)
-                    VALUES (?, ?, ?, 'pending', NOW())
+                    INSERT INTO reports (student_id, week_number, file_path, status, submitted_at, is_late, deadline_date)
+                    VALUES (?, ?, ?, 'pending', NOW(), ?, ?)
                 ");
-                $stmtInsert->execute([$student_id, $weekNumber, $filePath]);
+                $stmtInsert->execute([$student_id, $weekNumber, $filePath, $isLate, $deadlineDb]);
 
                 $logDesc = "Student {$studentName} submitted Week {$weekNumber} accomplishment report.";
                 $stmtLog = $pdo->prepare("

@@ -55,8 +55,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (!$supervisorId) {
                                 $_SESSION['flash_error'] = "The selected office has no supervisor yet. Add one first.";
                             } else {
-                                $stmt = $pdo->prepare("UPDATE students SET office_id = ?, company_id = ?, supervisor_id = ? WHERE id = ?");
-                                $stmt->execute([$officeId, $companyId, $supervisorId, $studentId]);
+                                // Anchor OJT week 1 to the Monday of the current assignment week.
+                                $assignmentMonday = (new DateTime('now'))->modify('-' . (((int)(new DateTime('now'))->format('N')) - 1) . ' days')->format('Y-m-d');
+                                $stmt = $pdo->prepare("UPDATE students SET office_id = ?, company_id = ?, supervisor_id = ?, ojt_start_date = ? WHERE id = ?");
+                                $stmt->execute([$officeId, $companyId, $supervisorId, $assignmentMonday, $studentId]);
                                 logActivity($pdo, $coordinatorId, 'coordinator', 'STUDENT_ASSIGNED', "Assigned student ID {$studentId} to office ID {$officeId} (company ID {$companyId}, supervisor ID {$supervisorId}).");
                                 $_SESSION['flash_success'] = "Student placement updated successfully.";
                             }

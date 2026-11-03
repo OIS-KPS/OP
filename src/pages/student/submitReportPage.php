@@ -41,6 +41,14 @@
                     <p class="text-slate-500 text-xs mt-1">
                         Please upload your official signed WAR document in PDF format.
                     </p>
+                    <?php if (!empty($weekDue)): ?>
+                        <p class="text-xs font-semibold mt-2 <?= !empty($isLatePreview) ? 'text-orange-700' : 'text-slate-600'; ?>">
+                            Deadline: <?= htmlspecialchars($weekDue->format('M d, Y')); ?>
+                            <?php if (!empty($isLatePreview)): ?>
+                                — this submission will be marked as <span class="font-bold">Late Submission</span>.
+                            <?php endif; ?>
+                        </p>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Validation Error Area -->
