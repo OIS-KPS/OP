@@ -1,8 +1,10 @@
 <?php
 // reports.php
 session_start();
+date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/config/report_deadlines.php';
 
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
     header("Location: auth/login.php");
@@ -22,6 +24,7 @@ try {
             s.company_id,
             s.completion_requested,
             s.evaluation_triggered, 
+            s.ojt_start_date,
             e.id AS evaluation_id,
             e.final_score
         FROM students s
@@ -65,9 +68,11 @@ try {
                 ocr_activities, 
                 supervisor_remarks,
                 status, 
+                is_late,
                 submitted_at, 
                 approved_at,
-                updated_at
+                updated_at,
+                deadline_date
             FROM reports 
             WHERE student_id = ? 
             ORDER BY week_number ASC
@@ -95,5 +100,15 @@ foreach ($reports as $r) {
         $totalPending++;
     }
 }
+
+$ojtStart = isset($student) && $student ? warOjtStart($student) : null;
+$currentWeek = $ojtStart ? warCurrentWeek($ojtStart) : null;
+$hasCurrentWeekReport = false;
+foreach ($reports as $r) {
+    if ($currentWeek !== null && (int)($r['week_number'] ?? 0) === $currentWeek) {
+        $hasCurrentWeekReport = true;
+    }
+}
+$deadlineNotice = warDeadlineNotice($ojtStart, $currentWeek, $hasCurrentWeekReport);
 
 require_once __DIR__ . '/src/pages/student/myReportsPage.php';

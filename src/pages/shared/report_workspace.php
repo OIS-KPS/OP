@@ -256,7 +256,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                                             $isActive = $activeReport && (int)$rep['id'] === (int)$activeReport['id'];
                                         ?>
                                             <option value="<?= (int)$rep['id']; ?>" <?= $isActive ? 'selected' : ''; ?>>
-                                                Week <?= (int)$rep['week_number']; ?> [<?= htmlspecialchars(ucfirst((string)$rep['status'])); ?>]
+                                                Week <?= (int)$rep['week_number']; ?> [<?= htmlspecialchars(ucfirst((string)$rep['status'])); ?>]<?= !empty($rep['is_late']) ? ' - Late' : ''; ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -270,7 +270,7 @@ function workspaceItFlag(array $entity, string $activityType): string
                                 <div class="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs font-bold text-slate-200 shrink-0 gap-2">
                                     <span class="flex items-center gap-2">
                                         <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                                        Week <?= (int)$activeReport['week_number']; ?> Report Document
+                                        Week <?= (int)$activeReport['week_number']; ?> Report Document<?= !empty($activeReport['is_late']) ? ' (Late Submission)' : ''; ?>
                                     </span>
 
                                     <!-- Separated Submission & Approval Timestamp Badges -->

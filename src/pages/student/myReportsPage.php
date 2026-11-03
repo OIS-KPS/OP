@@ -85,6 +85,12 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                     </div>
                 <?php endif; ?>
 
+                <?php if (!empty($deadlineNotice)): ?>
+                    <div class="px-4 py-3 rounded-2xl border text-xs font-bold <?= $deadlineNotice['level'] === 'danger' ? 'bg-rose-50 border-rose-300 text-rose-900' : 'bg-amber-50 border-amber-300 text-amber-900'; ?>">
+                        <?= htmlspecialchars($deadlineNotice['text']); ?>
+                    </div>
+                <?php endif; ?>
+
                 <!-- 1. Conditional Internship Completion / Final Evaluation Notification Banner -->
                 <?php if ($totalApproved >= 10 || $isRequested || $isEvaluated): ?>
                     <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -249,6 +255,9 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                 <span class="font-semibold text-xs text-slate-700">
                                                     <?= !empty($dateSubmitted) ? date("M d, Y \a\\t g:i A", strtotime($dateSubmitted)) : '—'; ?>
                                                 </span>
+                                                <?php if (!empty($report['is_late'])): ?>
+                                                    <span class="block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-900 border border-orange-300 w-fit">Late Submission</span>
+                                                <?php endif; ?>
                                             </td>
 
                                             <!-- Review Status & Remarks -->

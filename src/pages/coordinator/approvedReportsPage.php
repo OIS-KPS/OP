@@ -228,6 +228,11 @@ $exportParamsAll = http_build_query([
                                             <td class="py-4 px-4 align-middle">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-blue-200 font-bold text-xs max-w-full">
                                                     <?= (int)$student['approved_reports_count']; ?> Submitted / Approved
+                                                    <?php if (!empty($student['late_approved_count'])): ?>
+                                                        <span class="block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-900 border border-orange-300 w-fit">
+                                                            <?= (int)$student['late_approved_count']; ?> Late
+                                                        </span>
+                                                    <?php endif; ?>
                                                 </span>
                                             </td>
 

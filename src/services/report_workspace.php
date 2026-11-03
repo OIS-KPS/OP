@@ -89,8 +89,8 @@ if (!function_exists('reportWorkspaceLoadReports')) {
             return [];
         }
 
-        $sql = 'SELECT id, week_number, file_path, status, supervisor_remarks,
-                       submitted_at, approved_at, updated_at
+        $sql = 'SELECT id, week_number, file_path, status, is_late, supervisor_remarks,
+                       submitted_at, approved_at, updated_at, deadline_date
                 FROM reports
                 WHERE student_id = ?';
 
