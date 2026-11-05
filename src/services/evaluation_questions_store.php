@@ -5,10 +5,9 @@
  * evaluation competencies.
  *
  * The canonical shape of a competency (key, group, order) is fixed in
- * config/evaluation_criteria.php and must never drift: evaluations
- * .technical_score / work_ethics_score / communication_score and every stored
- * criteria_ratings JSON blob are keyed on those keys and groups. Only the
- * wording is editable, and it lives here.
+ * config/evaluation_criteria.php and must never drift: the evaluation_ratings
+ * child-table rows are keyed on those keys, and the group buckets drive the
+ * read-side averages. Only the wording is editable, and it lives here.
  *
  * Two things are deliberately kept apart:
  *
