@@ -178,13 +178,9 @@ if ($action === 'verify_and_submit_evaluation') {
         exit();
     }
 
-    // Scores stay on the docx's raw 1-5 scale: the overall rating is the simple
-    // average of all 12 competencies, and each group column is its own average.
-    $finalScore  = ojtOverallRating($ratings);
-    $groupScores = ojtGroupAverages($ratings);
-    $columnMap   = ojtGroupColumnMap();
-    $gradeLabel  = ojtRatingLabel($finalScore);
-    $criteriaJson = json_encode($ratings);
+    // Ratings are never stored as derived scalars: each answer becomes one
+    // row in evaluation_ratings, and overall/per-group averages are computed
+    // at read time from those rows.
 
     // Freeze the wording the supervisor actually answered against. If the
     // coordinator rewrites the 12 competencies later, this record keeps
@@ -197,41 +193,62 @@ if ($action === 'verify_and_submit_evaluation') {
         $clientIp = trim(explode(',', $clientIp)[0]);
     }
 
-    // Save into evaluations table
+    // Save into evaluations + evaluation_ratings in one transaction
     try {
         $pdo->beginTransaction();
 
         $stmtSave = $pdo->prepare("
             INSERT INTO evaluations
-            (student_id, supervisor_id, technical_score, work_ethics_score, communication_score, punctuality_score, criteria_ratings, criteria_snapshot, final_score, grade_equivalent, feedback, otp_verified, otp_signed_at, otp_ip_address)
-            VALUES (?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, ?, 1, NOW(), ?)
+            (student_id, supervisor_id, criteria_snapshot, feedback, otp_signed_at, otp_ip_address)
+            VALUES (?, ?, ?, ?, NOW(), ?)
             ON DUPLICATE KEY UPDATE
-                technical_score = VALUES(technical_score),
-                work_ethics_score = VALUES(work_ethics_score),
-                communication_score = VALUES(communication_score),
-                punctuality_score = 0.00,
-                criteria_ratings = VALUES(criteria_ratings),
                 criteria_snapshot = VALUES(criteria_snapshot),
-                final_score = VALUES(final_score),
-                grade_equivalent = VALUES(grade_equivalent),
                 feedback = VALUES(feedback),
-                otp_verified = 1,
                 otp_signed_at = NOW(),
                 otp_ip_address = VALUES(otp_ip_address)
         ");
         $stmtSave->execute([
             $studentId,
             $supervisorId,
-            $groupScores['technical'] ?? 0,
-            $groupScores['ethics'] ?? 0,
-            $groupScores['communication'] ?? 0,
-            $criteriaJson,
             $criteriaSnapshot,
-            $finalScore,
-            $gradeLabel,
             $feedback,
             $clientIp
         ]);
+
+        /*
+         * Locate the row: ON-DUPLICATE-KEY UPDATE leaves lastInsertId() at 0
+         * for an updated record, and the ratings FK needs the id either way.
+         */
+        $evaluationId = (int) $pdo->lastInsertId();
+        if ($evaluationId <= 0) {
+            $stmtId = $pdo->prepare("SELECT id FROM evaluations WHERE student_id = ? LIMIT 1");
+            $stmtId->execute([$studentId]);
+            $evaluationId = (int) ($stmtId->fetchColumn() ?: 0);
+        }
+
+        if ($evaluationId <= 0) {
+            throw new Exception('Failed to locate the saved evaluation record.');
+        }
+
+        /*
+         * Rewrite the 12 rating rows atomically with the upsert above:
+         * an ON-DUPLICATE re-submission must not leave stale ratings behind,
+         * and each criterion is stored exactly once (uq_eval_rating).
+         */
+        $pdo->prepare("DELETE FROM evaluation_ratings WHERE evaluation_id = ?")->execute([$evaluationId]);
+
+        $ratingPlaceholders = implode(', ', array_fill(0, count($ratings), '(?, ?, ?)'));
+        $ratingValues = [];
+        foreach ($ratings as $criterionKey => $ratingValue) {
+            $ratingValues[] = $evaluationId;
+            $ratingValues[] = $criterionKey;
+            $ratingValues[] = $ratingValue;
+        }
+
+        $stmtRatings = $pdo->prepare(
+            "INSERT INTO evaluation_ratings (evaluation_id, criterion_key, rating) VALUES {$ratingPlaceholders}"
+        );
+        $stmtRatings->execute($ratingValues);
 
         // Cleanup used OTP
         $pdo->prepare("DELETE FROM evaluation_otps WHERE student_id = ?")->execute([$studentId]);

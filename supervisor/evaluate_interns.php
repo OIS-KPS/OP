@@ -64,12 +64,8 @@ try {
             u.avatar_url,
             COUNT(DISTINCT r.id) AS submitted_wars,
             e.id AS evaluation_id,
-            e.final_score,
-            e.grade_equivalent,
-            e.otp_verified,
-            e.otp_signed_at,
             CASE 
-                WHEN e.id IS NOT NULL AND e.otp_verified = 1 THEN 'completed'
+                WHEN e.id IS NOT NULL AND e.otp_signed_at IS NOT NULL THEN 'completed'
                 ELSE 'pending'
             END AS evaluation_status
         FROM students s
@@ -85,11 +81,7 @@ try {
             u.name, 
             u.email, 
             u.avatar_url, 
-            e.id, 
-            e.final_score,
-            e.grade_equivalent,
-            e.otp_verified,
-            e.otp_signed_at
+            e.id
         ORDER BY u.name ASC
     ";
 

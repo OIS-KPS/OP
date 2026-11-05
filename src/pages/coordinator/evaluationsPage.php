@@ -496,7 +496,7 @@ if (!function_exists('e')) {
                                                         <span class="px-1.5 py-0.5 rounded bg-blue-50 text-[#0F2854] text-[10px] font-black border border-[#0F2854]/30">
 
                                                             <?= e(
-                                                                $eval['grade_equivalent']
+                                                                $eval['final_score']
                                                                 ?? ojtRatingLabel($eval['final_score'])
                                                             ); ?>
 
