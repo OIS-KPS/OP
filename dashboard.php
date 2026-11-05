@@ -17,8 +17,7 @@ $stmtStudent = $pdo->prepare("
     SELECT 
         s.*, 
         u.name AS student_name,
-        e.id AS evaluation_id,
-        e.final_score
+        e.id AS evaluation_id
     FROM students s
     JOIN users u ON s.user_id = u.id
     LEFT JOIN evaluations e ON e.student_id = s.id

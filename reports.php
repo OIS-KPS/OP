@@ -32,8 +32,7 @@ try {
             s.completion_requested,
             s.evaluation_triggered, 
             s.ojt_start_date,
-            e.id AS evaluation_id,
-            e.final_score
+            e.id AS evaluation_id
         FROM students s
         LEFT JOIN evaluations e ON e.student_id = s.id
         WHERE s.user_id = ?
