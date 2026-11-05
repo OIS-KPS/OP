@@ -38,16 +38,8 @@ try {
             e.id AS evaluation_id,
             e.student_id,
             e.supervisor_id,
-            e.technical_score,
-            e.work_ethics_score,
-            e.communication_score,
-            e.punctuality_score,
-            e.criteria_ratings,
             e.criteria_snapshot,
-            e.final_score,
-            e.grade_equivalent,
             e.feedback AS remarks,
-            e.otp_verified,
             e.otp_signed_at,
             e.otp_ip_address,
             e.created_at AS evaluated_at,
@@ -79,6 +71,11 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$evaluation_id ?: $student_id, $supervisorId]);
     $evaluation = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Bridge: fetch 12 criterion ratings from the child table
+    $stmtR = $pdo->prepare("SELECT criterion_key, rating FROM evaluation_ratings WHERE evaluation_id = ? ORDER BY id");
+    $stmtR->execute([$evaluation['evaluation_id']]);
+    $evaluation['criteria_ratings'] = ojtRatingsRowsToJson($stmtR->fetchAll(PDO::FETCH_ASSOC));
 
 } catch (Exception $e) {
     error_log("Database Error in evaluate_view.php: " . $e->getMessage());
