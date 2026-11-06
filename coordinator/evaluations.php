@@ -586,9 +586,11 @@ try {
     /*
      * Status Filter
      */
+    $whereClauses[] = "u.status = 'active'";
+
     if ($selectedStatus === 'Completed') {
 
-        $whereClauses[] =
+    $whereClauses[] =
             "e.id IS NOT NULL AND e.otp_signed_at IS NOT NULL";
 
     } elseif ($selectedStatus === 'Pending') {
@@ -822,6 +824,7 @@ try {
             ON s.user_id = u.id
 
         WHERE s.supervisor_id IS NOT NULL
+          AND u.status = 'active'
 
           AND (
                 s.evaluation_triggered IS NULL
@@ -868,9 +871,10 @@ try {
             ) AS pending_evals
 
         FROM students s
-
+        JOIN users u ON s.user_id = u.id
         LEFT JOIN evaluations e
             ON s.id = e.student_id
+        WHERE u.status = 'active'
     ");
 
     $stats =

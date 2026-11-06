@@ -47,20 +47,23 @@ function dashboardLevel(float $percentage): string
 }
 
 try {
-    // 1. Total registered students.
-    $stmt = $pdo->query('SELECT COUNT(*) FROM students');
+    // 1. Total registered students (active only, excludes archived).
+    $stmt = $pdo->query("SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.status = 'active'");
     $totalStudents = (int) ($stmt->fetchColumn() ?: 0);
 
-    // 2. Students with a verified evaluation.
+    // 2. Students with a verified evaluation (active only, excludes archived).
     $stmt = $pdo->query(
-        'SELECT COUNT(DISTINCT student_id)
-         FROM evaluations
-         WHERE otp_signed_at IS NOT NULL'
-    );
+        "SELECT COUNT(DISTINCT e.student_id)
+         FROM evaluations e
+         JOIN students s ON e.student_id = s.id
+         JOIN users u ON s.user_id = u.id
+         WHERE e.otp_signed_at IS NOT NULL
+           AND u.status = 'active'");
+
     $evaluatedStudents = (int) ($stmt->fetchColumn() ?: 0);
 
-    // 3. Total submitted reports used as the report-coverage denominator (approved only).
-    $stmt = $pdo->query("SELECT COUNT(*) FROM reports WHERE status = 'approved'");
+    // 3. Total submitted reports used as the report-coverage denominator (approved only, active students only).
+    $stmt = $pdo->query("SELECT COUNT(*) FROM reports r JOIN students s ON r.student_id = s.id JOIN users u ON s.user_id = u.id WHERE r.status = 'approved' AND u.status = 'active'");
     $totalReports = (int) ($stmt->fetchColumn() ?: 0);
 
     // 4. Technical share of all persisted extracted/report entities (approved reports only).
