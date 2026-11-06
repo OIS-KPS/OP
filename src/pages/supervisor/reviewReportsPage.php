@@ -204,7 +204,7 @@ if (!function_exists('e')) {
                                             <!-- Action Button -->
                                             <td class="py-4 px-4 text-right whitespace-nowrap align-middle">
                                                 <a href="view_report.php?student_id=<?= (int) $intern['student_id']; ?>&amp;report_id=<?= $focusReportId; ?>"
-                                                    data-ics-loading="Extracting entities from this report&hellip; This may take a moment."
+                                                    
                                                     class="px-4 py-2 <?= $hasPending ? 'bg-[#0F2854] text-white hover:bg-blue-900' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300'; ?> text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
                                                     <span><?= $hasPending ? 'Review' : 'View Reports'; ?></span>
                                                     <svg class="w-3.5 h-3.5 <?= $hasPending ? 'text-blue-200' : ''; ?>"
