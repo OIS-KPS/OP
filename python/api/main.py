@@ -187,79 +187,79 @@ def _connect_database():
     )
 
 
-# def _database_matches(text: str) -> list[Dict[str, Any]]:
-#     """
-#     Invoke the existing database matching functions in extract_entities.py.
-#     The predefined_entities table is queried on each request so coordinator
-#     changes are reflected without restarting FastAPI.
-#     """
-#     module = _load_pdf_module()
-#     connection = None
-#     cursor = None
-#     try:
-#         connection = _connect_database()
-#         cursor = connection.cursor(dictionary=True)
-#         cursor.execute(
-#             """
-#             SELECT id, entity_name, aliases, it_related
-#             FROM predefined_entities
-#             WHERE is_archived = 0
-#             ORDER BY CHAR_LENGTH(entity_name) DESC, entity_name ASC
-#             """
-#         )
-#         rows = cursor.fetchall()
-#
-#         # Use the same matching/alias/overlap rules as the existing Python script.
-#         matches = module.find_predefined_matches(text, rows)
-#         matches = module.resolve_entity_overlaps(text, matches)
-#
-#         normalized = []
-#         for match in matches:
-#             term = str(
-#                 match.get("matched_term")
-#                 or match.get("entity_name")
-#                 or match.get("entity")
-#                 or ""
-#             ).strip()
-#             if not term:
-#                 continue
-#
-#             # Locate the first literal occurrence for the PHP highlight/offset fields.
-#             found = re.search(re.escape(term), text, flags=re.IGNORECASE)
-#             start = found.start() if found else 0
-#             end = found.end() if found else len(term)
-#
-#             it_related = _normalise_it_related(match.get("it_related"), "")
-#             normalized.append({
-#                 "term": term,
-#                 "entity": match.get("entity") or match.get("entity_name") or term,
-#                 "entity_name": match.get("entity_name") or match.get("entity") or term,
-#                 "canonical_name": match.get("canonical_name") or match.get("entity_name") or term,
-#                 # Derived from it_related, not read. predefined_entities no longer
-#                 # carries a category of its own; it is the IT_TERM/CLERICAL_TERM
-#                 # mirror of it_related, and that is what the portal stores on
-#                 # report_entities. activity_type and description are gone from the
-#                 # dictionary entirely -- see migration_simplify_predefined_entities.sql.
-#                 "category": "CLERICAL_TERM" if it_related == "no" else "IT_TERM",
-#                 "it_related": it_related,
-#                 "predefined_id": match.get("predefined_id"),
-#                 "matched_term": term,
-#                 "start": int(start),
-#                 "end": int(end),
-#                 "frequency": int(match.get("frequency") or 1),
-#                 "confidence": 1.0,
-#                 "confidence_score": 1.0,
-#                 "source": "predefined",
-#             })
-#         return normalized
-#     except Exception:
-#         logger.exception("MySQL predefined-entity matching failed.")
-#         raise
-#     finally:
-#         if cursor is not None:
-#             cursor.close()
-#         if connection is not None and connection.is_connected():
-#             connection.close()
+def _database_matches(text: str) -> list[Dict[str, Any]]:
+    """
+    Invoke the existing database matching functions in extract_entities.py.
+    The predefined_entities table is queried on each request so coordinator
+    changes are reflected without restarting FastAPI.
+    """
+    module = _load_pdf_module()
+    connection = None
+    cursor = None
+    try:
+        connection = _connect_database()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id, entity_name, aliases, it_related
+            FROM predefined_entities
+            WHERE is_archived = 0
+            ORDER BY CHAR_LENGTH(entity_name) DESC, entity_name ASC
+            """
+        )
+        rows = cursor.fetchall()
+
+        # Use the same matching/alias/overlap rules as the existing Python script.
+        matches = module.find_predefined_matches(text, rows)
+        matches = module.resolve_entity_overlaps(text, matches)
+
+        normalized = []
+        for match in matches:
+            term = str(
+                match.get("matched_term")
+                or match.get("entity_name")
+                or match.get("entity")
+                or ""
+            ).strip()
+            if not term:
+                continue
+
+            # Locate the first literal occurrence for the PHP highlight/offset fields.
+            found = re.search(re.escape(term), text, flags=re.IGNORECASE)
+            start = found.start() if found else 0
+            end = found.end() if found else len(term)
+
+            it_related = _normalise_it_related(match.get("it_related"), "")
+            normalized.append({
+                "term": term,
+                "entity": match.get("entity") or match.get("entity_name") or term,
+                "entity_name": match.get("entity_name") or match.get("entity") or term,
+                "canonical_name": match.get("canonical_name") or match.get("entity_name") or term,
+                # Derived from it_related, not read. predefined_entities no longer
+                # carries a category of its own; it is the IT_TERM/CLERICAL_TERM
+                # mirror of it_related, and that is what the portal stores on
+                # report_entities. activity_type and description are gone from the
+                # dictionary entirely -- see migration_simplify_predefined_entities.sql.
+                "category": "CLERICAL_TERM" if it_related == "no" else "IT_TERM",
+                "it_related": it_related,
+                "predefined_id": match.get("predefined_id"),
+                "matched_term": term,
+                "start": int(start),
+                "end": int(end),
+                "frequency": int(match.get("frequency") or 1),
+                "confidence": 1.0,
+                "confidence_score": 1.0,
+                "source": "predefined",
+            })
+        return normalized
+    except Exception:
+        logger.exception("MySQL predefined-entity matching failed.")
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None and connection.is_connected():
+            connection.close()
 
 
 def _normalise_model_entities(raw_entities: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
@@ -399,7 +399,7 @@ def _run_both_pipelines(text: str) -> tuple[list[Dict[str, Any]], list[Dict[str,
 
     model_result = _pipeline.predict(text, mode="hybrid")
     model_entities = _normalise_model_entities(model_result.get("entities", []))
-    database_entities: list[Dict[str, Any]] = []  # DB matching temporarily disabled
+    database_entities = _database_matches(text)
     merged = _merge_entities(database_entities, model_entities)
     return _deduplicate_entities(merged), database_entities, model_entities
 
@@ -438,7 +438,7 @@ async def health():
         "model_path": _pipeline.model_path,
         "model_backbone": backbone,
         "rss_mb": rss_mb,
-        "database_matching": "disabled",
+        "database_matching": "enabled",
         "memory_target": "≤400 MB RSS",
     }
 
