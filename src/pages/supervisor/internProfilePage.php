@@ -226,7 +226,7 @@ $isStudentActive = strtolower($student['status'] ?? '') === 'active';
                                             <!-- Action -->
                                             <td class="py-4 px-6 text-right whitespace-nowrap">
                                                 <a href="view_report.php?student_id=<?= (int) ($student['id'] ?? 0); ?>&amp;report_id=<?= (int) $report['id']; ?>"
-                                                    data-ics-loading="Extracting entities from this report&hellip; This may take a moment."
+                                                    
                                                     class="px-4 py-2 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
                                                     <span>View Details</span>
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"

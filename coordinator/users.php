@@ -1868,6 +1868,99 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
+    // Helper: Generate CSV content for a student's approved reports
+    function generateStudentReportCsv($pdo, $studentId, $studentName, $studentNumber): string
+    {
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, ['Student Name', 'Student ID', 'Week Number', 'Report Status', 'Submitted Date', 'IT Percentage (%)', 'Clerical Percentage (%)']);
+
+        error_log('CSV query userId: ' . $studentId);
+        $stmt = $pdo->prepare("
+            SELECT r.id, r.week_number, r.status, r.submitted_at, r.file_path
+            FROM reports r
+            JOIN students s ON r.student_id = s.id
+            WHERE s.user_id = ?
+            ORDER BY r.week_number
+        ");
+        $stmt->execute([$studentId]);
+        $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($reports as $report) {
+            $stmt2 = $pdo->prepare("
+                SELECT re.it_related
+                FROM report_entities re
+                WHERE re.report_id = ? AND re.is_archived = 0
+            ");
+            $stmt2->execute([$report['id']]);
+            $entities = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+            $itCount = 0;
+            $clericalCount = 0;
+            foreach ($entities as $e) {
+                if ($e['it_related'] === 'yes') $itCount++;
+                elseif ($e['it_related'] === 'no') $clericalCount++;
+            }
+            $total = $itCount + $clericalCount;
+            $itPct = $total > 0 ? round(($itCount / $total) * 100, 1) : 0.0;
+            $clericalPct = $total > 0 ? round(($clericalCount / $total) * 100, 1) : 0.0;
+
+            $isFirstRow = ($report === reset($reports));
+
+            fputcsv($handle, [
+                $isFirstRow ? $studentName : '',
+                $isFirstRow ? $studentNumber : '',
+                'Week ' . (int)$report['week_number'],
+                ucfirst($report['status']),
+                $report['submitted_at'],
+                $itPct . '%',
+                $clericalPct . '%',
+            ]);
+        }
+
+        rewind($handle);
+        $csvContent = stream_get_contents($handle);
+        fclose($handle);
+
+        return $csvContent;
+    }
+
+    // Helper: Serve a ZIP download containing CSV + PDFs
+    function serveArchiveZip(string $zipName, array $fileEntries): void
+    {
+        $zip = new ZipArchive();
+        $zipFile = tempnam(sys_get_temp_dir(), 'arc_') . '.zip';
+
+        if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            header('Content-Type: text/plain');
+            echo 'Failed to create archive.';
+            exit();
+        }
+
+        foreach ($fileEntries as $entry) {
+            if ($entry['type'] === 'string') {
+                $zip->addFromString($entry['name'], $entry['content']);
+            } elseif ($entry['type'] === 'file' && is_file($entry['path'])) {
+                $zip->addFile($entry['path'], $entry['name']);
+            }
+        }
+
+        $zip->close();
+
+        error_log('Archive ZIP: ' . count($fileEntries) . ' entries, zipname: ' . $zipName . ', zipFile: ' . $zipFile);
+        error_log('Archive ZIP: filesize before headers: ' . filesize($zipFile));
+        ob_end_clean();
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $zipName . '.zip"');
+        header('Content-Length: ' . filesize($zipFile));
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        readfile($zipFile);
+        unlink($zipFile);
+        exit();
+    }
+
     // Action E: Archive User
 
     if ($action === 'archive_user') {
@@ -1892,6 +1985,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $_SESSION['flash_success'] = "Account archived successfully.";
 
+            // --- Per-student archive download: CSV + PDFs ---
+            $stmt = $pdo->prepare("SELECT u.name, s.student_number FROM students s JOIN users u ON s.user_id = u.id WHERE u.id = ?");
+            $stmt->execute([$userId]);
+            $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+            $studentName = $studentInfo['name'] ?? 'student_' . $userId;
+            $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $studentName);
+
+            $csvContent = generateStudentReportCsv($pdo, $userId, $studentName, $studentNumber);
+            error_log('Archive CSV len: ' . strlen($csvContent) . ', userId: ' . $userId);
+
+            $stmt = $pdo->prepare("SELECT r.id, r.week_number, r.file_path FROM reports r JOIN students s ON r.student_id = s.id WHERE s.user_id = ?");
+            $stmt->execute([$userId]);
+            $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $fileEntries = [
+                ['type' => 'string', 'name' => $safeName . '_weekly_reports.csv', 'content' => $csvContent],
+            ];
+            error_log('Archive reports: ' . count($reports) . ', userId: ' . $userId);
+
+            foreach ($reports as $report) {
+                error_log('Archive report: id=' . $report['id'] . ', week=' . $report['week_number'] . ', file_path=' . ($report['file_path'] ?? 'NULL'));
+                $filePath = $report['file_path'] ?? '';
+                if ($filePath !== '') {
+                    $absPath = $filePath;
+                    // Try relative to web root first, then to script directory
+                    if (!is_file($absPath) && !str_starts_with($absPath, '/')) {
+                        $candidates = [
+                            $_SERVER['DOCUMENT_ROOT'] . '/' . ltrim($filePath, '/'),
+                            __DIR__ . '/../' . ltrim($filePath, '/'),
+                        ];
+                        foreach ($candidates as $candidate) {
+                            if (is_file($candidate)) {
+                                $absPath = $candidate;
+                                break;
+                            }
+                        }
+                    }
+                    if (is_file($absPath)) {
+                        $fileEntries[] = [
+                            'type' => 'file',
+                            'name' => 'reports/' . basename($filePath),
+                            'path' => $absPath,
+                        ];
+                    } else {
+                        error_log('Archive file NOT found: ' . $filePath . ' (tried ' . $absPath . ')');
+                    }
+                }
+            }
+
+            serveArchiveZip($safeName . '_archive', $fileEntries);
         }
 
         redirectToUsers($redirectTab);
@@ -2065,6 +2208,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $_SESSION['flash_success'] = "{$affectedCount} student account(s) archived. They can be restored from the Archived tab.";
 
+                // --- Bulk archive download: one CSV + all PDFs ---
+                $allCsvRows = [];
+                $allFileEntries = [];
+
+                foreach ($userIds as $uid) {
+                    $stmt = $pdo->prepare("SELECT u.name, s.student_number FROM students s JOIN users u ON s.user_id = u.id WHERE u.id = ?");
+                    $stmt->execute([$uid]);
+                    $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $studentName = $studentInfo['name'] ?? 'student_' . $uid;
+                    $safeStudentName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $studentName);
+
+                    $stmt = $pdo->prepare("
+                        SELECT r.id, r.week_number, r.status, r.submitted_at
+                        FROM reports r
+                        JOIN students s ON r.student_id = s.id
+                        WHERE s.user_id = ? AND r.status = 'approved'
+                        ORDER BY r.week_number
+                    ");
+                    $stmt->execute([$uid]);
+                    $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    $lastStudentName = null;
+
+                    foreach ($reports as $report) {
+                        $stmt2 = $pdo->prepare("
+                            SELECT re.it_related
+                            FROM report_entities re
+                            WHERE re.report_id = ? AND re.is_archived = 0
+                        ");
+                        $stmt2->execute([$report['id']]);
+                        $entities = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+                        $itCount = 0;
+                        $clericalCount = 0;
+                        foreach ($entities as $e) {
+                            if ($e['it_related'] === 'yes') $itCount++;
+                            elseif ($e['it_related'] === 'no') $clericalCount++;
+                        }
+                        $total = $itCount + $clericalCount;
+                        $itPct = $total > 0 ? round(($itCount / $total) * 100, 1) : 0.0;
+                        $clericalPct = $total > 0 ? round(($clericalCount / $total) * 100, 1) : 0.0;
+
+                        $showName = ($studentName !== $lastStudentName);
+                        $displayName = $showName ? $studentName : '';
+                        $displayNumber = $showName ? ($studentInfo['student_number'] ?? '') : '';
+                        $lastStudentName = $studentName;
+
+                        $allCsvRows[] = [
+                            'student_name' => $displayName,
+                            'student_number' => $displayNumber,
+                            'week' => 'Week ' . (int)$report['week_number'],
+                            'status' => ucfirst($report['status']),
+                            'submitted_at' => $report['submitted_at'],
+                            'it_pct' => $itPct . '%',
+                            'clerical_pct' => $clericalPct . '%',
+                        ];
+
+                        $stmt3 = $pdo->prepare("SELECT file_path FROM reports WHERE id = ?");
+                        $stmt3->execute([$report['id']]);
+                        $reportInfo = $stmt3->fetch(PDO::FETCH_ASSOC);
+                        $filePath = $reportInfo['file_path'] ?? '';
+                        if ($filePath !== '') {
+                            $absPath = $filePath;
+                            if (!is_file($absPath) && !str_starts_with($absPath, '/')) {
+                                $candidates = [
+                                    $_SERVER['DOCUMENT_ROOT'] . '/' . ltrim($filePath, '/'),
+                                    __DIR__ . '/../' . ltrim($filePath, '/'),
+                                ];
+                                foreach ($candidates as $candidate) {
+                                    if (is_file($candidate)) {
+                                        $absPath = $candidate;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (is_file($absPath)) {
+                                $allFileEntries[] = [
+                                    'type' => 'file',
+                                    'name' => 'students/' . $safeStudentName . '/' . basename($filePath),
+                                    'path' => $absPath,
+                                ];
+                            } else {
+                                error_log('Archive file NOT found: ' . $filePath . ' (tried ' . $absPath . ')');
+                            }
+                        }
+                    }
+                }
+
+                $csvContent = "Student Name,Student ID,Week Number,Report Status,Submitted Date,IT Percentage (%),Clerical Percentage (%)\n";
+                foreach ($allCsvRows as $row) {
+                    $csvContent .= $row['student_name'] . "," . $row['student_number'] . "," . $row['week'] . "," . $row['status'] . "," . $row['submitted_at'] . "," . $row['it_pct'] . "," . $row['clerical_pct'] . "\n";
+                }
+
+                array_unshift($allFileEntries, ['type' => 'string', 'name' => 'all_students_weekly_reports.csv', 'content' => $csvContent]);
+
+                serveArchiveZip('all_students_archive', $allFileEntries);
             }
 
         } catch (Throwable $e) {

@@ -47,20 +47,23 @@ function dashboardLevel(float $percentage): string
 }
 
 try {
-    // 1. Total registered students.
-    $stmt = $pdo->query('SELECT COUNT(*) FROM students');
+    // 1. Total registered students (active only, excludes archived).
+    $stmt = $pdo->query("SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.status = 'active'");
     $totalStudents = (int) ($stmt->fetchColumn() ?: 0);
 
-    // 2. Students with a verified evaluation.
+    // 2. Students with a verified evaluation (active only, excludes archived).
     $stmt = $pdo->query(
-        'SELECT COUNT(DISTINCT student_id)
-         FROM evaluations
-         WHERE otp_verified = 1'
-    );
-        $evaluatedStudents = (int) ($stmt->fetchColumn() ?: 0);
+        "SELECT COUNT(DISTINCT e.student_id)
+         FROM evaluations e
+         JOIN students s ON e.student_id = s.id
+         JOIN users u ON s.user_id = u.id
+         WHERE e.otp_signed_at IS NOT NULL
+           AND u.status = 'active'");
 
-    // 3. Total submitted reports used as the report-coverage denominator (approved only).
-    $stmt = $pdo->query("SELECT COUNT(*) FROM reports WHERE status = 'approved'");
+    $evaluatedStudents = (int) ($stmt->fetchColumn() ?: 0);
+
+    // 3. Total submitted reports used as the report-coverage denominator (approved only, active students only).
+    $stmt = $pdo->query("SELECT COUNT(*) FROM reports r JOIN students s ON r.student_id = s.id JOIN users u ON s.user_id = u.id WHERE r.status = 'approved' AND u.status = 'active'");
     $totalReports = (int) ($stmt->fetchColumn() ?: 0);
 
     // 4. Technical share of all persisted extracted/report entities (approved reports only).
@@ -91,24 +94,27 @@ try {
     );
     $spacyConfidence = (float) ($stmt->fetchColumn() ?: 0);
 
-    // 6. Company performance from verified evaluation final scores.
+    // 6. Company performance from verified evaluation ratings.
     // Companies with no verified evaluations remain visible with 0.0.
     // 6. Company evaluation performance and entity activity are aggregated
     // separately so multiple report entities cannot duplicate evaluation scores.
-    // `final_score` is stored on the OJT form's 1-5 scale; the older 1-100 rows
-    // are still in the table, so the scale is inferred per row: a value that
-    // fits inside 1-5 is rescaled to a percentage, anything larger is already
-    // a percentage. A legacy 0.00 rescale stays 0.00 either way.
+    // Ratings are normalized into evaluation_ratings; compute each evaluation's
+    // average before joining so its score is not duplicated by the child rows.
     $companyEvaluationRows = [];
     $stmt = $pdo->query(
         "SELECT
             s.company_id,
             COUNT(DISTINCT s.id) AS student_count,
-            COUNT(DISTINCT CASE WHEN e.otp_verified = 1 THEN e.student_id END) AS verified_evaluations,
-            COUNT(DISTINCT CASE WHEN e.otp_verified = 1 AND e.final_score IS NOT NULL THEN e.student_id END) AS scored_evaluations,
-            COALESCE(ROUND(AVG(CASE WHEN e.otp_verified = 1 THEN CASE WHEN e.final_score <= 5 THEN e.final_score * 20 ELSE e.final_score END END), 1), 0) AS percentage
+            COUNT(DISTINCT CASE WHEN e.otp_signed_at IS NOT NULL THEN e.student_id END) AS verified_evaluations,
+            COUNT(DISTINCT CASE WHEN e.otp_signed_at IS NOT NULL AND ra.final_score IS NOT NULL THEN e.student_id END) AS scored_evaluations,
+            COALESCE(ROUND(AVG(CASE WHEN e.otp_signed_at IS NOT NULL THEN ra.final_score * 20 END), 1), 0) AS percentage
          FROM students s
          LEFT JOIN evaluations e ON e.student_id = s.id
+         LEFT JOIN (
+            SELECT evaluation_id, AVG(rating) AS final_score
+            FROM evaluation_ratings
+            GROUP BY evaluation_id
+         ) ra ON ra.evaluation_id = e.id
          GROUP BY s.company_id"
     );
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {

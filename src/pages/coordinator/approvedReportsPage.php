@@ -170,6 +170,19 @@ $exportParamsAll = http_build_query([
                             </form>
                     </div>
 
+                    <!-- 1b. Administrative Review Queue Panel -->
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/70 mb-4" id="reviewQueuePanel">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-xs font-bold">
+                                <?= count($queueStudents) ?>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-amber-800 text-sm" id="queueTitle">Administrative Review Queue</p>
+                                <p class="text-xs text-slate-500 mt-1">All reports still require human verification — this queue ranks the least-certain extractions first.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- 3. Students Summary Table -->
                     <?php if (!empty($filteredStudents)): ?>
                         <!-- overflow-x-auto, not overflow-hidden: the previous wrapper clipped
@@ -197,7 +210,7 @@ $exportParamsAll = http_build_query([
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/80 text-slate-800">
                                     <?php foreach ($filteredStudents as $student): ?>
-                                        <tr class="hover:bg-slate-50 transition-colors">
+                                        <tr class="hover:bg-slate-50 transition-colors <?= !empty($student["review_count"]) ? "bg-red-100" : "" ?>">
                                             
                                             <!-- Student Name & ID -->
                                             <td class="py-4 px-4 align-middle">
@@ -243,7 +256,12 @@ $exportParamsAll = http_build_query([
                                                             <?= (int)$student['late_approved_count']; ?> Late
                                                         </span>
                                                     <?php endif; ?>
-                                                </span>
+                                                    </span>
+                                                <?php if (!empty($student['review_count'])): ?>
+                                                    <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 text-red-800 border border-red-300 shrink-0">
+                                                        <?= (int)$student['review_count'] ?> flagged terms
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
 
                                             <!-- IT vs Clerical Ratio Progress Bar -->

@@ -4,7 +4,8 @@
 // exactly as the supervisor filled it in, with the overall rating placed BELOW it.
 //
 // Expects:
-//   $evaluation  array  row containing at least: criteria_ratings, final_score, grade_equivalent
+//   $evaluation  array  row containing at least: criteria_ratings (built by
+//                       ojtRatingsRowsToJson from the evaluation_ratings rows).
 // Optional:
 //   $scorecardVariant  'uniform' (coordinator: grid + overall rating + group averages)
 //                       | 'compact' (supervisor: competency grid + legend only)
@@ -46,18 +47,12 @@ $showOverallRating = ($scorecardVariant !== 'compact');
 // wording, so a record the supervisor already signed keeps showing the
 // questions they answered.
 $scorecardCriteria = ojtCriteriaForEvaluation(is_array($evaluation ?? null) ? $evaluation : []);
+// Nothing derived is stored: the overall rating and the per-group breakdown
+// are always computed from the ratings in this payload.
 $scorecardRatings = ojtDecodeRatings($evaluation['criteria_ratings'] ?? null);
 $scorecardHasRows = ojtRatedCount($scorecardRatings) > 0;
-$scorecardOverall = $scorecardHasRows
-    ? ojtOverallRating($scorecardRatings)
-    : (float) ($evaluation['final_score'] ?? 0);
-
+$scorecardOverall = ojtOverallRating($scorecardRatings);
 $scorecardGroupAvgs = ojtGroupAverages($scorecardRatings);
-$scorecardGroupCols = [
-    'technical'     => $evaluation['technical_score'] ?? null,
-    'ethics'        => $evaluation['work_ethics_score'] ?? null,
-    'communication' => $evaluation['communication_score'] ?? null,
-];
 
 $scorecardLegend = ojtRatingLabel($scorecardOverall);
 $scorecardScale  = ojtRatingScale();
@@ -148,9 +143,6 @@ $scorecardScale  = ojtRatingScale();
             <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <p class="text-[11px] font-medium text-amber-900 leading-relaxed">
                 This evaluation was recorded before the 12-competency OJT form was adopted, so no per-competency answers were captured.
-                <?php if ($showOverallRating): ?>
-                    The overall rating below is the score stored on the legacy 1-100 scale.
-                <?php endif; ?>
             </p>
         </div>
     <?php endif; ?>
@@ -181,9 +173,7 @@ $scorecardScale  = ojtRatingScale();
         <!-- Per-group breakdown of the same answers -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <?php foreach (ojtEvaluationGroups() as $groupKey => $groupLabel):
-                $groupValue = $scorecardHasRows
-                    ? ($scorecardGroupAvgs[$groupKey] ?? 0.0)
-                    : (float) ($scorecardGroupCols[$groupKey] ?? 0);
+                $groupValue = $scorecardGroupAvgs[$groupKey] ?? 0.0;
             ?>
                 <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="block text-[9px] font-black uppercase tracking-wider text-slate-400 leading-tight"><?= htmlspecialchars($groupLabel); ?></span>

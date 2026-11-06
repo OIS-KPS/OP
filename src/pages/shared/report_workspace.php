@@ -192,7 +192,7 @@ $renderWeekSelector = function (bool $asCard) use ($selfPath, $viewContext, $stu
                         <?php endif; ?>
                         <div class="<?= $asCard ? '' : 'flex-1'; ?>">
                             <select name="report_id" <?= $asCard ? 'aria-label="Select submitted week report"' : '' ?>
-                                onchange="showWeekLoading(this); this.form.submit()"
+                                onchange="this.form.submit()"
                                 class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-[#0F2854] cursor-pointer">
                                 <option value="" disabled <?= $activeReport ? '' : 'selected'; ?>>-- Select Submitted Week
                                     Report --</option>
@@ -1046,48 +1046,6 @@ $renderWeekSelector = function (bool $asCard) use ($selfPath, $viewContext, $stu
         </script>
     <?php endif; ?>
 
-    <script>
-        // Show loading overlay when week selector changes
-        function showWeekLoading(select) {
-            var selectedOption = select.options[select.selectedIndex];
-            if (!selectedOption || !selectedOption.value) return;
-            var weekText = selectedOption.textContent || 'report';
-            <?php /* Only roles that actually run the extractor on view should be told
-                about it. $showEntities is false exactly where the auto-extract
-                call was removed from the controller, so promising "extracting"
-                there would be a lie. */ ?>
-            <?php if ($showEntities): ?>
-                var message = 'Extracting entities from ' + weekText + '. This may take a moment\u2026';
-            <?php else: ?>
-                var message = 'Opening ' + weekText + '. This may take a moment\u2026';
-            <?php endif; ?>
-
-            // Use the existing ICSLoadingOverlay if available
-            if (window.ICSLoadingOverlay && window.ICSLoadingOverlay.show) {
-                window.ICSLoadingOverlay.show(message);
-            } else {
-                // Fallback: create simple loading indicator
-                var overlay = document.createElement('div');
-                overlay.id = 'ics-week-loading-overlay';
-                overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(15,23,42,.65);backdrop-filter:blur(4px);font-family:Inter,system-ui,-apple-system,sans-serif;';
-                overlay.innerHTML = '<div style="background:#fff;border-radius:1rem;padding:28px 36px;box-shadow:0 20px 45px rgba(2,6,23,.35);display:flex;flex-direction:column;align-items:center;gap:14px;max-width:340px;text-align:center;">' +
-                    '<div style="width:44px;height:44px;border-radius:50%;border:4px solid #e2e8f0;border-top-color:#0F2854;animation:spin .8s linear infinite;"></div>' +
-                    '<p style="font-size:14px;font-weight:800;color:#0f172a;margin:0;">Loading report</p>' +
-                    '<p style="font-size:12px;font-weight:600;color:#64748b;margin:0;line-height:1.5;">' + message + '</p>' +
-                    '<div style="width:100%;height:4px;border-radius:999px;overflow:hidden;background:#e2e8f0;"><span style="display:block;height:100%;width:40%;border-radius:999px;background:#0F2854;animation:slide 1.1s ease-in-out infinite;"></span></div>' +
-                    '</div>';
-                document.body.appendChild(overlay);
-
-                // Add keyframes if not present
-                if (!document.getElementById('ics-week-loading-style')) {
-                    var style = document.createElement('style');
-                    style.id = 'ics-week-loading-style';
-                    style.textContent = '@keyframes spin{to{transform:rotate(360deg);}}@keyframes slide{0%{margin-left:-40%;}50%{margin-left:60%;}100%{margin-left:100%;}}';
-                    document.head.appendChild(style);
-                }
-            }
-        }
-    </script>
 
     <script>
         /*

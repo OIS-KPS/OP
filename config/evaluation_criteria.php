@@ -5,9 +5,10 @@
 // 12 competencies, each rated 5 (Very Good) down to 1 (Very Poor).
 //
 // The 12 keys, their order and their group buckets are FIXED and live in
-// ojtEvaluationCriteriaDefaults() below: evaluations.technical_score /
-// work_ethics_score / communication_score and every stored criteria_ratings
-// JSON blob are keyed on them.
+// ojtEvaluationCriteriaDefaults() below: the evaluation_ratings child-table
+// rows (criterion_key -> rating) and every read-side average are keyed on
+// them. Nothing derived from the ratings is stored: overall and per-group
+// averages are computed at read time.
 //
 // The WORDING of each competency is coordinator-editable and is read from the
 // evaluation_questions table (migration_evaluation_questions.sql). If that table
@@ -21,11 +22,11 @@
 /**
  * The 12 competencies exactly as worded in the reference docx, in document order.
  *
- * `group` buckets each competency into one of the three summary groups that the
- * pre-existing `evaluations` columns already store:
- *   technical     -> evaluations.technical_score
- *   ethics        -> evaluations.work_ethics_score
- *   communication -> evaluations.communication_score
+ * `group` buckets each competency into one of the three summary groups the
+ * overall-rating view shows:
+ *   technical | ethics | communication
+ * Group averages are never stored; they are computed per request from the
+ * evaluation_ratings rows via ojtGroupAverages().
  *
  * This is the fallback and the authority for which competencies exist. Only the
  * `text` values are ever overridden from the database.
@@ -199,20 +200,9 @@ if (!function_exists('ojtEvaluationGroups')) {
 }
 
 /**
- * Map each summary group to the legacy `evaluations` column that stores its average.
- *
- * @return array<string, string>
+ * Averages are never stored on `evaluations`; they are derived per request
+ * from the evaluation_ratings rows.
  */
-if (!function_exists('ojtGroupColumnMap')) {
-    function ojtGroupColumnMap(): array
-    {
-        return [
-            'technical'     => 'technical_score',
-            'ethics'        => 'work_ethics_score',
-            'communication' => 'communication_score',
-        ];
-    }
-}
 
 /**
  * The docx legend, highest rating first: 5 - Very Good ... 1 - Very Poor.
@@ -272,9 +262,43 @@ if (!function_exists('ojtRatingPercent')) {
 }
 
 /**
- * Decode a stored `evaluations.criteria_ratings` JSON blob into key => rating.
- * Missing, malformed or out-of-range entries come back as 0 (unrated) so a
- * partially saved or legacy row can never produce a wrong average.
+ * Bridge from `evaluation_ratings` rows to the JSON payload ojtDecodeRatings()
+ * consumes: [#rows] [['criterion_key' => ..., 'rating' => ...], ...]
+ * -> '{"key":1,...}'.
+ *
+ * The ratings live as one row per (evaluation, criterion); view controllers
+ * fetch them and hand them through this helper so every existing consumer
+ * keeps decoding a single payload. The JSON exists only in memory per request
+ * — nothing derived is persisted.
+ *
+ * @param array<int, array{criterion_key: string, rating: int|string}> $rows
+ * @return string JSON object criterion_key => rating ("" ratings dropped)
+ */
+if (!function_exists('ojtRatingsRowsToJson')) {
+    function ojtRatingsRowsToJson(array $rows): string
+    {
+        $byKey = [];
+
+        foreach ($rows as $row) {
+            $key   = (string) ($row['criterion_key'] ?? '');
+            $value = $row['rating'] ?? null;
+
+            if ($key === '' || !is_numeric($value)) {
+                continue;
+            }
+
+            $byKey[$key] = (int) $value;
+        }
+
+        return (string) json_encode($byKey);
+    }
+}
+
+/**
+ * Decode a criteria_ratings JSON payload (built by ojtRatingsRowsToJson from
+ * the evaluation_ratings rows) into key => rating. Missing, malformed or
+ * out-of-range entries come back as 0 (unrated) so a partially saved row can
+ * never produce a wrong average.
  *
  * @return array<string, int>
  */

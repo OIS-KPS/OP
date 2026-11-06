@@ -6,7 +6,7 @@
 // Only evaluations the supervisor has completed are exportable. "Completed"
 // is the same definition the Evaluations tab uses (coordinator/evaluations.php):
 //
-//     e.id IS NOT NULL AND e.otp_verified = 1
+//     e.id IS NOT NULL AND e.otp_signed_at IS NOT NULL
 //
 // An unsigned evaluation is refused with 403 rather than exported as a partial
 // record, because a PDF that looks official but was never signed is worse than
@@ -235,7 +235,12 @@ if (!function_exists('evalPdfFetch')) {
         $stmt->execute([$studentId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return ($row && (int) $row['otp_verified'] === 1) ? $row : null;
+        // Bridge: attach 12 criterion ratings so the PDF can render per-competency answers
+        $stmtR = $pdo->prepare("SELECT criterion_key, rating FROM evaluation_ratings WHERE evaluation_id = ? ORDER BY id");
+        $stmtR->execute([$row['id']]);
+        $row['criteria_ratings'] = ojtRatingsRowsToJson($stmtR->fetchAll(PDO::FETCH_ASSOC));
+
+        return ($row && (isset($row['otp_signed_at']) && $row['otp_signed_at'] !== null)) ? $row : null;
     }
 }
 
@@ -263,12 +268,21 @@ if (!function_exists('evalPdfFetchAll')) {
             LEFT JOIN offices o       ON o.id = s.office_id
             LEFT JOIN supervisors sup ON sup.id = e.supervisor_id
             LEFT JOIN users sup_user  ON sup_user.id = sup.user_id
-            WHERE e.otp_verified = 1
+            WHERE e.otp_signed_at IS NOT NULL
             ORDER BY e.otp_signed_at ASC, u.name ASC
         ");
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Bridge: attach 12 criterion ratings per evaluation so PDF rendering works
+        foreach ($rows as &$row) {
+            $stmtR = $pdo->prepare("SELECT criterion_key, rating FROM evaluation_ratings WHERE evaluation_id = ? ORDER BY id");
+            $stmtR->execute([$row['id']]);
+            $row['criteria_ratings'] = ojtRatingsRowsToJson($stmtR->fetchAll(PDO::FETCH_ASSOC));
+        }
+
+        return $rows ?: [];
     }
 }
 
@@ -280,9 +294,8 @@ if (!function_exists('evalPdfDocument')) {
     {
         $ratings  = ojtDecodeRatings($evaluation['criteria_ratings'] ?? null);
         $rated    = ojtRatedCount($ratings);
-        $overall  = $rated > 0 ? ojtOverallRating($ratings) : (float) ($evaluation['final_score'] ?? 0);
-        $grade    = (string) ($evaluation['grade_equivalent'] ?? '');
-        $grade    = $grade !== '' ? $grade : ojtRatingLabel($overall);
+        $overall  = $rated > 0 ? ojtOverallRating($ratings) : 0;
+        $grade    = ojtRatingLabel($overall);
         $remarks  = evalPdfClean(trim((string) ($evaluation['feedback'] ?? '')));
         $scale    = ojtRatingScale();
         $bounds   = ojtRatingBounds();
@@ -318,34 +331,23 @@ if (!function_exists('evalPdfDocument')) {
                 . '</tr>';
         }
 
-        // ---- group averages --------------------------------------------------
+        // ---- group averages computed from ratings only (columnMap removed) ----
         $groupAverages = ojtGroupAverages($ratings);
-        $columnMap     = ojtGroupColumnMap();
-        $groupRows     = '';
+
+        // The outer foreach ($groups) was never closed - adding missing brace
+
+        // group averages computed from evaluation_ratings; no stored-column fallback needed
+        $groupRows = '';
         foreach ($groups as $key => $label) {
-            $avg = (float) ($groupAverages[$key] ?? 0.0);
-            // Fall back to the stored column when nothing was rated inline.
-            if ($avg <= 0 && isset($columnMap[$key]) && isset($evaluation[$columnMap[$key]])) {
-                $avg = (float) $evaluation[$columnMap[$key]];
-            }
 
-            $groupRows .= '<tr>'
-                . '<td style="padding:2.5px 5px;border-bottom:1px solid #e2e8f0;font-size:7.5pt;">'
-                .   evalPdfE($label)
-                . '</td>'
-                . '<td style="padding:2.5px 5px;border-bottom:1px solid #e2e8f0;text-align:center;'
-                .   'width:62px;font-weight:700;color:' . $navy . ';">'
-                .   ($avg > 0 ? number_format($avg, 2) : '&mdash;')
-                . '</td>'
-                . '</tr>';
-        }
-
-        // ---- legend ----------------------------------------------------------
+        // ---- legend (group averages from ratings; columnMap removed) ----
         $legend = '';
         foreach ($scale as $value => $label) {
             $legend .= '<span style="display:inline-block;margin-right:12px;">'
                 . '<strong>' . (int) $value . '</strong> &mdash; ' . evalPdfE($label)
                 . '</span>';
+        }
+
         }
 
         // ---- meta block ------------------------------------------------------

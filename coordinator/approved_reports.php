@@ -159,7 +159,10 @@ try {
             (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved') AS approved_reports_count,
             (SELECT COUNT(id) FROM reports WHERE student_id = s.id AND status = 'approved' AND is_late = 1) AS late_approved_count,
             (SELECT COUNT(re2.id) FROM report_entities re2 WHERE re2.report_id IN (SELECT r2.id FROM reports r2 WHERE r2.student_id = s.id AND r2.status = 'approved') AND re2.is_archived = 0 AND re2.it_related <> 'no') AS tech_count,
-            (SELECT COUNT(re2.id) FROM report_entities re2 WHERE re2.report_id IN (SELECT r2.id FROM reports r2 WHERE r2.student_id = s.id AND r2.status = 'approved') AND re2.is_archived = 0 AND re2.it_related = 'no') AS clerical_count
+            (SELECT COUNT(re2.id) FROM report_entities re2 WHERE re2.report_id IN (SELECT r2.id FROM reports r2 WHERE r2.student_id = s.id AND r2.status = 'approved') AND re2.is_archived = 0 AND re2.it_related = 'no') AS clerical_count,
+            (SELECT COUNT(re3.id) FROM report_entities re3 WHERE re3.report_id IN (SELECT r3.id FROM reports r3 WHERE r3.student_id = s.id AND r3.status = 'approved') AND re3.is_archived = 0 AND (re3.it_related = 'unknown' OR re3.confidence_score < 80)) AS review_count,
+            (SELECT COUNT(re4.id) FROM report_entities re4 WHERE re4.report_id IN (SELECT r4.id FROM reports r4 WHERE r4.student_id = s.id AND r4.status = 'approved') AND re4.is_archived = 0 AND re4.it_related = 'unknown') AS unclassified_count,
+            (SELECT COUNT(re5.id) FROM report_entities re5 WHERE re5.report_id IN (SELECT r5.id FROM reports r5 WHERE r5.status = 'approved') AND re5.is_archived = 0 AND re5.confidence_score < 80) AS low_confidence_count
         FROM students s
         JOIN users u ON s.user_id = u.id
         LEFT JOIN companies c ON s.company_id = c.id
@@ -216,5 +219,7 @@ try {
     // next to an empty table.
     $totalFiltered = 0;
 }
+
+$queueStudents = [];
 
 require_once __DIR__ . '/../src/pages/coordinator/approvedReportsPage.php';

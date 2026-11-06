@@ -586,15 +586,17 @@ try {
     /*
      * Status Filter
      */
+    $whereClauses[] = "u.status = 'active'";
+
     if ($selectedStatus === 'Completed') {
 
-        $whereClauses[] =
-            "e.id IS NOT NULL AND e.otp_verified = 1";
+    $whereClauses[] =
+            "e.id IS NOT NULL AND e.otp_signed_at IS NOT NULL";
 
     } elseif ($selectedStatus === 'Pending') {
 
         $whereClauses[] =
-            "(e.id IS NULL OR e.otp_verified = 0)";
+            "(e.id IS NULL OR e.otp_signed_at IS NULL)";
     }
 
 
@@ -721,23 +723,17 @@ try {
 
             e.id AS eval_id,
 
-            e.technical_score,
-            e.work_ethics_score,
-            e.communication_score,
-            e.punctuality_score,
-            e.criteria_ratings,
-            e.criteria_snapshot,
-            e.final_score,
-            e.grade_equivalent,
-            e.feedback,
-
-            e.otp_verified,
-            e.otp_signed_at,
-            e.otp_ip_address,
+            /*
+             * Nothing derived is stored. The overall rating shown on the list
+             * is the AVG of this evaluation's evaluation_ratings rows, pre
+             * -aggregated to one row per evaluation so the joins and the
+             * COUNT(*) filter logic stay 1:1 with students.
+             */
+            ra.final_score,
 
             CASE
                 WHEN e.id IS NOT NULL
-                     AND e.otp_verified = 1
+                     AND e.otp_signed_at IS NOT NULL
                 THEN 'Completed'
                 ELSE 'Pending'
             END AS status
@@ -761,6 +757,14 @@ try {
 
         LEFT JOIN evaluations e
             ON s.id = e.student_id
+
+        LEFT JOIN (
+            SELECT evaluation_id,
+                   ROUND(AVG(rating), 2) AS final_score
+            FROM evaluation_ratings
+            GROUP BY evaluation_id
+        ) ra
+            ON ra.evaluation_id = e.id
 
         {$whereSql}
 
@@ -820,6 +824,7 @@ try {
             ON s.user_id = u.id
 
         WHERE s.supervisor_id IS NOT NULL
+          AND u.status = 'active'
 
           AND (
                 s.evaluation_triggered IS NULL
@@ -850,7 +855,7 @@ try {
             SUM(
                 CASE
                     WHEN e.id IS NOT NULL
-                         AND e.otp_verified = 1
+                         AND e.otp_signed_at IS NOT NULL
                     THEN 1
                     ELSE 0
                 END
@@ -859,16 +864,17 @@ try {
             SUM(
                 CASE
                     WHEN e.id IS NULL
-                         OR e.otp_verified = 0
+                         OR e.otp_signed_at IS NULL
                     THEN 1
                     ELSE 0
                 END
             ) AS pending_evals
 
         FROM students s
-
+        JOIN users u ON s.user_id = u.id
         LEFT JOIN evaluations e
             ON s.id = e.student_id
+        WHERE u.status = 'active'
     ");
 
     $stats =

@@ -49,7 +49,7 @@ $scorecardVariant = 'uniform';
                     <!-- Document Header -->
                     <div class="border-b border-slate-100 pb-6 flex flex-wrap justify-between items-start gap-4">
                         <div>
-                            <?php if (!empty($evaluation['otp_verified'])): ?>
+                            <?php if (!empty($evaluation['otp_signed_at'])): ?>
                                 <span class="px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 text-xs font-bold inline-flex items-center gap-1.5 mb-2 shadow-2xs">
                                     <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
                                     <span>Verified &amp; Signed via Email OTP</span>
