@@ -233,6 +233,50 @@ try {
     $weekClericalPct = $workspace['weekClericalPct'];
     $weekTotalCount = $workspace['weekTotalCount'];
     $pdfUrl = $workspace['pdfUrl'];
+
+    // Extract entities in background so page loads instantly
+    if (!empty($activeReport) && (int) $activeReport['id'] > 0) {
+        $reportIdActive = (int) $activeReport['id'];
+
+        $extractionStatus = entityExtractionReportStatus($pdo, $reportIdActive);
+        $extractionPending = false;
+
+        $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
+
+        if ($pdfPath !== null) {
+            $extraction = ensureReportEntitiesExtracted(
+                $pdfPath,
+                $reportIdActive,
+                $pdo,
+                false,
+                true
+            );
+
+            $extractionPending = !empty($extraction['pending']);
+
+            if (!empty($extraction['ran'])) {
+                $workspace = reportWorkspaceBuild($pdo, $studentId, [
+                    'reportId' => $requestedReportId,
+                    'status' => null,
+                ]);
+
+                $student = $workspace['student'];
+                $reportsList = $workspace['reportsList'];
+                $activeReport = $workspace['activeReport'];
+                $allEntities = $workspace['allEntities'];
+                $weekEntities = $workspace['weekEntities'];
+                $archivedEntities = $workspace['archivedEntities'];
+                $itPct = $workspace['itPct'];
+                $clericalPct = $workspace['clericalPct'];
+                $technicalCount = $workspace['technicalCount'];
+                $clericalCount = $workspace['clericalCount'];
+                $weekItPct = $workspace['weekItPct'];
+                $weekClericalPct = $workspace['weekClericalPct'];
+                $weekTotalCount = $workspace['weekTotalCount'];
+                $pdfUrl = $workspace['pdfUrl'];
+            }
+        }
+    }
 } catch (Throwable $exception) {
     /*
      * The workspace is the page; if it cannot be built there is nothing left

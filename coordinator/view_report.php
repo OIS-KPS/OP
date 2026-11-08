@@ -454,4 +454,43 @@ try {
     $allEntities = [];
 }
 
-require_once __DIR__ . '/../src/pages/coordinator/viewReportPage.php';
+    // Extract entities in background so page loads instantly
+    if (!empty($activeReport) && (int) $activeReport['id'] > 0) {
+        $reportIdActive = (int) $activeReport['id'];
+        $pdfPath = resolveReportPdfPath($activeReport['file_path'] ?? '');
+
+        if ($pdfPath !== null) {
+            $extraction = ensureReportEntitiesExtracted(
+                $pdfPath,
+                $reportIdActive,
+                $pdo,
+                false,  // not forced - background only
+                true    // async = true, don't block page load
+            );
+
+            $extractionPending = !empty($extraction['pending']);
+
+            if (!empty($extraction['ran'])) {
+                $workspace = reportWorkspaceBuild($pdo, $studentId, [
+                    'reportId' => $selectedReportId > 0 ? $selectedReportId : $reportId,
+                    'status' => 'approved',
+                ]);
+                $student = $workspace['student'];
+                $reportsList = $workspace['reportsList'];
+                $activeReport = $workspace['activeReport'];
+                $allEntities = $workspace['allEntities'];
+                $weekEntities = $workspace['weekEntities'];
+                $archivedEntities = $workspace['archivedEntities'];
+                $itPct = $workspace['itPct'];
+                $clericalPct = $workspace['clericalPct'];
+                $technicalCount = $workspace['technicalCount'];
+                $clericalCount = $workspace['clericalCount'];
+                $weekItPct = $workspace['weekItPct'];
+                $weekClericalPct = $workspace['weekClericalPct'];
+                $weekTotalCount = $workspace['weekTotalCount'];
+                $pdfUrl = $workspace['pdfUrl'];
+            }
+        }
+    }
+
+    require_once __DIR__ . '/../src/pages/coordinator/viewReportPage.php';
