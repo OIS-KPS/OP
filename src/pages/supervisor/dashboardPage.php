@@ -11,8 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
-    <script src="<?= BASE_PATH; ?>/public/js/loadingOverlay.js"></script>
-</head>
+    </head>
 <body class="bg-[#F8FAFC] text-slate-900 subpixel-antialiased selection:bg-[#0F2854] selection:text-white">
 
     <div class="flex min-h-screen">
