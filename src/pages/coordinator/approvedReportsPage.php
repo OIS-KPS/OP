@@ -183,6 +183,38 @@ $exportParamsAll = http_build_query([
                         </div>
                     </div>
 
+                <?php if (!empty($queueStudents)): ?>
+                    <div class="mt-6">
+                        <h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3">Students with flagged terms</h3>
+                        <table class="w-full text-left text-xs border-collapse border border-slate-200">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-700 border-b border-slate-200">
+                                    <th class="py-2 px-4 text-left">Student</th>
+                                    <th class="py-2 px-4 text-left">ID</th>
+                                    <th class="py-2 px-4 text-left">Section</th>
+                                    <th class="py-2 px-4 text-right">Flagged</th>
+                                    <th class="py-2 px-4 text-right">Unclassified</th>
+                                    <th class="py-2 px-4 text-right">Low Conf.</th>
+                                    <th class="py-2 px-4 text-right text-slate-500">No Entities</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <?php foreach ($queueStudents as $q): ?>
+                                <tr class="hover:bg-slate-50/50">
+                                    <td class="py-2 px-4 font-medium text-slate-700"><?= htmlspecialchars($q['student_name']); ?></td>
+                                    <td class="py-2 px-4 text-slate-600"><?= (int)$q['student_number']; ?></td>
+                                    <td class="py-2 px-4 text-slate-600 text-[10px]"><?= htmlspecialchars($q['section']); ?></td>
+                                    <td class="py-2 px-4 text-right font-bold text-red-600"><?= (int)$q['flagged_count']; ?></td>
+                                    <td class="py-2 px-4 text-right text-slate-500"><?= (int)$q['unclassified_count']; ?></td>
+                                    <td class="py-2 px-4 text-right text-slate-500"><?= (int)$q['low_conf_count']; ?></td>
+                                    <td class="py-2 px-4 text-right text-slate-500"><?= (int)$q['no_entity_count']; ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
                     <!-- 3. Students Summary Table -->
                     <?php if (!empty($filteredStudents)): ?>
                         <!-- overflow-x-auto, not overflow-hidden: the previous wrapper clipped

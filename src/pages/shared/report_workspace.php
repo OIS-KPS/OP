@@ -315,8 +315,7 @@ $renderWeekSelector = function (bool $asCard) use ($selfPath, $viewContext, $stu
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="<?= BASE_PATH; ?>/public/css/style.css">
-    <script src="<?= BASE_PATH; ?>/public/js/loadingOverlay.js"></script>
-    <style>
+        <style>
         body {
             font-family: 'Inter', sans-serif;
         }

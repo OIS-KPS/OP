@@ -222,4 +222,24 @@ try {
 
 $queueStudents = [];
 
+$queueSql = "SELECT s.id, s.student_number, u.name AS student_name,
+             s.section,
+             COUNT(DISTINCT CASE WHEN re.it_related = 'unknown' OR re.confidence_score < 80 OR re.id IS NULL THEN r.id END) AS flagged_count,
+             SUM(CASE WHEN re.it_related = 'unknown' THEN 1 ELSE 0 END) AS unclassified_count,
+             SUM(CASE WHEN re.confidence_score < 80 THEN 1 ELSE 0 END) AS low_conf_count,
+             COUNT(DISTINCT CASE WHEN re.id IS NULL THEN r.id END) AS no_entity_count
+             FROM students s
+             JOIN users u ON s.user_id = u.id
+             JOIN reports r ON r.student_id = s.id AND r.status = 'approved'
+             LEFT JOIN report_entities re ON re.report_id = r.id AND re.is_archived = 0
+             WHERE re.it_related = 'unknown' OR re.confidence_score < 80 OR re.id IS NULL
+             GROUP BY s.id, s.student_number, u.name, s.section
+             ORDER BY flagged_count DESC, unclassified_count DESC
+             LIMIT 20";
+
+$queueResult = $pdo->query($queueSql);
+if ($queueResult) {
+    $queueStudents = $queueResult->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
 require_once __DIR__ . '/../src/pages/coordinator/approvedReportsPage.php';
