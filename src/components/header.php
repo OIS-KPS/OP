@@ -23,6 +23,14 @@ switch ($userRole) {
 
 $displayName = $_SESSION['user_name'] ?? (!empty($student['name']) ? $student['name'] : 'User');
 $displayEmail = $_SESSION['email'] ?? '';
+
+$notificationUserId = (int) ($_SESSION['user_id'] ?? 0);
+$unreadNotificationCount = 0;
+$recentNotifications = [];
+if (isset($pdo) && $notificationUserId > 0) {
+    $unreadNotificationCount = getUnreadNotificationCount($pdo, $notificationUserId);
+    $recentNotifications = getRecentNotifications($pdo, $notificationUserId, 8);
+}
 ?>
 <header
     class="bg-white/95 backdrop-blur-md h-20 px-4 sm:px-8 flex justify-between items-center sticky top-0 z-10 border-b border-slate-200/80 transition-all select-none">
@@ -52,6 +60,55 @@ $displayEmail = $_SESSION['email'] ?? '';
 
     <!-- Right Header Controls -->
     <div class="flex items-center gap-4">
+
+        <!-- Notifications -->
+        <div class="relative" id="notification-wrapper">
+            <button id="notification-btn" type="button" onclick="toggleNotificationDropdown()"
+                class="relative p-2 rounded-xl hover:bg-slate-50 transition-all cursor-pointer focus:outline-none"
+                aria-label="Notifications">
+                <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <?php if ($unreadNotificationCount > 0): ?>
+                    <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+                        <?= $unreadNotificationCount > 99 ? '99+' : (int) $unreadNotificationCount; ?>
+                    </span>
+                <?php endif; ?>
+            </button>
+
+            <div id="notification-menu"
+                class="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-white rounded-xl border border-slate-200/90 shadow-xl shadow-slate-200/50 opacity-0 invisible translate-y-1 transition-all duration-200 z-50">
+                <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <p class="text-xs font-bold text-slate-900">Notifications</p>
+                    <?php if ($unreadNotificationCount > 0): ?>
+                        <a href="<?= BASE_PATH; ?>/notifications_mark_read.php?all=1"
+                            class="text-[10px] font-semibold text-[#0F2854] hover:underline">Mark all as read</a>
+                    <?php endif; ?>
+                </div>
+                <div class="py-1.5">
+                    <?php if (empty($recentNotifications)): ?>
+                        <div class="px-4 py-2 border-b border-slate-100">
+                            <a href="<?= BASE_PATH; ?>/notifications.php" class="text-[10px] font-semibold text-[#0F2854] hover:underline">View all notifications</a>
+                        </div>
+                        <p class="px-4 py-6 text-xs text-slate-500 text-center">No notifications yet.</p>
+                    <?php else: ?>
+                        <?php foreach ($recentNotifications as $notif): ?>
+                            <?php
+                            $notifLink = !empty($notif['link_url']) ? (BASE_PATH . '/' . ltrim($notif['link_url'], '/')) : null;
+                            $isUnread = empty($notif['is_read']);
+                            ?>
+                            <a href="<?= $notifLink ? htmlspecialchars($notifLink) . (strpos($notifLink, '?') !== false ? '&' : '?') . 'notif_id=' . (int) $notif['id'] : '#'; ?>"
+                                class="block px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors <?= $isUnread ? 'bg-blue-50/40' : ''; ?>">
+                                <p class="text-xs font-bold text-slate-900"><?= htmlspecialchars($notif['title']); ?></p>
+                                <p class="text-[11px] text-slate-600 mt-0.5"><?= htmlspecialchars($notif['message']); ?></p>
+                                <p class="text-[10px] text-slate-400 mt-1"><?= date('M d, Y g:i A', strtotime($notif['created_at'])); ?></p>
+                            </a>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
 
         <!-- User Profile Dropdown Trigger -->
         <div class="relative" id="profile-dropdown-wrapper">
@@ -156,6 +213,19 @@ $displayEmail = $_SESSION['email'] ?? '';
             menu.classList.remove('opacity-0', 'invisible', 'translate-y-1');
             menu.classList.add('opacity-100', 'visible', 'translate-y-0');
             chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    function toggleNotificationDropdown() {
+        const menu = document.getElementById('notification-menu');
+        if (!menu) return;
+        const isOpen = menu.classList.contains('opacity-100');
+        if (isOpen) {
+            menu.classList.remove('opacity-100', 'visible', 'translate-y-0');
+            menu.classList.add('opacity-0', 'invisible', 'translate-y-1');
+        } else {
+            menu.classList.remove('opacity-0', 'invisible', 'translate-y-1');
+            menu.classList.add('opacity-100', 'visible', 'translate-y-0');
         }
     }
 

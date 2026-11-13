@@ -27,7 +27,7 @@ $flashError   = $_SESSION['flash_error'] ?? null;
 
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// Auto-trigger evaluation once an intern reaches 14 approved reports.
+// Auto-trigger evaluation once an intern reaches 16 approved reports.
 // Manual triggering remains available; this only flips the flag automatically.
 try {
     $stmtAutoTrigger = $pdo->query("
@@ -109,7 +109,8 @@ if (
 
         $stmtTrigger = $pdo->prepare("
             UPDATE students
-            SET evaluation_triggered = 1
+            SET evaluation_triggered = 1,
+                evaluation_auto_disabled = 0
             WHERE id = ?
         ");
 
@@ -170,6 +171,38 @@ if (
             $stud = $stmtStud->fetch(PDO::FETCH_ASSOC);
 
             $studName = $stud['name'] ?? "Student #{$studentId}";
+
+            // Notify the supervisor and student that evaluation was authorized.
+            $stmtNotifyUsers = $pdo->prepare("
+                SELECT s.user_id AS student_user_id, u_sup.id AS supervisor_user_id
+                FROM students s
+                LEFT JOIN supervisors sup ON sup.id = s.supervisor_id
+                LEFT JOIN users u_sup ON u_sup.id = sup.user_id
+                WHERE s.id = ?
+                LIMIT 1
+            ");
+            $stmtNotifyUsers->execute([$studentId]);
+            $notifyUsers = $stmtNotifyUsers->fetch(PDO::FETCH_ASSOC) ?: [];
+            if (!empty($notifyUsers['student_user_id'])) {
+                createNotification(
+                    $pdo,
+                    (int) $notifyUsers['student_user_id'],
+                    'Evaluation authorized',
+                    'Your final evaluation has been authorized by the coordinator.',
+                    'evaluation',
+                    'student/dashboard.php'
+                );
+            }
+            if (!empty($notifyUsers['supervisor_user_id'])) {
+                createNotification(
+                    $pdo,
+                    (int) $notifyUsers['supervisor_user_id'],
+                    'Evaluation authorized',
+                    "Final evaluation authorized for {$studName}.",
+                    'evaluation',
+                    'supervisor/evaluate_interns.php'
+                );
+            }
 
             /*
              * Activity Log
@@ -328,7 +361,8 @@ if (
          */
         $stmtCancel = $pdo->prepare("
             UPDATE students
-            SET evaluation_triggered = 0
+            SET evaluation_triggered = 0,
+                evaluation_auto_disabled = 1
             WHERE id = ?
               AND evaluation_triggered = 1
         ");

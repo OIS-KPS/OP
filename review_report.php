@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRol
 
     // Resolve report details and student name for audit trail
     $stmtFetchReport = $pdo->prepare("
-        SELECT r.id, r.week_number, r.student_id, u.name AS student_name 
+        SELECT r.id, r.week_number, r.student_id, u.id AS student_user_id, u.name AS student_name 
         FROM reports r
         INNER JOIN students s ON s.id = r.student_id
         INNER JOIN users u ON u.id = s.user_id
@@ -120,10 +120,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRol
             ");
             $stmtUpdate->execute([$reportId]);
 
-            // Auto-trigger evaluation once 14 reports are approved (manual trigger remains).
+            // Auto-trigger evaluation once 16 reports are approved (manual trigger remains).
             $approvedStudentId = (int) ($targetReport['student_id'] ?? 0);
             if ($approvedStudentId > 0) {
                 autoTriggerEvaluationIfNeeded($pdo, $approvedStudentId, 'supervisor', $userId);
+            }
+
+            $studentUserId = (int) ($targetReport['student_user_id'] ?? 0);
+            if ($studentUserId > 0) {
+                createNotification(
+                    $pdo,
+                    $studentUserId,
+                    'Report approved',
+                    "Your Week {$weekNum} accomplishment report was approved.",
+                    'report',
+                    "student/my_reports.php"
+                );
+            }
+
+            foreach ($pdo->query("SELECT id FROM users WHERE role = 'coordinator' AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN) as $coordId) {
+                createNotification(
+                    $pdo,
+                    (int) $coordId,
+                    'Report approved',
+                    "{$studName}'s Week {$weekNum} report was approved.",
+                    'report',
+                    "coordinator/view_report.php?student_id={$approvedStudentId}&report_id={$reportId}"
+                );
             }
 
             // Insert into audit_logs
@@ -166,6 +189,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRol
                 $_SERVER['REMOTE_ADDR'] ?? '::1',
                 $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
             ]);
+
+            $studentUserId = (int) ($targetReport['student_user_id'] ?? 0);
+            if ($studentUserId > 0) {
+                createNotification(
+                    $pdo,
+                    $studentUserId,
+                    'Changes requested',
+                    "Changes were requested for your Week {$weekNum} accomplishment report.",
+                    'report',
+                    "student/my_reports.php"
+                );
+            }
+
+            foreach ($pdo->query("SELECT id FROM users WHERE role = 'coordinator' AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN) as $coordId) {
+                createNotification(
+                    $pdo,
+                    (int) $coordId,
+                    'Report changes requested',
+                    "{$studName}'s Week {$weekNum} report needs changes.",
+                    'report',
+                    "coordinator/view_report.php?student_id=" . (int) ($targetReport['student_id'] ?? 0) . "&report_id={$reportId}"
+                );
+            }
 
             header("Location: review_report.php?report_id={$reportId}&status=rejected");
             exit;

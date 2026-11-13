@@ -141,12 +141,44 @@ function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, stri
             "Supervisor approved Week {$weekNumber} accomplishment report for {$studentName}."
         );
 
-        // Auto-trigger evaluation once 14 reports are approved (manual trigger remains).
+        // Auto-trigger evaluation once 16 reports are approved (manual trigger remains).
         $stmtStudent = $pdo->prepare("SELECT student_id FROM reports WHERE id = ? LIMIT 1");
         $stmtStudent->execute([$reportId]);
         $approvedStudentId = (int) ($stmtStudent->fetchColumn() ?: 0);
         if ($approvedStudentId > 0) {
             autoTriggerEvaluationIfNeeded($pdo, $approvedStudentId, 'supervisor', (int) $_SESSION['user_id']);
+        }
+
+        $stmtStudentUser = $pdo->prepare("
+            SELECT u.id
+            FROM reports r
+            JOIN students s ON s.id = r.student_id
+            JOIN users u ON u.id = s.user_id
+            WHERE r.id = ?
+            LIMIT 1
+        ");
+        $stmtStudentUser->execute([$reportId]);
+        $studentUserId = (int) ($stmtStudentUser->fetchColumn() ?: 0);
+        if ($studentUserId > 0) {
+            createNotification(
+                $pdo,
+                $studentUserId,
+                'Report approved',
+                "Your Week {$weekNumber} accomplishment report was approved.",
+                'report',
+                "student/my_reports.php"
+            );
+        }
+
+        foreach ($pdo->query("SELECT id FROM users WHERE role = 'coordinator' AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN) as $coordId) {
+            createNotification(
+                $pdo,
+                (int) $coordId,
+                'Report approved',
+                "{$studentName}'s Week {$weekNumber} report was approved.",
+                'report',
+                "coordinator/view_report.php?student_id={$approvedStudentId}&report_id={$reportId}"
+            );
         }
 
         return [
@@ -175,6 +207,38 @@ function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, stri
         'REPORT_REVISION',
         "Supervisor requested changes on Week {$weekNumber} accomplishment report for {$studentName}."
     );
+
+    $stmtStudentUser = $pdo->prepare("
+        SELECT u.id
+        FROM reports r
+        JOIN students s ON s.id = r.student_id
+        JOIN users u ON u.id = s.user_id
+        WHERE r.id = ?
+        LIMIT 1
+    ");
+    $stmtStudentUser->execute([$reportId]);
+    $studentUserId = (int) ($stmtStudentUser->fetchColumn() ?: 0);
+    if ($studentUserId > 0) {
+        createNotification(
+            $pdo,
+            $studentUserId,
+            'Changes requested',
+            "Changes were requested for your Week {$weekNumber} accomplishment report.",
+            'report',
+            "student/my_reports.php"
+        );
+    }
+
+    foreach ($pdo->query("SELECT id FROM users WHERE role = 'coordinator' AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN) as $coordId) {
+        createNotification(
+            $pdo,
+            (int) $coordId,
+            'Report changes requested',
+            "{$studentName}'s Week {$weekNumber} report needs changes.",
+            'report',
+            "coordinator/view_report.php?student_id=" . (int) $studentId . "&report_id={$reportId}"
+        );
+    }
 
     return [
         'ok' => true,

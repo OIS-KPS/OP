@@ -255,6 +255,31 @@ if ($action === 'verify_and_submit_evaluation') {
 
         $pdo->commit();
 
+        // Notify coordinators and the intern that the evaluation was submitted.
+        $stmtStudentUser = $pdo->prepare("SELECT u.id FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = ? LIMIT 1");
+        $stmtStudentUser->execute([$studentId]);
+        $studentUserId = (int) ($stmtStudentUser->fetchColumn() ?: 0);
+        if ($studentUserId > 0) {
+            createNotification(
+                $pdo,
+                $studentUserId,
+                'Evaluation submitted',
+                "Your final performance evaluation has been submitted.",
+                'evaluation',
+                "student/dashboard.php"
+            );
+        }
+        foreach ($pdo->query("SELECT id FROM users WHERE role = 'coordinator' AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN) as $coordId) {
+            createNotification(
+                $pdo,
+                (int) $coordId,
+                'Evaluation submitted',
+                ($authRow['student_name'] ?? 'An intern') . "'s final evaluation was submitted by the supervisor.",
+                'evaluation',
+                "coordinator/evaluations.php"
+            );
+        }
+
         /*
          * Set here rather than in the browser: this endpoint already owns the
          * session, so the confirmation survives the redirect as a normal flash
