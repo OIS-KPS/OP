@@ -42,7 +42,8 @@ session_start();
 
 require_once __DIR__ . '/../config/db.php';
 
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator') {
+$exportRole = (string) ($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || !in_array($exportRole, ['coordinator', 'supervisor'], true)) {
     header('Location: ../auth/login.php');
     exit();
 }
@@ -53,6 +54,18 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coordinator')
 require_once __DIR__ . '/../config/evaluation_criteria.php';
 
 $NAVY = '#0F2854';
+
+// Scope: supervisors may only export their own interns' evaluations.
+$scopeSupervisorId = null;
+if ($exportRole === 'supervisor') {
+    $stmtScopeSup = $pdo->prepare('SELECT id FROM supervisors WHERE user_id = ? LIMIT 1');
+    $stmtScopeSup->execute([(int) $_SESSION['user_id']]);
+    $scopeSupervisorId = (int) ($stmtScopeSup->fetchColumn() ?: 0);
+    if ($scopeSupervisorId <= 0) {
+        http_response_code(403);
+        exit('Supervisor profile not found.');
+    }
+}
 
 if (!function_exists('evalPdfE')) {
     function evalPdfE($value): string
@@ -210,7 +223,7 @@ if (!function_exists('evalPdfArchiveFilename')) {
  * Returns null when there is no evaluation, or when it is not yet signed.
  */
 if (!function_exists('evalPdfFetch')) {
-    function evalPdfFetch(PDO $pdo, int $studentId): ?array
+    function evalPdfFetch(PDO $pdo, int $studentId, ?int $supervisorId = null): ?array
     {
         $stmt = $pdo->prepare("
             SELECT
@@ -230,9 +243,10 @@ if (!function_exists('evalPdfFetch')) {
             LEFT JOIN supervisors sup ON sup.id = e.supervisor_id
             LEFT JOIN users sup_user  ON sup_user.id = sup.user_id
             WHERE e.student_id = ?
+              AND (? IS NULL OR e.supervisor_id = ?)
             LIMIT 1
         ");
-        $stmt->execute([$studentId]);
+        $stmt->execute([$studentId, $supervisorId, $supervisorId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Bridge: attach 12 criterion ratings so the PDF can render per-competency answers
@@ -249,7 +263,7 @@ if (!function_exists('evalPdfFetch')) {
  * chronologically.
  */
 if (!function_exists('evalPdfFetchAll')) {
-    function evalPdfFetchAll(PDO $pdo): array
+    function evalPdfFetchAll(PDO $pdo, ?int $supervisorId = null): array
     {
         $stmt = $pdo->prepare("
             SELECT
@@ -269,9 +283,10 @@ if (!function_exists('evalPdfFetchAll')) {
             LEFT JOIN supervisors sup ON sup.id = e.supervisor_id
             LEFT JOIN users sup_user  ON sup_user.id = sup.user_id
             WHERE e.otp_signed_at IS NOT NULL
+              AND (? IS NULL OR e.supervisor_id = ?)
             ORDER BY e.otp_signed_at ASC, u.name ASC
         ");
-        $stmt->execute();
+        $stmt->execute([$supervisorId, $supervisorId]);
 
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
@@ -508,7 +523,7 @@ if (!class_exists('\Mpdf\Mpdf')) {
 }
 
 if ($isBulk) {
-    $evaluations = evalPdfFetchAll($pdo);
+    $evaluations = evalPdfFetchAll($pdo, $scopeSupervisorId);
     if (empty($evaluations)) {
         http_response_code(404);
         exit('There are no signed evaluations to export yet.');
@@ -519,7 +534,7 @@ if ($isBulk) {
         exit('No student was selected.');
     }
 
-    $evaluation = evalPdfFetch($pdo, $studentId);
+    $evaluation = evalPdfFetch($pdo, $studentId, $scopeSupervisorId);
     if ($evaluation === null) {
         http_response_code(403);
         exit('This evaluation has not been signed by the supervisor, so it cannot be exported.');
