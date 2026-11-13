@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRol
 
     // Resolve report details and student name for audit trail
     $stmtFetchReport = $pdo->prepare("
-        SELECT r.id, r.week_number, u.name AS student_name 
+        SELECT r.id, r.week_number, r.student_id, u.name AS student_name 
         FROM reports r
         INNER JOIN students s ON s.id = r.student_id
         INNER JOIN users u ON u.id = s.user_id
@@ -119,6 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRol
                 WHERE id = ?
             ");
             $stmtUpdate->execute([$reportId]);
+
+            // Auto-trigger evaluation once 14 reports are approved (manual trigger remains).
+            $approvedStudentId = (int) ($targetReport['student_id'] ?? 0);
+            if ($approvedStudentId > 0) {
+                autoTriggerEvaluationIfNeeded($pdo, $approvedStudentId, 'supervisor', $userId);
+            }
 
             // Insert into audit_logs
             $logDesc = "Supervisor approved Week {$weekNum} accomplishment report for {$studName}.";

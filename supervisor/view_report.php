@@ -141,6 +141,14 @@ function applySupervisorVerdict(PDO $pdo, int $supervisorId, int $reportId, stri
             "Supervisor approved Week {$weekNumber} accomplishment report for {$studentName}."
         );
 
+        // Auto-trigger evaluation once 14 reports are approved (manual trigger remains).
+        $stmtStudent = $pdo->prepare("SELECT student_id FROM reports WHERE id = ? LIMIT 1");
+        $stmtStudent->execute([$reportId]);
+        $approvedStudentId = (int) ($stmtStudent->fetchColumn() ?: 0);
+        if ($approvedStudentId > 0) {
+            autoTriggerEvaluationIfNeeded($pdo, $approvedStudentId, 'supervisor', (int) $_SESSION['user_id']);
+        }
+
         return [
             'ok' => true,
             'message' => "Week {$weekNumber} report for {$studentName} was approved."

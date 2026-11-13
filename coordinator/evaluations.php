@@ -27,6 +27,22 @@ $flashError   = $_SESSION['flash_error'] ?? null;
 
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
+// Auto-trigger evaluation once an intern reaches 14 approved reports.
+// Manual triggering remains available; this only flips the flag automatically.
+try {
+    $stmtAutoTrigger = $pdo->query("
+        SELECT id
+        FROM students
+        WHERE supervisor_id IS NOT NULL
+          AND (evaluation_triggered IS NULL OR evaluation_triggered = 0)
+    ");
+    foreach ($stmtAutoTrigger->fetchAll(PDO::FETCH_COLUMN) as $autoStudentId) {
+        autoTriggerEvaluationIfNeeded($pdo, (int) $autoStudentId, 'system', $_SESSION['user_id'] ?? null);
+    }
+} catch (Throwable $autoTriggerException) {
+    error_log('Evaluation auto-trigger sweep failed: ' . $autoTriggerException->getMessage());
+}
+
 /*
 |--------------------------------------------------------------------------
 | Helper: Redirect back to evaluations page
