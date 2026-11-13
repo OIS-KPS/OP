@@ -277,6 +277,29 @@ if (!$companiesForPdf) {
     }
 }
 
+// ---------------------------------------------------------
+// Office breakdown (drill-down under company level).
+// ---------------------------------------------------------
+$html .= '<h2>Office Breakdown</h2>';
+$officesForPdf = is_array($officePerformance ?? null) ? $officePerformance : [];
+if (!$officesForPdf) {
+    $html .= '<p class="body">No office records are available.</p>';
+} else {
+    $html .= '<table><tr><th>Office</th><th>Company</th><th>Students</th><th>Verified Evals</th><th>Score</th><th>IT Task %</th><th>Level</th></tr>';
+    foreach ($officesForPdf as $office) {
+        $html .= '<tr>'
+            . '<td>' . cqiE((string) ($office['office_name'] ?? '')) . '</td>'
+            . '<td>' . cqiE((string) ($office['company_name'] ?? '')) . '</td>'
+            . '<td>' . cqiE((int) ($office['student_count'] ?? 0)) . '</td>'
+            . '<td>' . cqiE((int) ($office['verified_evaluations'] ?? 0)) . '</td>'
+            . '<td>' . cqiE(number_format((float) ($office['percentage'] ?? 0), 1)) . '%</td>'
+            . '<td>' . cqiE($office['it_task_ratio'] === null ? 'No data' : number_format((float) $office['it_task_ratio'], 1) . '%') . '</td>'
+            . '<td>' . cqiE((string) ($office['level'] ?? 'No data')) . '</td>'
+            . '</tr>';
+    }
+    $html .= '</table>';
+}
+
 if ($gaps) {
     $html .= '<h2>Needs Attention (' . count($gaps) . ')</h2><ul>';
     foreach ($gaps as $gap) {
