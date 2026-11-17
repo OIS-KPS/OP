@@ -147,6 +147,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
             $stmtCheckRow->execute([$student_id, $weekNumber]);
             $existingReport = $stmtCheckRow->fetch(PDO::FETCH_ASSOC);
 
+            $reportIdForNotification = 0;
+
             if ($existingReport) {
                 $archivedOldFile = !empty($existingReport['file_path']) ? $existingReport['file_path'] : $existingReport['previous_file_path'];
 
@@ -167,6 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
                     WHERE id = ?
                 ");
                 $stmtUpdate->execute([$archivedOldFile, $filePath, $isLate, $deadlineDb, $existingReport['id']]);
+            $reportIdForNotification = (int) $existingReport['id'];
 
                 $logDesc = "Student {$studentName} submitted revised Week {$weekNumber} accomplishment report.";
                 $stmtLog = $pdo->prepare("
@@ -189,6 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
                     VALUES (?, ?, ?, 'pending', NOW(), ?, ?)
                 ");
                 $stmtInsert->execute([$student_id, $weekNumber, $filePath, $isLate, $deadlineDb]);
+                $reportIdForNotification = (int) $pdo->lastInsertId();
 
                 $logDesc = "Student {$studentName} submitted Week {$weekNumber} accomplishment report.";
                 $stmtLog = $pdo->prepare("
@@ -201,6 +205,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAssigned) {
                     $_SERVER['REMOTE_ADDR'] ?? '::1',
                     $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
                 ]);
+            }
+
+            // Notify the assigned supervisor and coordinators about the submission.
+            $stmtSupUser = $pdo->prepare("
+                SELECT u.id
+                FROM students s
+                JOIN supervisors sup ON sup.id = s.supervisor_id
+                JOIN users u ON u.id = sup.user_id
+                WHERE s.id = ?
+                LIMIT 1
+            ");
+            $stmtSupUser->execute([$student_id]);
+            $supervisorUserId = (int) ($stmtSupUser->fetchColumn() ?: 0);
+            if ($supervisorUserId > 0) {
+                createNotification(
+                    $pdo,
+                    $supervisorUserId,
+                    'New report submitted',
+                    "{$studentName} submitted Week {$weekNumber} accomplishment report.",
+                    'report',
+                    "supervisor/view_report.php?student_id={$student_id}&report_id=" . (int) $reportIdForNotification
+                );
+            }
+
+            $stmtCoords = $pdo->query("SELECT id FROM users WHERE role = 'coordinator' AND status = 'active'");
+            foreach ($stmtCoords->fetchAll(PDO::FETCH_COLUMN) as $coordId) {
+                createNotification(
+                    $pdo,
+                    (int) $coordId,
+                    'New report submitted',
+                    "{$studentName} submitted Week {$weekNumber} accomplishment report.",
+                    'report',
+                    "coordinator/view_report.php?student_id={$student_id}"
+                );
             }
 
             header("Location: reports.php?submitted=success");

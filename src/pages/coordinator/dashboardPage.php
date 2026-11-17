@@ -56,6 +56,7 @@ $clericalActivityPct = $totalEntityOccurrencesView > 0
     : 0.0;
 
 $dashboardCompanies = is_array($companyPerformance ?? null) ? $companyPerformance : [];
+$dashboardOffices = is_array($officePerformance ?? null) ? $officePerformance : [];
 $lowCompaniesView = array_values(array_filter($dashboardCompanies, static function (array $company): bool {
     return (float) ($company['percentage'] ?? 0) > 0 && (float) ($company['percentage'] ?? 0) < 60;
 }));
@@ -230,6 +231,32 @@ $cqiStatusClassView = match ($cqiStatusView) {
 
                 </div>
 
+                <!-- Office IT Task Analysis -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-xs font-bold text-slate-900">Office IT Task Analysis</h2>
+                            <p class="text-[11px] text-slate-400">Percentage of IT-related tasks per office • <span class="text-blue-600 font-semibold cursor-pointer">Click a bar to filter entities</span></p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <select id="officeCompanyFilter" onchange="renderOfficeBarChart()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] text-slate-700 font-medium focus:outline-none focus:border-[#0F2854]">
+                                <option value="all">All Companies</option>
+                                <?php foreach ($companyPerformance as $cp): ?>
+                                    <option value="<?= htmlspecialchars(strtolower($cp['name'])); ?>"><?= htmlspecialchars($cp['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="flex items-center gap-1.5 text-[10px] font-bold">
+                                <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">High ≥ 80%</span>
+                                <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">Mod 60–79%</span>
+                                <span class="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-300">Low &lt; 60%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-60 relative">
+                        <canvas id="officeTaskBarChart"></canvas>
+                    </div>
+                </div>
+
                 <!-- 3. Entity Frequency Horizontal Bar Chart Section -->
                 <div class="w-full min-w-0 max-w-full min-h-[360px] max-h-[70vh] overflow-y-auto overflow-x-hidden bg-white rounded-2xl border border-slate-200/80 shadow-xs">
                     <div class="sticky top-0 z-20 px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs bg-white">
@@ -255,6 +282,13 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                     <option value="all">All Companies</option>
                                     <?php foreach ($companyPerformance as $cp): ?>
                                         <option value="<?= htmlspecialchars(strtolower($cp['name'])); ?>"><?= htmlspecialchars($cp['name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+
+                                <select id="officeFilter" onchange="renderEntityChart()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] text-slate-700 font-medium focus:outline-none focus:border-[#0F2854]">
+                                    <option value="all">All Offices</option>
+                                    <?php foreach ($officePerformance as $op): ?>
+                                        <option value="<?= htmlspecialchars($op['company_id'] . ':' . ($op['office_id'] ?? 'null')); ?>" data-company="<?= htmlspecialchars(strtolower($op['company_name'])); ?>"><?= htmlspecialchars($op['name']); ?></option>
                                     <?php endforeach; ?>
                                 </select>
 
@@ -401,6 +435,8 @@ $cqiStatusClassView = match ($cqiStatusView) {
     <script>
         // Bar Chart (IT Task Performance by Company)
         const companies = <?= json_encode($companyPerformance); ?>;
+        const offices = <?= json_encode($officePerformance); ?>;
+        let officeChartInstance = null;
         const ctxBar = document.getElementById('companyTaskBarChart').getContext('2d');
         new Chart(ctxBar, {
             type: 'bar',
@@ -668,6 +704,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
             }
 
             const company = document.getElementById('companyFilter').value;
+            const office = document.getElementById('officeFilter').value;
             const type = document.getElementById('typeFilter').value;
             const date = document.getElementById('dateFilter').value;
 
@@ -675,9 +712,11 @@ $cqiStatusClassView = match ($cqiStatusView) {
             let filtered = rawEntitiesData.filter(item => {
                 const itemComp = (item.company || '').toLowerCase();
                 const matchComp = (company === 'all' || itemComp === company.toLowerCase());
+                const itemOfficeKey = String(item.company_id ?? '') + ':' + (item.office_id === null ? 'null' : String(item.office_id));
+                const matchOffice = (office === 'all' || itemOfficeKey === office);
                 const matchType = (type === 'all' || item.classification.toLowerCase() === type.toLowerCase());
                 const matchDate = (!date || item.date === date);
-                return matchComp && matchType && matchDate;
+                return matchComp && matchOffice && matchType && matchDate;
             });
 
             // Collapse the same term seen across several reports into one bar, so the
@@ -832,8 +871,132 @@ $cqiStatusClassView = match ($cqiStatusView) {
         // buttons. The card now prints every term, grouped by priority, in the
         // markup above -- there is nothing left for a click handler to reveal.
 
+        function renderOfficeBarChart() {
+            if (officeChartInstance) {
+                officeChartInstance.destroy();
+                officeChartInstance = null;
+            }
+            const company = document.getElementById('officeCompanyFilter').value;
+            const filtered = (offices || []).filter(function (office) {
+                return company === 'all' || String(office.company_name || '').toLowerCase() === company;
+            }).slice().sort(function (a, b) {
+                return String(a.company_name || '').localeCompare(String(b.company_name || '')) || String(a.office_name || '').localeCompare(String(b.office_name || ''));
+            });
+
+            const canvas = document.getElementById('officeTaskBarChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            const labels = filtered.map(function (o) { return o.name; });
+            const values = filtered.map(function (o) {
+                return o.it_task_ratio === null || o.it_task_ratio === undefined ? 0 : Number(o.it_task_ratio);
+            });
+            const colors = filtered.map(function (o) {
+                if (o.it_task_ratio === null || o.it_task_ratio === undefined) return '#CBD5E1';
+                return o.it_task_ratio >= 80 ? '#059669' : (o.it_task_ratio >= 60 ? '#D97706' : '#991B1B');
+            });
+            const hoverColors = filtered.map(function (o) {
+                if (o.it_task_ratio === null || o.it_task_ratio === undefined) return '#94A3B8';
+                return o.it_task_ratio >= 80 ? '#047857' : (o.it_task_ratio >= 60 ? '#B45309' : '#7F1D1D');
+            });
+
+            officeChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'IT Task %',
+                        data: values,
+                        backgroundColor: colors,
+                        hoverBackgroundColor: hoverColors,
+                        borderRadius: 6,
+                        barThickness: 28
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onHover: function (event, chartElement) {
+                        const target = event.native ? event.native.target : (event.chart ? event.chart.canvas : null);
+                        if (target) {
+                            target.style.cursor = chartElement && chartElement.length > 0 ? 'pointer' : 'default';
+                        }
+                    },
+                    onClick: function (event, elements) {
+                        if (!elements || !elements.length) return;
+                        const clicked = filtered[elements[0].index];
+                        if (!clicked) return;
+                        const companySelect = document.getElementById('companyFilter');
+                        const officeSelect = document.getElementById('officeFilter');
+                        if (companySelect) {
+                            companySelect.value = String(clicked.company_name || '').toLowerCase();
+                        }
+                        if (officeSelect) {
+                            officeSelect.value = String(clicked.company_id) + ':' + (clicked.office_id === null ? 'null' : String(clicked.office_id));
+                        }
+                        renderEntityChart();
+                        const entityWrapper = document.getElementById('entityChartWrapper');
+                        if (entityWrapper) {
+                            entityWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0F172A',
+                            padding: 10,
+                            cornerRadius: 8,
+                            titleFont: { family: 'Inter', size: 12, weight: 'bold' },
+                            bodyFont: { family: 'Inter', size: 11 },
+                            callbacks: {
+                                label: function (context) {
+                                    const office = filtered[context.dataIndex];
+                                    if (!office || office.it_task_ratio === null || office.it_task_ratio === undefined) {
+                                        return ' IT-related task ratio: No entity data';
+                                    }
+                                    return [
+                                        ' IT-related task ratio: ' + Number(office.it_task_ratio).toFixed(1) + '%',
+                                        ' Level: ' + (office.it_task_level || 'Unclassified'),
+                                        ' Evidence: ' + (office.it_related_occurrences || 0) + ' of ' + (office.entity_occurrences || 0) + ' occurrences',
+                                        ' Score: ' + Number(office.percentage || 0).toFixed(1) + '%'
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { family: 'Inter', size: 11 }, color: '#334155' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                stepSize: 20,
+                                callback: function (v) { return v + '%'; },
+                                font: { family: 'Inter', size: 11 },
+                                color: '#334155'
+                            },
+                            grid: { color: '#F1F5F9' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // Initial render on page load
         renderEntityChart();
+        renderOfficeBarChart();
     </script>
 
 </body>

@@ -34,9 +34,14 @@ if (!function_exists('e')) {
             <main class="p-8 max-w-[1400px] w-full mx-auto space-y-6 flex-1">
 
                 <!-- Page Header Title -->
-                <div>
-                    <h2 class="text-base font-extrabold text-slate-950 leading-snug tracking-tight">My Interns</h2>
-                    <p class="text-slate-600 text-xs font-semibold mt-0.5">Directory of students under your direct supervision and their weekly submission progress.</p>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-950 leading-snug tracking-tight">My Interns</h2>
+                        <p class="text-slate-600 text-xs font-semibold mt-0.5">Directory of students under your direct supervision and their weekly submission progress.</p>
+                    </div>
+                    <a href="export_reports.php" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0F2854] text-white text-xs font-bold shadow-2xs hover:bg-blue-900">
+                        View Submitted Reports
+                    </a>
                 </div>
 
                 <!-- Students Directory Table Card -->

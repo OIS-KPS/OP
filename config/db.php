@@ -75,6 +75,96 @@ if (!function_exists('logActivity')) {
 }
 
 /**
+ * Auto-trigger a final evaluation once an intern reaches 16 approved reports.
+ *
+ * Manual triggering remains available elsewhere; this only flips the flag when
+ * the threshold is met and a supervisor is assigned. Returns true when it
+ * triggered (or was already triggered), false otherwise.
+ */
+if (!function_exists('autoTriggerEvaluationIfNeeded')) {
+    function autoTriggerEvaluationIfNeeded(PDO $pdo, int $studentId, string $actorRole = 'system', ?int $actorUserId = null): bool
+    {
+        if ($studentId <= 0) {
+            return false;
+        }
+
+        try {
+            $stmt = $pdo->prepare("
+                SELECT s.id, s.supervisor_id, s.evaluation_triggered, s.evaluation_auto_disabled, s.user_id AS student_user_id, u.name AS student_name,
+                       u_sup.id AS supervisor_user_id
+                FROM students s
+                JOIN users u ON u.id = s.user_id
+                LEFT JOIN supervisors sup ON sup.id = s.supervisor_id
+                LEFT JOIN users u_sup ON u_sup.id = sup.user_id
+                WHERE s.id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$studentId]);
+            $student = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$student || empty($student['supervisor_id'])) {
+                return false;
+            }
+
+            if (!empty($student['evaluation_triggered'])) {
+                return true;
+            }
+
+            if (!empty($student['evaluation_auto_disabled'])) {
+                return false;
+            }
+
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM reports WHERE student_id = ? AND status = 'approved'");
+            $stmtCount->execute([$studentId]);
+            $approvedCount = (int) $stmtCount->fetchColumn();
+
+            if ($approvedCount < 16) {
+                return false;
+            }
+
+            $stmtUpdate = $pdo->prepare("UPDATE students SET evaluation_triggered = 1 WHERE id = ? AND (evaluation_triggered IS NULL OR evaluation_triggered = 0)");
+            $stmtUpdate->execute([$studentId]);
+
+            if ($stmtUpdate->rowCount() > 0) {
+                logActivity(
+                    $pdo,
+                    $actorUserId,
+                    $actorRole,
+                    'EVAL_AUTO_TRIGGERED',
+                    "Evaluation auto-triggered for {$student['student_name']} after {$approvedCount} approved reports."
+                );
+
+                if (!empty($student['student_user_id'])) {
+                    createNotification(
+                        $pdo,
+                        (int) $student['student_user_id'],
+                        'Evaluation auto-triggered',
+                        "Your final evaluation was auto-triggered after {$approvedCount} approved reports.",
+                        'evaluation',
+                        'student/dashboard.php'
+                    );
+                }
+                if (!empty($student['supervisor_user_id'])) {
+                    createNotification(
+                        $pdo,
+                        (int) $student['supervisor_user_id'],
+                        'Evaluation auto-triggered',
+                        "Final evaluation auto-triggered for {$student['student_name']} after {$approvedCount} approved reports.",
+                        'evaluation',
+                        'supervisor/evaluate_interns.php'
+                    );
+                }
+            }
+
+            return true;
+        } catch (Throwable $e) {
+            error_log('Auto-trigger evaluation failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+}
+
+/**
  * The course codes (formerly "Section A/B/C/D") used to group student interns.
  *
  * @return string[]
@@ -198,3 +288,4 @@ if (!function_exists('userFacingError')) {
         return $e->getMessage();
     }
 }
+require_once __DIR__ . '/notifications_helper.php';

@@ -69,10 +69,15 @@ if (!function_exists('e')) {
                         </p>
                     </div>
 
-                    <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
-                        <?= count($students ?? []); ?> Total <?= count($students ?? []) === 1 ? 'Student' : 'Students'; ?>
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <a href="export_evaluation.php?bulk=1" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0F2854] text-white border border-[#0F2854] text-xs font-bold shadow-2xs hover:bg-blue-900">
+                            Export All Signed (PDF)
+                        </a>
+                        <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs">
+                            <span class="w-1.5 h-1.5 rounded-full bg-[#0F2854]"></span>
+                            <?= count($students ?? []); ?> Total <?= count($students ?? []) === 1 ? 'Student' : 'Students'; ?>
+                        </span>
+                    </div>
                 </div>
 
                 <!-- Roster Table Card -->
@@ -163,6 +168,9 @@ if (!function_exists('e')) {
                                                 <?php if ($isEvaluated): ?>
                                                     <a href="evaluate_view.php?id=<?= (int)$student['evaluation_id']; ?>" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all inline-block cursor-pointer">
                                                         View Result
+                                                    </a>
+                                                    <a href="export_evaluation.php?student_id=<?= (int)$student['id']; ?>" class="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-[#0F2854] text-xs font-bold rounded-xl border border-slate-300 shadow-2xs transition-all inline-block cursor-pointer">
+                                                        Export PDF
                                                     </a>
                                                 <?php elseif ($isTriggered): ?>
                                                     <a href="evaluate_form.php?student_id=<?= $student['id']; ?>" class="px-4 py-1.5 bg-[#0F2854] hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer">

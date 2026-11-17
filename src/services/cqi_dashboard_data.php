@@ -10,6 +10,7 @@ $totalReports = 0;
 $overallTechPct = 0.0;
 $spacyConfidence = 0.0;
 $companyPerformance = [];
+$officePerformance = [];
 $entitiesData = [];
 $dashboardError = '';
 
@@ -26,6 +27,12 @@ $lowItCompanies = [];
 $companiesWithoutEvaluations = [];
 $highestItCompany = null;
 $lowestItCompany = null;
+$lowPerformingOffices = [];
+$lowItOffices = [];
+$officesWithoutEvaluations = [];
+$highestItOffice = null;
+$lowestItOffice = null;
+$officeComparisonText = 'No office has enough extracted-entity evidence for an IT-ratio comparison.';
 $topFrequentEntities = [];
 $entityPrioritySummary = [];
 $cqiSummary = [];
@@ -165,6 +172,170 @@ try {
         ];
     }
 
+    // 6b. Office performance from verified evaluation ratings and entity activity.
+    // Offices with no verified evaluations remain visible with 0.0. Students
+    // without an office are grouped into an "Unassigned" bucket per company so
+    // no intern is dropped from the drill-down.
+    $officeEvaluationRows = [];
+    $stmt = $pdo->query(
+        "SELECT
+            s.company_id,
+            s.office_id,
+            COUNT(DISTINCT s.id) AS student_count,
+            COUNT(DISTINCT CASE WHEN e.otp_signed_at IS NOT NULL THEN e.student_id END) AS verified_evaluations,
+            COUNT(DISTINCT CASE WHEN e.otp_signed_at IS NOT NULL AND ra.final_score IS NOT NULL THEN e.student_id END) AS scored_evaluations,
+            COALESCE(ROUND(AVG(CASE WHEN e.otp_signed_at IS NOT NULL THEN ra.final_score * 20 END), 1), 0) AS percentage
+         FROM students s
+         LEFT JOIN evaluations e ON e.student_id = s.id
+         LEFT JOIN (
+            SELECT evaluation_id, AVG(rating) AS final_score
+            FROM evaluation_ratings
+            GROUP BY evaluation_id
+         ) ra ON ra.evaluation_id = e.id
+         GROUP BY s.company_id, s.office_id"
+    );
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $companyId = $row['company_id'] === null ? 0 : (int) $row['company_id'];
+        $officeId = $row['office_id'] === null ? 0 : (int) $row['office_id'];
+        $officeEvaluationRows[$companyId . ':' . $officeId] = $row;
+    }
+
+    $officeEntityRows = [];
+    $stmt = $pdo->query(
+        "SELECT
+            s.company_id,
+            s.office_id,
+            COUNT(re.id) AS entity_occurrences,
+            SUM(CASE WHEN re.it_related = 'yes' THEN 1 ELSE 0 END) AS it_related_occurrences
+         FROM students s
+         INNER JOIN reports r ON r.student_id = s.id
+         INNER JOIN report_entities re ON re.report_id = r.id
+         WHERE r.status = 'approved'
+           AND re.is_archived = 0
+         GROUP BY s.company_id, s.office_id"
+    );
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $companyId = $row['company_id'] === null ? 0 : (int) $row['company_id'];
+        $officeId = $row['office_id'] === null ? 0 : (int) $row['office_id'];
+        $officeEntityRows[$companyId . ':' . $officeId] = $row;
+    }
+
+    // Company lookup (reuse for office buckets).
+    $companyNameMap = [];
+    $stmt = $pdo->query('SELECT id, name FROM companies');
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $company) {
+        $companyNameMap[(int) $company['id']] = (string) $company['name'];
+    }
+
+    // Office lookup.
+    $officeNameMap = [];
+    $stmt = $pdo->query(
+        "SELECT o.id, o.company_id, o.name, c.name AS company_name
+         FROM offices o
+         INNER JOIN companies c ON c.id = o.company_id
+         ORDER BY c.name ASC, o.name ASC"
+    );
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $office) {
+        $officeNameMap[(int) $office['id']] = $office;
+    }
+
+    // Build the set of office keys to render: every real office plus an
+    // "Unassigned" bucket for each company that has students without an office.
+    $officeKeys = [];
+    foreach ($officeNameMap as $officeId => $office) {
+        $companyId = (int) $office['company_id'];
+        $officeKeys[$companyId . ':' . $officeId] = [
+            'company_id' => $companyId,
+            'office_id' => $officeId,
+            'office_name' => (string) $office['name'],
+            'company_name' => (string) $office['company_name'],
+        ];
+    }
+    foreach (array_keys($officeEvaluationRows + $officeEntityRows) as $key) {
+        [$companyId, $officeId] = array_map('intval', explode(':', $key));
+        if ($officeId === 0) {
+            $name = $companyId > 0
+                ? ($companyNameMap[$companyId] ?? 'Unassigned Company')
+                : 'Unassigned';
+            $officeKeys[$key] = [
+                'company_id' => $companyId,
+                'office_id' => null,
+                'office_name' => 'Unassigned',
+                'company_name' => $companyId > 0 ? $name : 'Unassigned',
+            ];
+        }
+    }
+
+    ksort($officeKeys, SORT_NATURAL);
+
+    foreach ($officeKeys as $key => $meta) {
+        $evaluation = $officeEvaluationRows[$key] ?? [];
+        $entity = $officeEntityRows[$key] ?? [];
+        $companyId = (int) $meta['company_id'];
+        $officeId = $meta['office_id'];
+        $companyName = (string) $meta['company_name'];
+        $officeName = (string) $meta['office_name'];
+        $displayName = $companyName . ' - ' . $officeName;
+        $percentage = (float) ($evaluation['percentage'] ?? 0);
+        $entityOccurrences = (int) ($entity['entity_occurrences'] ?? 0);
+        $itOccurrences = (int) ($entity['it_related_occurrences'] ?? 0);
+
+        $officePerformance[] = [
+            'office_id' => $officeId,
+            'company_id' => $companyId,
+            'office_name' => $officeName,
+            'company_name' => $companyName,
+            'name' => $displayName,
+            'student_count' => (int) ($evaluation['student_count'] ?? 0),
+            'verified_evaluations' => (int) ($evaluation['verified_evaluations'] ?? 0),
+            'scored_evaluations' => (int) ($evaluation['scored_evaluations'] ?? 0),
+            'entity_occurrences' => $entityOccurrences,
+            'it_related_occurrences' => $itOccurrences,
+            'it_task_ratio' => $entityOccurrences > 0
+                ? round(($itOccurrences / $entityOccurrences) * 100, 1)
+                : null,
+            'it_task_level' => $entityOccurrences > 0
+                ? dashboardLevel(round(($itOccurrences / $entityOccurrences) * 100, 1))
+                : 'No data',
+            'percentage' => $percentage,
+            'level' => dashboardLevel($percentage)
+        ];
+    }
+
+    // Office rankings.
+    $officesWithEntityEvidence = array_values(array_filter(
+        $officePerformance,
+        static fn (array $office): bool => (int) $office['entity_occurrences'] > 0
+    ));
+    usort($officesWithEntityEvidence, static function (array $left, array $right): int {
+        return ($right['it_task_ratio'] <=> $left['it_task_ratio'])
+            ?: strcasecmp($left['name'], $right['name']);
+    });
+    $highestItOffice = $officesWithEntityEvidence[0] ?? null;
+    $lowestItOffice = $officesWithEntityEvidence ? $officesWithEntityEvidence[array_key_last($officesWithEntityEvidence)] : null;
+    $lowItOffices = array_values(array_filter(
+        $officesWithEntityEvidence,
+        static fn (array $office): bool => (float) ($office['it_task_ratio'] ?? 0) < 60
+    ));
+
+    foreach ($officePerformance as $office) {
+        if ((int) ($office['verified_evaluations'] ?? 0) === 0) {
+            $officesWithoutEvaluations[] = $office['name'];
+        } elseif ((float) ($office['percentage'] ?? 0) > 0 && (float) ($office['percentage'] ?? 0) < 60) {
+            $lowPerformingOffices[] = $office;
+        }
+    }
+
+    if ($highestItOffice && $lowestItOffice) {
+        $officeComparisonText = sprintf(
+            'The highest IT-related task ratio is recorded by %s at %.1f%%, while the lowest among offices with entity evidence is %s at %.1f%%.',
+            $highestItOffice['name'],
+            $highestItOffice['it_task_ratio'],
+            $lowestItOffice['name'],
+            $lowestItOffice['it_task_ratio']
+        );
+    }
+
     // Only companies with entity evidence can be ranked by IT-task ratio.
     $companiesWithEntityEvidence = array_values(array_filter(
         $companyPerformance,
@@ -194,11 +365,15 @@ try {
                 ELSE 'Technical'
             END AS classification,
             COALESCE(c.name, 'Unassigned') AS company,
+            c.id AS company_id,
+            s.office_id AS office_id,
+            COALESCE(o.name, 'Unassigned') AS office,
             DATE(r.submitted_at) AS report_date
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
          INNER JOIN students s ON s.id = r.student_id
          LEFT JOIN companies c ON c.id = s.company_id
+         LEFT JOIN offices o ON o.id = s.office_id
          WHERE r.status = 'approved'
            AND re.is_archived = 0
          GROUP BY
@@ -207,6 +382,8 @@ try {
             re.it_related,
             c.id,
             c.name,
+            s.office_id,
+            o.name,
             DATE(r.submitted_at)
          ORDER BY frequency DESC, re.entity_name ASC"
     );
@@ -218,6 +395,9 @@ try {
             'frequency' => (int) $entity['frequency'],
             'classification' => (string) $entity['classification'],
             'company' => (string) $entity['company'],
+            'company_id' => isset($entity['company_id']) && $entity['company_id'] !== null ? (int) $entity['company_id'] : 0,
+            'office_id' => isset($entity['office_id']) && $entity['office_id'] !== null ? (int) $entity['office_id'] : null,
+            'office' => (string) ($entity['office'] ?? 'Unassigned'),
             'date' => (string) ($entity['report_date'] ?? '')
         ];
     }
