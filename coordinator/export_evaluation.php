@@ -346,23 +346,29 @@ if (!function_exists('evalPdfDocument')) {
                 . '</tr>';
         }
 
-        // ---- group averages computed from ratings only (columnMap removed) ----
+        // ---- group averages computed from ratings only ----
         $groupAverages = ojtGroupAverages($ratings);
 
-        // The outer foreach ($groups) was never closed - adding missing brace
-
-        // group averages computed from evaluation_ratings; no stored-column fallback needed
         $groupRows = '';
-        foreach ($groups as $key => $label) {
+        foreach ($groups as $groupKey => $groupLabel) {
+            $groupValue = (float) ($groupAverages[$groupKey] ?? 0.0);
+            $groupRows .= '<tr>'
+                . '<td style="padding:4px 6px;border-bottom:1px solid #e2e8f0;font-size:7.5pt;">'
+                .   evalPdfE($groupLabel)
+                . '</td>'
+                . '<td style="padding:4px 6px;border-bottom:1px solid #e2e8f0;text-align:center;'
+                .   'font-size:8pt;font-weight:700;color:' . $navy . ';">'
+                .   ($groupValue > 0 ? number_format($groupValue, 2) . ' / 5' : '&mdash;')
+                . '</td>'
+                . '</tr>';
+        }
 
-        // ---- legend (group averages from ratings; columnMap removed) ----
+        // ---- legend ----
         $legend = '';
         foreach ($scale as $value => $label) {
             $legend .= '<span style="display:inline-block;margin-right:12px;">'
                 . '<strong>' . (int) $value . '</strong> &mdash; ' . evalPdfE($label)
                 . '</span>';
-        }
-
         }
 
         // ---- meta block ------------------------------------------------------
@@ -565,7 +571,18 @@ $archivePath = ($archiveDir !== null && $archiveName !== null)
     ? $archiveDir . DIRECTORY_SEPARATOR . $archiveName
     : null;
 
+// Only serve the archived copy when it is at least as fresh as the signed
+// evaluation. A re-submission (or a migration) leaves the stored PDF stale,
+// so in that case we fall through and regenerate it.
+$archiveFresh = false;
 if (!$isDownload && $archivePath !== null && is_file($archivePath)) {
+    $signedTs = !empty($evaluations[0]['otp_signed_at'])
+        ? strtotime((string) $evaluations[0]['otp_signed_at'])
+        : 0;
+    $archiveFresh = $signedTs <= 0 || filemtime($archivePath) >= $signedTs;
+}
+
+if (!$isDownload && $archivePath !== null && is_file($archivePath) && $archiveFresh) {
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
