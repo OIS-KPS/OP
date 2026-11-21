@@ -236,7 +236,7 @@ $queueSql = "SELECT s.id, s.student_number, u.name AS student_name,
                AND u.status = 'active'
              GROUP BY s.id, s.student_number, u.name, s.section
              ORDER BY flagged_count DESC, unclassified_count DESC
-             LIMIT 20";
+             LIMIT 5";
 
 $queueResult = $pdo->query($queueSql);
 if ($queueResult) {
