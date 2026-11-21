@@ -21,6 +21,14 @@ try {
     die("Database connection failed. Please contact the administrator.");
 }
 
+// Keep MySQL's NOW()/CURRENT_TIMESTAMP in Asia/Manila so stored datetimes
+// match PHP's date() output regardless of the server's default time zone.
+try {
+    $pdo->exec("SET time_zone = '+08:00'");
+} catch (Throwable $e) {
+    error_log('Could not set DB time zone: ' . $e->getMessage());
+}
+
 // Invalidate sessions of archived/disabled accounts on every request, so an
 // account archived by a coordinator is locked out immediately rather than
 // only at the next login.
