@@ -63,7 +63,7 @@ try {
                 u.status
             FROM students s
             JOIN users u ON s.user_id = u.id
-            WHERE s.id = ? AND s.supervisor_id = ?
+            WHERE s.id = ? AND s.supervisor_id = ? AND u.status = 'active'
             LIMIT 1
         ");
         $studentStmt->execute([$selected_student_id, $supervisor_id]);
@@ -116,6 +116,7 @@ try {
         JOIN users u ON s.user_id = u.id
         LEFT JOIN reports r ON s.id = r.student_id
         WHERE s.supervisor_id = ?
+          AND u.status = 'active'
         GROUP BY s.id, s.student_number, s.program, u.name, u.email, u.avatar_url, u.status
         ORDER BY u.name ASC
     ";

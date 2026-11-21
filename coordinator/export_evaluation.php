@@ -244,6 +244,7 @@ if (!function_exists('evalPdfFetch')) {
             LEFT JOIN users sup_user  ON sup_user.id = sup.user_id
             WHERE e.student_id = ?
               AND (? IS NULL OR e.supervisor_id = ?)
+              AND u.status = 'active'
             LIMIT 1
         ");
         $stmt->execute([$studentId, $supervisorId, $supervisorId]);
@@ -284,6 +285,7 @@ if (!function_exists('evalPdfFetchAll')) {
             LEFT JOIN users sup_user  ON sup_user.id = sup.user_id
             WHERE e.otp_signed_at IS NOT NULL
               AND (? IS NULL OR e.supervisor_id = ?)
+              AND u.status = 'active'
             ORDER BY e.otp_signed_at ASC, u.name ASC
         ");
         $stmt->execute([$supervisorId, $supervisorId]);

@@ -57,7 +57,7 @@ function supervisorOwnsStudent(PDO $pdo, int $supervisorId, int $studentId): boo
         return false;
     }
 
-    $stmt = $pdo->prepare('SELECT id FROM students WHERE id = ? AND supervisor_id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT s.id FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.supervisor_id = ? AND u.status = \x27active\x27 LIMIT 1');
     $stmt->execute([$studentId, $supervisorId]);
 
     return (bool) $stmt->fetchColumn();

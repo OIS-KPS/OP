@@ -215,7 +215,11 @@ $cqiStatusClassView = match ($cqiStatusView) {
                             <p class="text-[11px] text-slate-400">Technical vs. clerical tasks</p>
                         </div>
                         <div class="relative flex items-center justify-center p-2 h-44">
-                            <canvas id="activityDonutChart"></canvas>
+                            <?php if ($totalEntityOccurrencesView > 0): ?>
+                                <canvas id="activityDonutChart"></canvas>
+                            <?php else: ?>
+                                <p class="text-[11px] text-slate-400 text-center px-4">No entity data yet. Reports need to be approved and extracted first.</p>
+                            <?php endif; ?>
                         </div>
                         <div class="space-y-1.5 text-xs border-t border-slate-100 pt-3">
                             <div class="flex items-center justify-between font-semibold text-slate-700 text-[11px]">
@@ -253,7 +257,11 @@ $cqiStatusClassView = match ($cqiStatusView) {
                         </div>
                     </div>
                     <div class="h-60 relative">
-                        <canvas id="officeTaskBarChart"></canvas>
+                        <?php if (!empty($officePerformance)): ?>
+                            <canvas id="officeTaskBarChart"></canvas>
+                        <?php else: ?>
+                            <p class="text-[11px] text-slate-400 text-center pt-20">No office data available yet.</p>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -318,7 +326,7 @@ $cqiStatusClassView = match ($cqiStatusView) {
                     </div>
 
                     <!-- Empty State -->
-                    <div id="entityEmptyState" class="hidden p-12 text-center">
+                    <div id="entityEmptyState" class="<?= empty($entityAnalysisRows) ? '' : 'hidden '; ?>p-12 text-center">
                         <div class="w-10 h-10 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center mx-auto mb-2 text-base font-bold">🔍</div>
                         <h3 class="text-xs font-bold text-slate-800">No matching entities found</h3>
                         <p class="text-[11px] text-slate-400 mt-0.5">Try adjusting your filters or date range.</p>
@@ -409,6 +417,9 @@ $cqiStatusClassView = match ($cqiStatusView) {
                                  prints it under "Academic Interpretation", so the full
                                  wording remains available in the PDF for anyone who needs it. */ ?>
                         <div class="mt-5 space-y-4 border-t border-slate-200 pt-4">
+                            <?php if (!$cqiStrengthsView && !$cqiGapsView && (int) ($totalStudents ?? 0) === 0 && (int) ($totalReportsView ?? 0) === 0): ?>
+                                <p class="text-[13px] leading-6 text-slate-500 italic">No CQI data yet — add students, approve reports, and run evaluations to populate this section.</p>
+                            <?php endif; ?>
                             <?php if ($cqiGapsView): ?>
                                 <div>
                                     <p class="text-xs font-semibold text-blue-700">Needs attention</p>
