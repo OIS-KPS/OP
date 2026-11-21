@@ -73,6 +73,7 @@ try {
         LEFT JOIN reports r ON s.id = r.student_id
         LEFT JOIN evaluations e ON s.id = e.student_id AND e.supervisor_id = s.supervisor_id
         WHERE s.supervisor_id = ?
+          AND u.status = 'active'
         GROUP BY 
             s.id, 
             s.student_number, 

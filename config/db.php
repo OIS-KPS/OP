@@ -21,6 +21,52 @@ try {
     die("Database connection failed. Please contact the administrator.");
 }
 
+// Keep MySQL's NOW()/CURRENT_TIMESTAMP in Asia/Manila so stored datetimes
+// match PHP's date() output regardless of the server's default time zone.
+try {
+    $pdo->exec("SET time_zone = '+08:00'");
+} catch (Throwable $e) {
+    error_log('Could not set DB time zone: ' . $e->getMessage());
+}
+
+// Invalidate sessions of archived/disabled accounts on every request, so an
+// account archived by a coordinator is locked out immediately rather than
+// only at the next login.
+if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['user_id'])) {
+    try {
+        $stmtStatus = $pdo->prepare("SELECT status FROM users WHERE id = ? LIMIT 1");
+        $stmtStatus->execute([(int) $_SESSION['user_id']]);
+        $accountStatus = strtolower((string) ($stmtStatus->fetchColumn() ?: 'active'));
+        if ($accountStatus !== 'active') {
+            $_SESSION = [];
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            }
+            session_destroy();
+
+            $isApi = str_contains((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/api/');
+            if ($isApi || str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'Your account has been archived or disabled.']);
+                exit();
+            }
+            $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+            if (str_contains($script, '/auth/')) {
+                $loginUrl = 'login.php';
+            } elseif (str_contains($script, '/supervisor/') || str_contains($script, '/coordinator/')) {
+                $loginUrl = '../auth/login.php';
+            } else {
+                $loginUrl = 'auth/login.php';
+            }
+            header('Location: ' . $loginUrl);
+            exit();
+        }
+    } catch (Throwable $e) {
+        error_log('Session status check failed: ' . $e->getMessage());
+    }
+}
+
 /**
  * Retrieve the most accurate client IP address
  */

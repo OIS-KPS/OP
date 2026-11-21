@@ -26,7 +26,7 @@ $studentId = isset($_GET['student_id']) ? (int) $_GET['student_id'] : 0;
 
 // Verify ownership when a single intern is requested.
 if ($studentId > 0) {
-    $stmtOwner = $pdo->prepare("SELECT id FROM students WHERE id = ? AND supervisor_id = ? LIMIT 1");
+    $stmtOwner = $pdo->prepare("SELECT s.id FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.supervisor_id = ? AND u.status = 'active' LIMIT 1");
     $stmtOwner->execute([$studentId, $supervisorId]);
     if (!$stmtOwner->fetchColumn()) {
         http_response_code(403);
@@ -47,6 +47,7 @@ $sql = "
     JOIN students s ON s.id = r.student_id
     JOIN users u ON u.id = s.user_id
     WHERE s.supervisor_id = ?
+      AND u.status = 'active'
 ";
 $params = [$supervisorId];
 if ($studentId > 0) {

@@ -37,7 +37,7 @@ try {
 
     if ($supervisor_id > 0) {
         // 2. Fetch Metric Counts
-        $internsStmt = $pdo->prepare("SELECT COUNT(*) FROM students WHERE supervisor_id = ?");
+        $internsStmt = $pdo->prepare("SELECT COUNT(*) FROM students s JOIN users u ON u.id = s.user_id WHERE s.supervisor_id = ? AND u.status = 'active'");
         $internsStmt->execute([$supervisor_id]);
         $totalInterns = (int)$internsStmt->fetchColumn();
 
@@ -45,12 +45,13 @@ try {
             SELECT COUNT(r.id) 
             FROM reports r
             JOIN students s ON r.student_id = s.id
-            WHERE s.supervisor_id = ? AND LOWER(r.status) = 'pending'
+            JOIN users u ON u.id = s.user_id
+            WHERE s.supervisor_id = ? AND LOWER(r.status) = 'pending' AND u.status = 'active'
         ");
         $pendingStmt->execute([$supervisor_id]);
         $totalPending = (int)$pendingStmt->fetchColumn();
 
-        $evalStmt = $pdo->prepare("SELECT COUNT(*) FROM evaluations WHERE supervisor_id = ?");
+        $evalStmt = $pdo->prepare("SELECT COUNT(*) FROM evaluations e JOIN students s ON s.id = e.student_id JOIN users u ON u.id = s.user_id WHERE e.supervisor_id = ? AND u.status = 'active'");
         $evalStmt->execute([$supervisor_id]);
         $totalEvaluated = (int)$evalStmt->fetchColumn();
 
@@ -71,7 +72,7 @@ try {
             FROM reports r
             JOIN students s ON r.student_id = s.id
             JOIN users u_student ON s.user_id = u_student.id
-            WHERE s.supervisor_id = ? AND LOWER(r.status) IN ('pending', 'rejected')
+            WHERE s.supervisor_id = ? AND LOWER(r.status) IN ('pending', 'rejected') AND u_student.status = 'active'
             ORDER BY COALESCE(r.updated_at, r.submitted_at) DESC
             LIMIT 6
         ");
@@ -92,7 +93,7 @@ try {
             FROM reports r
             JOIN students s ON r.student_id = s.id
             JOIN users u_student ON s.user_id = u_student.id
-            WHERE s.supervisor_id = ?
+            WHERE s.supervisor_id = ? AND u_student.status = 'active'
             ORDER BY COALESCE(r.approved_at, r.updated_at, r.submitted_at) DESC
             LIMIT 6
         ");

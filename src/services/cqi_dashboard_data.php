@@ -85,8 +85,11 @@ try {
          )
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
+         INNER JOIN students s ON s.id = r.student_id
+         INNER JOIN users u ON u.id = s.user_id
          WHERE r.status = 'approved'
-           AND re.is_archived = 0"
+           AND re.is_archived = 0
+           AND u.status = 'active'"
     );
     $overallTechPct = (float) ($stmt->fetchColumn() ?: 0);
 
@@ -95,9 +98,12 @@ try {
         "SELECT COALESCE(ROUND(AVG(re.confidence_score), 2), 0)
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
+         INNER JOIN students s ON s.id = r.student_id
+         INNER JOIN users u ON u.id = s.user_id
          WHERE re.confidence_score IS NOT NULL
            AND r.status = 'approved'
-           AND re.is_archived = 0"
+           AND re.is_archived = 0
+           AND u.status = 'active'"
     );
     $spacyConfidence = (float) ($stmt->fetchColumn() ?: 0);
 
@@ -116,12 +122,14 @@ try {
             COUNT(DISTINCT CASE WHEN e.otp_signed_at IS NOT NULL AND ra.final_score IS NOT NULL THEN e.student_id END) AS scored_evaluations,
             COALESCE(ROUND(AVG(CASE WHEN e.otp_signed_at IS NOT NULL THEN ra.final_score * 20 END), 1), 0) AS percentage
          FROM students s
+         JOIN users u ON u.id = s.user_id
          LEFT JOIN evaluations e ON e.student_id = s.id
          LEFT JOIN (
             SELECT evaluation_id, AVG(rating) AS final_score
             FROM evaluation_ratings
             GROUP BY evaluation_id
          ) ra ON ra.evaluation_id = e.id
+         WHERE u.status = 'active'
          GROUP BY s.company_id"
     );
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -135,17 +143,19 @@ try {
             COUNT(re.id) AS entity_occurrences,
             SUM(CASE WHEN re.it_related = 'yes' THEN 1 ELSE 0 END) AS it_related_occurrences
          FROM students s
+         JOIN users u ON u.id = s.user_id
          INNER JOIN reports r ON r.student_id = s.id
          INNER JOIN report_entities re ON re.report_id = r.id
          WHERE r.status = 'approved'
            AND re.is_archived = 0
+           AND u.status = 'active'
          GROUP BY s.company_id"
     );
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $companyEntityRows[(string) $row['company_id']] = $row;
     }
 
-    $stmt = $pdo->query('SELECT id, name FROM companies ORDER BY name ASC');
+    $stmt = $pdo->query("SELECT id, name FROM companies WHERE status = 'active' ORDER BY name ASC");
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $company) {
         $companyId = (string) $company['id'];
         $evaluation = $companyEvaluationRows[$companyId] ?? [];
@@ -186,12 +196,16 @@ try {
             COUNT(DISTINCT CASE WHEN e.otp_signed_at IS NOT NULL AND ra.final_score IS NOT NULL THEN e.student_id END) AS scored_evaluations,
             COALESCE(ROUND(AVG(CASE WHEN e.otp_signed_at IS NOT NULL THEN ra.final_score * 20 END), 1), 0) AS percentage
          FROM students s
+         JOIN users u ON u.id = s.user_id
+         LEFT JOIN companies c ON c.id = s.company_id
          LEFT JOIN evaluations e ON e.student_id = s.id
          LEFT JOIN (
             SELECT evaluation_id, AVG(rating) AS final_score
             FROM evaluation_ratings
             GROUP BY evaluation_id
          ) ra ON ra.evaluation_id = e.id
+         WHERE u.status = 'active'
+           AND (c.id IS NULL OR c.status = 'active')
          GROUP BY s.company_id, s.office_id"
     );
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -208,10 +222,14 @@ try {
             COUNT(re.id) AS entity_occurrences,
             SUM(CASE WHEN re.it_related = 'yes' THEN 1 ELSE 0 END) AS it_related_occurrences
          FROM students s
+         JOIN users u ON u.id = s.user_id
+         LEFT JOIN companies c ON c.id = s.company_id
          INNER JOIN reports r ON r.student_id = s.id
          INNER JOIN report_entities re ON re.report_id = r.id
          WHERE r.status = 'approved'
            AND re.is_archived = 0
+           AND u.status = 'active'
+           AND (c.id IS NULL OR c.status = 'active')
          GROUP BY s.company_id, s.office_id"
     );
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -372,10 +390,13 @@ try {
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
          INNER JOIN students s ON s.id = r.student_id
+         INNER JOIN users u ON u.id = s.user_id
          LEFT JOIN companies c ON c.id = s.company_id
          LEFT JOIN offices o ON o.id = s.office_id
          WHERE r.status = 'approved'
            AND re.is_archived = 0
+           AND u.status = 'active'
+           AND (c.id IS NULL OR c.status = 'active')
          GROUP BY
             re.entity_name,
             re.category,
@@ -519,8 +540,11 @@ try {
         "SELECT COUNT(DISTINCT re.report_id)
          FROM report_entities re
          INNER JOIN reports r ON r.id = re.report_id
+         INNER JOIN students s ON s.id = r.student_id
+         INNER JOIN users u ON u.id = s.user_id
          WHERE r.status = 'approved'
-           AND re.is_archived = 0"
+           AND re.is_archived = 0
+           AND u.status = 'active'"
     );
     $totalReportsWithEntities = (int) ($stmt->fetchColumn() ?: 0);
 

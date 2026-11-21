@@ -36,6 +36,7 @@ $stmt = $pdo->prepare("
     JOIN students s ON s.id = r.student_id
     JOIN users u ON u.id = s.user_id
     WHERE s.supervisor_id = ?
+      AND u.status = 'active'
     ORDER BY u.name ASC, r.week_number ASC, r.submitted_at ASC
 ");
 $stmt->execute([$supervisorId]);
@@ -51,6 +52,7 @@ $stmtInterns = $pdo->prepare("
     JOIN users u ON u.id = s.user_id
     LEFT JOIN reports r ON r.student_id = s.id
     WHERE s.supervisor_id = ?
+      AND u.status = 'active'
     GROUP BY s.id, u.name, s.student_number
     ORDER BY u.name ASC
 ");

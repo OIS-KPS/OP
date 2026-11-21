@@ -120,11 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $userRol
             ");
             $stmtUpdate->execute([$reportId]);
 
-            // Auto-trigger evaluation once 16 reports are approved (manual trigger remains).
+            // Auto-trigger removed: evaluation is triggered only by the coordinator.
             $approvedStudentId = (int) ($targetReport['student_id'] ?? 0);
-            if ($approvedStudentId > 0) {
-                autoTriggerEvaluationIfNeeded($pdo, $approvedStudentId, 'supervisor', $userId);
-            }
 
             $studentUserId = (int) ($targetReport['student_user_id'] ?? 0);
             if ($studentUserId > 0) {

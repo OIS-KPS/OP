@@ -48,8 +48,10 @@ if (!$studentRow) {
     exit();
 }
 
-// ONLY lock if the coordinator specifically triggered the evaluation
-$isLocked = !empty($studentRow['evaluation_triggered']) && (int)$studentRow['evaluation_triggered'] === 1;
+// Lock if the coordinator triggered the evaluation OR the intern requested one.
+// The intern can cancel their own request to unlock.
+$isLocked = !empty($studentRow['evaluation_triggered']) && (int)$studentRow['evaluation_triggered'] === 1
+    || !empty($studentRow['completion_requested']) && (int)$studentRow['completion_requested'] === 1;
 
 // Block report submission until the student has an assigned placement
 $isAssigned = !empty($studentRow['company_id']);
