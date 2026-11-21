@@ -13,6 +13,7 @@ unset($_SESSION['error_message']);
 
 $isEvaluated = !empty($student['evaluation_id']);
 $isRequested = !empty($student['completion_requested']) && !$isEvaluated;
+$isTriggered = !empty($student['evaluation_triggered']) && !$isEvaluated;
 $isAssigned  = !empty($student['company_id']);
 $canCancelRequest = $isRequested && empty($student['evaluation_triggered']);
 $nextWeekToSubmit = count($reports ?? []) + 1;
@@ -123,7 +124,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                              bottom of the table already carries its own "Submit Week 1"
                              call to action, and on a fresh account both were rendering
                              at once, saying the same thing. */ ?>
-                    <?php if (!$isEvaluated && $totalApproved < 10 && $isAssigned && !empty($reports)): ?>
+                    <?php if (!$isEvaluated && !$isRequested && !$isTriggered && $totalApproved < 16 && $isAssigned && !empty($reports)): ?>
                         <a href="submit_report.php?week=<?= $nextWeekToSubmit; ?>" class="shrink-0 self-start sm:self-auto px-4 py-2.5 bg-[#0F2854] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition-colors shadow-xs inline-flex items-center gap-2">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                             <span>Submit Week <?= $nextWeekToSubmit; ?></span>
@@ -151,11 +152,11 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                      competing chips. The sentence sits below on its own full-width
                      row, so nothing can squeeze it, and the buttons get a
                      full-width tap target on mobile. -->
-                <?php if ($totalApproved >= 10 || $isRequested || $isEvaluated): ?>
+                <?php if ($totalApproved >= 16 || $isRequested || $isTriggered || $isEvaluated): ?>
                     <?php /* Computed inside the guard because two of the three
                              states have no action at all, and an empty flex box
                              would still carry its gap. */
-                    $showAction = (!$isEvaluated) && (!$isRequested || $canCancelRequest); ?>
+                    $showAction = (!$isEvaluated) && !$isTriggered && (!$isRequested || $canCancelRequest); ?>
                     <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs px-4 sm:px-5 py-4 space-y-3">
 
                         <!-- Row 1: status on the left, action on the right -->
@@ -167,6 +168,10 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                             <?php elseif ($isRequested): ?>
                                 <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold">
                                     <span class="w-2 h-2 rounded-full bg-amber-500"></span> Evaluation Requested
+                                </span>
+                            <?php elseif ($isTriggered): ?>
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 text-xs font-bold">
+                                    <span class="w-2 h-2 rounded-full bg-[#0F2854]"></span> Evaluation Authorized
                                 </span>
                             <?php else: ?>
                                 <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-[#0F2854] border border-[#0F2854]/30 text-xs font-bold">
@@ -209,6 +214,8 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                 Your supervisor has signed and forwarded your final evaluation to the OJT Coordinator.
                             <?php elseif ($isRequested): ?>
                                 Your request is with your supervisor for review and signature.
+                            <?php elseif ($isTriggered): ?>
+                                Your final evaluation has been authorized. Your supervisor will complete and sign it.
                             <?php else: ?>
                                 Finished your OJT? Request your final evaluation from your supervisor.
                             <?php endif; ?>
@@ -375,7 +382,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                             </a>
                                         <?php endif; ?>
 
-                                        <?php if (!$isApproved && !$isEvaluated && $isAssigned): ?>
+                                        <?php if (!$isApproved && !$isEvaluated && !$isRequested && !$isTriggered && $isAssigned): ?>
                                             <a href="submit_report.php?week=<?= (int)$report['week_number']; ?>" class="w-full px-3.5 py-2.5 <?= $isRejected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0F2854] hover:bg-blue-900'; ?> text-white text-xs font-bold rounded-xl transition-colors shadow-xs inline-flex items-center justify-center gap-1.5 cursor-pointer">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                                                 <span><?= $isRejected ? 'Upload Revision' : (!empty($filePath) ? 'Re-upload' : 'Submit'); ?></span>
@@ -524,7 +531,7 @@ $nextWeekToSubmit = count($reports ?? []) + 1;
                                                         <?php endif; ?>
 
                                                         <!-- Submit / Re-upload Button -->
-                                                        <?php if (!$isApproved && !$isEvaluated && $isAssigned): ?>
+                                                        <?php if (!$isApproved && !$isEvaluated && !$isRequested && !$isTriggered && $isAssigned): ?>
                                                             <a href="submit_report.php?week=<?= (int)$report['week_number']; ?>" class="px-3.5 py-1.5 <?= $isRejected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0F2854] hover:bg-blue-900'; ?> text-white text-xs font-bold rounded-xl transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer">
                                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                                                                 <span><?= $isRejected ? 'Upload Revision' : (!empty($filePath) ? 'Re-upload' : 'Submit'); ?></span>

@@ -472,6 +472,12 @@ if (!function_exists('e')) {
 
                                                 </span>
 
+                                                <?php if (!empty($eval['completion_requested']) && empty($eval['evaluation_triggered'])): ?>
+                                                    <span class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-300 font-black text-[10px]">
+                                                        Requested
+                                                    </span>
+                                                <?php endif; ?>
+
                                             </td>
 
 
@@ -617,6 +623,15 @@ if (!function_exists('e')) {
                                                         N/A
                                                     </span>
 
+
+                                                <?php elseif ((int)($eval['approved_reports_count'] ?? 0) < 16): ?>
+
+                                                    <span
+                                                        class="px-2.5 py-1 text-[11px] font-bold text-slate-400 bg-slate-100 rounded-xl border border-slate-200 inline-block"
+                                                        title="Needs at least 16 approved reports"
+                                                    >
+                                                        N/A
+                                                    </span>
 
                                                 <?php else: ?>
 
@@ -986,6 +1001,11 @@ if (!function_exists('e')) {
                                         <?= e($es['student_number']); ?>
                                         &bull;
                                         <?= e($es['section'] ?? 'IT44A'); ?>
+                                        &bull;
+                                        <?= (int)($es['approved_reports_count'] ?? 0); ?> approved
+                                        <?php if (!empty($es['completion_requested'])): ?>
+                                            &bull; <span class="text-amber-700 font-bold">Requested</span>
+                                        <?php endif; ?>
                                     </p>
 
                                 </div>
@@ -998,7 +1018,7 @@ if (!function_exists('e')) {
 
                         <p class="text-center text-slate-400 py-6 italic">
                             No eligible students available
-                            (Must have an assigned supervisor)
+                            (Needs an assigned supervisor and at least 16 approved reports)
                         </p>
 
                     <?php endif; ?>

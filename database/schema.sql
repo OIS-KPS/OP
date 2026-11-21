@@ -134,17 +134,17 @@ CREATE TABLE `evaluations` (
 --
 -- Table structure for table `evaluation_ratings`
 --
-CREATE TABLE `evaluation_ratings` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `evaluation_id` int(11) NOT NULL,
-  `criterion_key` varchar(100) NOT NULL,
-  `rating` tinyint(4) NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_eval_rating` (`evaluation_id`,`criterion_key`),
-  KEY `idx_rating_key` (`criterion_key`),
-  CONSTRAINT `fk_rating_evaluation` FOREIGN KEY (`evaluation_id`) REFERENCES `evaluations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  CREATE TABLE `evaluation_ratings` (
+    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `evaluation_id` int(11) NOT NULL,
+    `criterion_key` varchar(100) NOT NULL,
+    `rating` tinyint(4) NOT NULL,
+    `created_at` datetime DEFAULT current_timestamp(),
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_eval_rating` (`evaluation_id`,`criterion_key`),
+    KEY `idx_rating_key` (`criterion_key`),
+    CONSTRAINT `fk_rating_evaluation` FOREIGN KEY (`evaluation_id`) REFERENCES `evaluations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Table structure for table `evaluation_otps`

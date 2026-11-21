@@ -49,6 +49,22 @@ try {
             if (empty($student['evaluation_id']) && empty($student['completion_requested'])) {
                 $stmtReq = $pdo->prepare("UPDATE students SET completion_requested = 1 WHERE id = ?");
                 $stmtReq->execute([$studentId]);
+
+                $stmtStudName = $pdo->prepare("SELECT u.name FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = ? LIMIT 1");
+                $stmtStudName->execute([$studentId]);
+                $reqStudName = $stmtStudName->fetchColumn() ?: "An intern";
+
+                foreach ($pdo->query("SELECT id FROM users WHERE role = 'coordinator' AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN) as $coordId) {
+                    createNotification(
+                        $pdo,
+                        (int) $coordId,
+                        'Evaluation requested',
+                        "{$reqStudName} requested a final evaluation.",
+                        'evaluation',
+                        "coordinator/evaluations.php"
+                    );
+                }
+
                 $_SESSION['flash_message'] = "Your final evaluation request has been submitted to the OJT Coordinator.";
             }
             header("Location: reports.php");

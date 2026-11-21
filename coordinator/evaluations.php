@@ -27,21 +27,8 @@ $flashError   = $_SESSION['flash_error'] ?? null;
 
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// Auto-trigger evaluation once an intern reaches 16 approved reports.
-// Manual triggering remains available; this only flips the flag automatically.
-try {
-    $stmtAutoTrigger = $pdo->query("
-        SELECT id
-        FROM students
-        WHERE supervisor_id IS NOT NULL
-          AND (evaluation_triggered IS NULL OR evaluation_triggered = 0)
-    ");
-    foreach ($stmtAutoTrigger->fetchAll(PDO::FETCH_COLUMN) as $autoStudentId) {
-        autoTriggerEvaluationIfNeeded($pdo, (int) $autoStudentId, 'system', $_SESSION['user_id'] ?? null);
-    }
-} catch (Throwable $autoTriggerException) {
-    error_log('Evaluation auto-trigger sweep failed: ' . $autoTriggerException->getMessage());
-}
+// Auto-trigger is disabled: evaluation is triggered only by the coordinator,
+// and only for students with at least 16 approved reports.
 
 /*
 |--------------------------------------------------------------------------
@@ -141,9 +128,10 @@ if (
              * events and the audit log has to be able to tell them apart.
              */
             $stmtSupervisor = $pdo->prepare("
-                SELECT supervisor_id, completion_requested
-                FROM students
-                WHERE id = ?
+                SELECT supervisor_id, completion_requested,
+                       (SELECT COUNT(*) FROM reports r WHERE r.student_id = s.id AND r.status = 'approved') AS approved_count
+                FROM students s
+                WHERE s.id = ?
                 LIMIT 1
             ");
 
@@ -153,7 +141,8 @@ if (
 
             if (
                 !$studentRecord ||
-                empty($studentRecord['supervisor_id'])
+                empty($studentRecord['supervisor_id']) ||
+                (int)($studentRecord['approved_count'] ?? 0) < 16
             ) {
                 continue;
             }
@@ -866,7 +855,15 @@ try {
             s.id,
             u.name,
             s.student_number,
-            s.section
+            s.section,
+            s.completion_requested,
+
+            (
+                SELECT COUNT(*)
+                FROM reports r
+                WHERE r.student_id = s.id
+                  AND r.status = 'approved'
+            ) AS approved_reports_count
 
         FROM students s
 
@@ -880,6 +877,13 @@ try {
                 s.evaluation_triggered IS NULL
                 OR s.evaluation_triggered = 0
           )
+
+          AND (
+                SELECT COUNT(*)
+                FROM reports r
+                WHERE r.student_id = s.id
+                  AND r.status = 'approved'
+          ) >= 16
 
         ORDER BY u.name ASC
     ");
